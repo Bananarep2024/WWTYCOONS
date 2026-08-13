@@ -103,6 +103,10 @@ l'ordinateur.
   vocations distinctes : l'industrie ne cerne jamais l'habitation
 - **Filtres** en dégradé rouge → vert : qualité du sol case par case, baromètres ville par
   ville, et le prix de chacune des douze marchandises sur les cinq villes
+- **Fiche complète au clic** : rentabilité, intrants reçus et manquants, production, marge,
+  et le terrain sous les fondations — les cinq scores de sol, le prix, le quartier
+- **Racheter** le bâtiment d'un indépendant, **faire une offre** sur celui d'un rival
+- **Filtre de rentabilité** par type de bâtiment, sur la même échelle rouge → vert
 - Marché foncier : contiguïté, propriétaires indépendants, prix selon le niveau et la distance
 - Douze ressources, trois niveaux de filière, qualité de sol de 1 à 5 par case
 - Prix formés sur les **flux**, rationnement au prorata, prix de revient local en plancher

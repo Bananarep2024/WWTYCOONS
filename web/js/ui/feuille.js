@@ -9,8 +9,8 @@
 import { P, BAT, RES, RELIEFS, QUALITES, materiaux, coutRef, prixTerrain }
   from '../sim/params.js';
 import { estAchetable } from '../sim/mapgen.js';
-import { COULEURS } from './render.js';
-import { eur, pct } from './panneaux.js';
+import { COULEURS, echelle } from './render.js';
+import { eur, pct, rgb } from './panneaux.js';
 
 const NOMS_QUALITE = { fertilite: 'Fertilité', argile: 'Argile', bois: 'Bois',
                        charbon: 'Charbon', minerai: 'Minerai' };
@@ -203,62 +203,172 @@ const TEXTE_ALERTE = {
 
 function ficheBatiment(monde, b, c) {
   const def = b.def, m = b.ville.marche;
-  const aMoi = b.societe === monde.joueur;
-  const proprio = b.societe ? b.societe.nom : 'Propriétaire indépendant';
-  const mb = b.margeBrute(m);
+  const joueur = monde.joueur;
+  const aMoi = b.societe === joueur;
+  const independant = !b.societe;
+  const proprio = independant ? 'Propriétaire indépendant' : b.societe.nom;
+
+  const rdt = b.rendement(monde.multiple);
   const seuil = b.seuilActivite(m);
 
+  // --- Ce qu'il rapporte ---------------------------------------------------
+  const exploitation = `
+    <div class="grille">
+      <div class="fiche"><div class="etiq">Rentabilité</div>
+        <div class="v" style="color:${rgb(echelle(rdt / 0.25))}">${(rdt * 100).toFixed(1)} %</div></div>
+      <div class="fiche"><div class="etiq">Résultat du mois</div>
+        <div class="v ${b.resultat >= 0 ? 'vert' : 'rouge'}">${eur(b.resultat)}</div></div>
+      <div class="fiche"><div class="etiq">Profit sur 12 mois</div>
+        <div class="v ${b.profitAnnuel >= 0 ? 'vert' : 'rouge'}">${eur(b.profitAnnuel)}</div></div>
+      <div class="fiche"><div class="etiq">Activité</div><div class="v">${pct(b.tauxReel)}</div></div>
+      <div class="fiche"><div class="etiq">Entretien</div>
+        <div class="v doux">${b.entretien.toFixed(2)} $</div></div>
+      <div class="fiche"><div class="etiq">Valeur</div>
+        <div class="v">${eur(b.valeur(monde.multiple))}</div></div>
+    </div>`;
+
+  // --- Ce qu'il consomme, et ce qui lui manque -----------------------------
+  let intrants = '';
+  const liste = b.intrants();
+  if (liste.length) {
+    intrants = `<h3>Ce qu'il consomme</h3><table>
+      <tr><th>Intrant</th><th class="n">Reçu / demandé</th><th class="n">Prix</th></tr>
+      ${liste.map(i => {
+        const manque = i.part < 0.97;
+        return `<tr>
+          <td><span class="puce" style="background:${RES[i.res].couleur}"></span>${RES[i.res].nom}</td>
+          <td class="n ${manque ? 'rouge' : 'vert'}">${Math.round(i.recu)} / ${Math.round(i.demande)}
+            ${manque ? ` <b>· il manque ${Math.round(i.demande - i.recu)}</b>` : ' ✓'}</td>
+          <td class="n doux">${m.prix[i.res].toFixed(2)} $</td>
+        </tr>`;
+      }).join('')}
+    </table>`;
+    const pire = liste.slice().sort((a, x) => a.part - x.part)[0];
+    if (pire.part < 0.97) {
+      intrants += `<div class="avert">Rationné sur ${RES[pire.res].nom.toLowerCase()} :
+        il ne tourne qu'à ${pct(b.tauxReel)}. On ne scie pas du bois qu'on n'a pas — c'est
+        la loi du minimum, et elle ne se contourne qu'en amont.</div>`;
+    }
+  }
+
+  // --- Ce qu'il produit ----------------------------------------------------
   let production = '';
   if (def.sort) {
-    const intr = Object.entries(def.intrants || {}).map(([r, q]) =>
-      `${Math.round(q * b.n)} ${RES[r].nom.toLowerCase()}`).join(' + ') || '—';
-    production = `<div class="grille">
-      <div class="fiche"><div class="etiq">Produit</div>
-        <div class="v">${b.production.toFixed(0)}<span class="faible" style="font-size:11px"> ${RES[def.sort].nom.toLowerCase()}</span></div></div>
-      <div class="fiche"><div class="etiq">Consomme</div><div class="v" style="font-size:12px">${intr}</div></div>
-      <div class="fiche"><div class="etiq">Marge par unité</div>
-        <div class="v ${b.margeUnitaire > 0 ? 'vert' : 'rouge'}">${b.margeUnitaire.toFixed(2)} $</div></div>
-      <div class="fiche"><div class="etiq">Seuil d'activité</div>
-        <div class="v ${seuil > 0.6 ? 'rouge' : 'doux'}">${isFinite(seuil) ? pct(seuil) : 'hors d\'atteinte'}</div></div>
-    </div>`;
+    production = `<h3>Ce qu'il produit</h3>
+      <div class="grille">
+        <div class="fiche"><div class="etiq">${RES[def.sort].nom} par mois</div>
+          <div class="v">${b.production.toFixed(0)}
+            <span class="faible" style="font-size:11px"> / ${b.capacite.toFixed(0)}</span></div></div>
+        <div class="fiche"><div class="etiq">Prix de vente</div>
+          <div class="v">${m.prix[def.sort].toFixed(2)} $</div></div>
+        <div class="fiche"><div class="etiq">Marge par unité</div>
+          <div class="v ${b.margeUnitaire > 0 ? 'vert' : 'rouge'}">${b.margeUnitaire.toFixed(2)} $</div></div>
+        <div class="fiche"><div class="etiq">Seuil d'activité</div>
+          <div class="v ${seuil > 0.6 ? 'rouge' : 'doux'}">${isFinite(seuil) ? pct(seuil) : 'hors d\'atteinte'}</div></div>
+      </div>`;
   }
 
-  let qualite = '';
-  if (def.qual) {
-    qualite = `<div class="note">Sol de qualité <b>${b.qualite.toFixed(1)} / 5</b> :
-      cette exploitation sort ${(b.qualite / 3).toFixed(2)}× ce que sortirait la même sur une
-      terre moyenne. Un handicap de terrain ne fait aucun bruit — il se lit uniquement dans
-      la marge, et il ne se guérit jamais.</div>`;
+  // --- Le terrain sous le bâtiment ----------------------------------------
+  // Ce qu'il y a sous les fondations décide de ce que vaut le bâtiment autant
+  // que ce qu'il produit : le terrain est la moitié du coût d'une maison, et la
+  // qualité du sol commande le rendement de toute exploitation.
+  const qMoy = {};
+  for (const q of QUALITES) {
+    qMoy[q] = b.cases.reduce((s, k) => s + k.q[q], 0) / b.cases.length;
   }
-
-  const reglage = aMoi && def.sort ? `
-    <div class="etiq" style="margin:11px 0 4px">Curseur d'activité — ${Math.round(b.activite * 100)} %</div>
-    <input type="range" id="curseurActivite" min="0" max="100" value="${Math.round(b.activite * 100)}">
-    <div class="actions" style="margin-top:6px">
-      <button class="preReglage" data-v="0">Sommeil</button>
-      <button class="preReglage" data-v="50">50 %</button>
-      <button class="preReglage" data-v="100">100 %</button>
-      ${b.def.cat !== 'loge' && monde.joueur.entrepotDans(b.ville)
-        ? `<button id="btnEntrepot">${b.versEntrepot ? '↺ Vendre au marché' : '⇥ Vers l\'entrepôt'}</button>` : ''}
+  const sol = `<h3>Le terrain — ${b.cases.length} case${b.cases.length > 1 ? 's' : ''}</h3>
+    <div class="grille">
+      ${QUALITES.map(q => {
+        const n = qMoy[q];
+        const vise = def.qual === q;
+        return `<div class="fiche" ${vise ? 'style="border-color:var(--or)"' : ''}>
+          <div class="etiq">${NOMS_QUALITE[q]}${vise ? ' ★' : ''}</div>
+          <div class="v ${n >= 3.5 ? 'vert' : n <= 2.2 ? 'rouge' : 'doux'}">${n.toFixed(1)}
+            <span class="faible" style="font-size:11px"> / 5</span></div></div>`;
+      }).join('')}
     </div>
-    <div class="note">Curseur à zéro : plus de matières achetées, plus de salaires versés.
-    Le bâtiment reste debout moyennant un entretien réduit à 10 % de sa masse salariale, et
-    se rallume quand le marché repart.</div>` : '';
+    <div class="grille">
+      <div class="fiche"><div class="etiq">Prix du sol</div>
+        <div class="v">${eur(b.terrainCourant)}</div></div>
+      <div class="fiche"><div class="etiq">Payé à l'achat</div>
+        <div class="v doux">${eur(b.terrain)}</div></div>
+      <div class="fiche"><div class="etiq">Distance à la gare</div>
+        <div class="v doux">${b.cases[0].distanceGare}</div></div>
+      <div class="fiche"><div class="etiq">Quartier</div>
+        <div class="v doux" style="font-size:12px">${NOMS_QUARTIER[b.cases[0].quartier] || '—'}</div></div>
+    </div>
+    ${def.qual ? `<div class="note">Sol de qualité <b>${b.qualite.toFixed(1)} / 5</b> : cette
+      exploitation sort ${(b.qualite / 3).toFixed(2)}× ce que sortirait la même sur une terre
+      moyenne. Un handicap de terrain ne fait aucun bruit — il se lit uniquement dans la
+      marge, et il ne se guérit jamais.</div>` : ''}`;
 
-  const demolir = aMoi ? `<div class="actions" style="margin-top:9px">
-    <button id="btnDemolir">Démolir</button></div>
-    <div class="note">La société conserve le terrain, ne récupère aucun matériau, et la case
-    est libre le mois suivant. C'est le seul moyen, pour une ville saturée, de se densifier.</div>` : '';
+  // --- Ce qu'on peut en faire ---------------------------------------------
+  let actions = '';
+
+  if (aMoi) {
+    if (def.sort) {
+      actions += `
+        <h3>Curseur d'activité — ${Math.round(b.activite * 100)} %</h3>
+        <input type="range" id="curseurActivite" min="0" max="100" value="${Math.round(b.activite * 100)}">
+        <div class="actions" style="margin-top:6px">
+          <button class="preReglage" data-v="0">Sommeil</button>
+          <button class="preReglage" data-v="50">50 %</button>
+          <button class="preReglage" data-v="100">100 %</button>
+          ${joueur.entrepotDans(b.ville)
+            ? `<button id="btnEntrepot">${b.versEntrepot ? '↺ Vendre au marché' : '⇥ Vers l\'entrepôt'}</button>` : ''}
+        </div>
+        <div class="note">Curseur à zéro : plus de matières achetées, plus de salaires versés.
+        Le bâtiment reste debout moyennant un entretien réduit à 10 % de sa masse salariale.</div>`;
+    }
+    actions += `<div class="actions" style="margin-top:10px">
+      <button id="btnDemolir">Démolir</button></div>
+      <div class="note">Vous conservez le terrain, ne récupérez aucun matériau, et la case est
+      libre le mois suivant. C'est le seul moyen, pour une ville saturée, de se densifier.</div>`;
+
+  } else if (independant) {
+    // Un indépendant vend à qui le demande, au prix du marché majoré de 20 %.
+    const prix = monde.prixRachatIndependant(b);
+    const peut = joueur.tresorerie >= prix;
+    actions = `<h3>L'acquérir</h3>
+      <div class="actions">
+        <button class="primaire" id="btnRacheter" ${peut ? '' : 'disabled'}>
+          Racheter — ${eur(prix)}</button>
+      </div>
+      <div class="note">Un propriétaire indépendant vend à qui le demande, au prix du marché
+      majoré de 20 % — ${eur(b.valeur(monde.multiple))} + 20 %. C'est cher, et c'est le
+      raccourci : on n'attend pas d'avoir bâti.</div>
+      ${peut ? '' : '<div class="avert">Trésorerie insuffisante.</div>'}`;
+
+  } else {
+    // Une offre sur le bien d'un rival : un curseur, une réponse en un clic.
+    const possible = monde.offrePossible(b, joueur);
+    const rentable = b.profitAnnuel > 0;
+    actions = `<h3>Faire une offre à ${b.societe.nom}</h3>`;
+    if (!possible) {
+      actions += `<div class="note">Vous avez déjà fait une offre à cette société ce mois-ci.
+        Une seule par mois et par adversaire : cela interdit le harcèlement et, surtout, cela
+        force à choisir le bâtiment qui compte vraiment.</div>`;
+    } else {
+      actions += `
+        <input type="range" id="curseurOffre" min="5" max="15" step="1" value="10">
+        <div class="actions" style="margin-top:6px">
+          <button class="primaire" id="btnOffre">Offrir <span id="montantOffre">—</span></button>
+        </div>
+        <div class="note" id="lectureOffre"></div>
+        <div class="note">
+          ${rentable
+            ? `Le curseur va de 5 à 15 fois le profit des douze derniers mois. Le marché paie
+               <b>×${monde.multiple}</b> en ce moment : offrir moins est une insulte, offrir
+               plus est un prix de dépossession — rationnel seulement pour un bâtiment
+               stratégique.`
+            : `Ce bâtiment ne gagne rien : l'offre porte sur son plancher — terrain et
+               matériaux — de 80 % à 120 %.`}
+        </div>`;
+    }
+  }
 
   return entete(def.nom,
-    `${proprio} · ${b.ville.nom} · ${def.cases} case${def.cases > 1 ? 's' : ''}`
-    + (b.alerte ? ` · <span class="rouge">⚠ ${TEXTE_ALERTE[b.alerte]}</span>` : ''))
-    + `<div class="grille">
-        <div class="fiche"><div class="etiq">Activité</div><div class="v">${pct(b.tauxReel)}</div></div>
-        <div class="fiche"><div class="etiq">Résultat du mois</div>
-          <div class="v ${b.resultat >= 0 ? 'vert' : 'rouge'}">${eur(b.resultat)}</div></div>
-        <div class="fiche"><div class="etiq">Entretien</div><div class="v doux">${b.entretien.toFixed(2)} $</div></div>
-        <div class="fiche"><div class="etiq">Valeur</div><div class="v">${eur(b.valeur(monde.multiple))}</div></div>
-      </div>`
-    + production + qualite + reglage + demolir;
+      `${proprio} · ${b.ville.nom}`
+      + (b.alerte ? ` · <span class="rouge">⚠ ${TEXTE_ALERTE[b.alerte]}</span>` : ''))
+    + exploitation + production + intrants + sol + actions;
 }

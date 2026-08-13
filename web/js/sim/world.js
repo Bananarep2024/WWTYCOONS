@@ -32,6 +32,7 @@ export class Monde {
     this.duree = duree;                 // 60 mois = 10 ans = 20 minutes
     this.climat = 'normal';             // normal | euphorie | crise
     this.journal = [];
+    this.offresDuMois = new Map();
 
     this.societes = [];
     this.joueur = new Societe('Vous', '#d9a441', true);
@@ -361,6 +362,80 @@ export class Monde {
     return true;
   }
 
+  // --- Acquérir le bien d'autrui -------------------------------------------
+
+  // Un propriétaire indépendant vend à qui le demande, au prix du marché majoré
+  // de 20 %, sans limite de fréquence. C'est le raccourci payant : on n'attend
+  // pas d'avoir bâti, on rachète — plus cher.
+  prixRachatIndependant(b) {
+    return b.valeur(this.multiple) * P.surprixIndependants;
+  }
+
+  acheterBatiment(b, societe) {
+    if (b.societe) return false;                       // pas à un indépendant
+    const prix = this.prixRachatIndependant(b);
+    if (!societe.peutPayer(prix)) return false;
+    societe.payer(prix);
+    b.ville.batIndependants = b.ville.batIndependants.filter(x => x !== b);
+    b.societe = societe;
+    societe.batiments.push(b);
+    for (const c of b.cases) { c.proprio = societe.id; c.vendue = true; }
+    this.journal.push(`${this.mois} · ${societe.nom} rachète ${BAT[b.type].nom} à ${b.ville.nom}`);
+    return true;
+  }
+
+  // Une offre sur le bien d'un rival. « Il n'y a rien à négocier, il n'y a
+  // qu'un curseur et une réponse en un clic. »
+  //
+  //   bâtiment rentable   → un multiple de 5 à 15 du profit des 12 derniers mois
+  //   bâtiment déficitaire → de 80 % à 120 % du plancher, terrain et matériaux
+  //
+  // Une seule offre par mois et par adversaire : cela interdit le harcèlement
+  // et, surtout, cela force à choisir. Vous ne pouvez pas rafler tout ce qui
+  // vous intéresse chez un rival — vous devez désigner ce qui compte vraiment.
+  offrePossible(b, societe) {
+    if (!b.societe || b.societe === societe) return false;
+    const faites = this.offresDuMois.get(societe.id);
+    return !faites || !faites.has(b.societe.id);
+  }
+
+  prixOffre(b, curseur) {
+    const profit = b.profitAnnuel;
+    if (profit > 0) return profit * curseur;           // curseur de 5 à 15
+    // Sur un bâtiment qui ne gagne rien, l'offre porte sur le plancher.
+    const plancher = b.terrainCourant + b.valeurBatie;
+    return plancher * (0.8 + (curseur - 5) / 10 * 0.4);
+  }
+
+  faireOffre(b, societe, curseur) {
+    if (!this.offrePossible(b, societe)) return { fait: false, motif: 'déjà une offre ce mois' };
+    const prix = this.prixOffre(b, curseur);
+    if (!societe.peutPayer(prix)) return { fait: false, motif: 'trésorerie insuffisante' };
+
+    if (!this.offresDuMois.has(societe.id)) this.offresDuMois.set(societe.id, new Set());
+    this.offresDuMois.get(societe.id).add(b.societe.id);
+
+    // La cible refuse librement, donc une offre sous le marché n'est jamais
+    // acceptée — sauf par quelqu'un qui a besoin d'argent. Le système devient
+    // ainsi un mécanisme de prédation contre les sociétés en difficulté.
+    const cible = b.societe;
+    const valeur = b.valeur(this.multiple);
+    const auxAbois = cible.tresorerie < 800 || cible.faillite;
+    const seuil = auxAbois ? valeur * 0.85 : valeur * 1.08;
+
+    if (prix < seuil) return { fait: true, accepte: false, prix, motif: 'offre refusée' };
+
+    societe.payer(prix);
+    cible.encaisser(prix);
+    cible.batiments = cible.batiments.filter(x => x !== b);
+    b.societe = societe;
+    societe.batiments.push(b);
+    for (const c of b.cases) c.proprio = societe.id;
+    this.journal.push(`${this.mois} · ${societe.nom} rachète ${BAT[b.type].nom} `
+      + `à ${cible.nom} pour ${Math.round(prix)} $`);
+    return { fait: true, accepte: true, prix };
+  }
+
   demolir(b) {
     // La société conserve le terrain, ne récupère aucun matériau, et la case
     // est libre le mois suivant. Sans cette règle, une ville couverte de
@@ -389,6 +464,7 @@ export class Monde {
   tick() {
     if (this.mois >= this.duree) return false;
     this.mois++;
+    this.offresDuMois.clear();   // une offre par mois et par adversaire
 
     for (const m of this.marches) m.reinitialiser();
 

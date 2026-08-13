@@ -66,6 +66,27 @@ const js = MODULES.map(f =>
   `\n// ===== ${f} ${'='.repeat(Math.max(0, 62 - f.length))}\n\n` + deshabiller(lire(f))
 ).join('\n');
 
+// Garde-fou : deux modules ne peuvent pas declarer le meme nom.
+// Une fois concatenes, ils n'ont plus de portee separee : le second ecrase le
+// premier, ou le moteur refuse le script entier. C'est la facon la plus
+// silencieuse de livrer une page morte.
+{
+  const vus = new Map(), doublons = [];
+  const declaration = /^(?:export\s+)?(?:const|let|var|function|class|async function)\s+([A-Za-z_$][\w$]*)/gm;
+  for (const f of MODULES) {
+    const src = lire(f);
+    for (const m of src.matchAll(declaration)) {
+      const nom = m[1];
+      if (vus.has(nom) && vus.get(nom) !== f) doublons.push(`${nom} (${vus.get(nom)} et ${f})`);
+      else vus.set(nom, f);
+    }
+  }
+  if (doublons.length) {
+    console.error('ECHEC - noms declares deux fois :\n  ' + doublons.join('\n  '));
+    process.exit(1);
+  }
+}
+
 const css = lire('style.css');
 const html = lire('index.html');
 

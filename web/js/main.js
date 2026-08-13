@@ -109,6 +109,10 @@ function brancherVolet(corps) {
     appliquerFiltre(null, b.dataset.prix);
     rafraichirVolet();
   });
+  corps.querySelectorAll('[data-rdt]').forEach(b => b.onclick = () => {
+    appliquerFiltre(null, null, b.dataset.rdt);
+    rafraichirVolet();
+  });
   corps.querySelectorAll('[data-ville]').forEach(b => b.onclick = () => {
     const v = monde.villes[+b.dataset.ville];
     monde.villeChoisie = v;
@@ -132,13 +136,14 @@ function brancherVolet(corps) {
 // Le bandeau rappelle en permanence qu'on regarde une donnée et non la carte :
 // sans lui, on oublie le filtre actif et on lit des couleurs qui ne sont pas
 // celles des bâtiments.
-function appliquerFiltre(nom, prix) {
-  rendu.choisirFiltre(nom, prix);
+function appliquerFiltre(nom, prix, rdt) {
+  rendu.choisirFiltre(nom, prix, rdt);
   const b = $('#bandeauFiltre');
-  if (!nom && !prix) { b.classList.add('cachee'); return; }
+  if (!nom && !prix && !rdt) { b.classList.add('cachee'); return; }
   b.classList.remove('cachee');
   $('#bandeauNom').textContent =
-      prix ? `Prix — ${RES[prix].nom}`
+      rdt ? (rdt === 'tous' ? 'Rentabilité — tous' : `Rentabilité — ${BAT[rdt].nom}`)
+    : prix ? `Prix — ${RES[prix].nom}`
     : nom === 'proprio' ? 'Mes possessions'
     : (FILTRES_CASE[nom] || FILTRES_VILLE[nom]).nom;
   $('#bandeauEchelle').style.display = nom === 'proprio' ? 'none' : '';
@@ -191,6 +196,45 @@ function brancherFeuille(c) {
   const dem = $('#btnDemolir');
   if (dem && c.bat) dem.onclick = () => {
     monde.demolir(c.bat); rendu.rafraichirIndex(); fermerFeuille(); rafraichirTout();
+  };
+
+  // Racheter à un indépendant : il vend toujours, au prix majoré.
+  const rach = $('#btnRacheter');
+  if (rach && c.bat) rach.onclick = () => {
+    if (monde.acheterBatiment(c.bat, joueur)) { rendu.rafraichirIndex(); rafraichirTout(); }
+  };
+
+  // Offrir à un rival : le curseur dit le prix, la cible répond en un clic.
+  const cur2 = $('#curseurOffre');
+  if (cur2 && c.bat) {
+    const majMontant = () => {
+      const prix = monde.prixOffre(c.bat, +cur2.value);
+      $('#montantOffre').textContent = eur(prix);
+      const valeur = c.bat.valeur(monde.multiple);
+      const ecart = prix / valeur;
+      $('#lectureOffre').innerHTML = c.bat.profitAnnuel > 0
+        ? `×${cur2.value} le profit, soit ${eur(prix)} — `
+          + (ecart < 0.95 ? '<span class="rouge">sous la valeur du bâtiment</span>'
+             : ecart > 1.25 ? '<span class="or">bien au-dessus : un prix de dépossession</span>'
+             : '<span class="vert">un prix qui peut être accepté</span>')
+        : `${eur(prix)} sur un plancher de ${eur(valeur)}`;
+      $('#btnOffre').disabled = joueur.tresorerie < prix;
+    };
+    cur2.oninput = majMontant;
+    majMontant();
+  }
+
+  const off = $('#btnOffre');
+  if (off && c.bat) off.onclick = () => {
+    const r = monde.faireOffre(c.bat, joueur, +$('#curseurOffre').value);
+    if (!r.fait) { $('#lectureOffre').innerHTML = `<span class="rouge">${r.motif}</span>`; return; }
+    rendu.rafraichirIndex();
+    rafraichirTout();
+    if (!r.accepte) {
+      $('#lectureOffre').innerHTML = `<span class="rouge">Offre refusée.</span>
+        La cible refuse librement : une offre sous le marché n'est jamais acceptée, sauf par
+        quelqu'un qui a besoin d'argent.`;
+    }
   };
 }
 
@@ -289,7 +333,7 @@ document.querySelectorAll('.ico[data-vue]').forEach(b => b.onclick = () => {
 $('#btnFiltres').onclick = () => vueVolet === 'filtres' ? fermerVolet() : ouvrirVolet('filtres');
 $('#btnFermerVolet').onclick = fermerVolet;
 $('#feuillePoignee').onclick = fermerFeuille;
-$('#btnQuitterFiltre').onclick = () => { appliquerFiltre(null, null); rafraichirVolet(); };
+$('#btnQuitterFiltre').onclick = () => { appliquerFiltre(null, null, null); rafraichirVolet(); };
 
 $('#btnRecentrer').onclick = () => { rendu.zoom = 1; rendu.cx = 0; rendu.cy = 0; };
 $('#btnZoomPlus').onclick  = () => rendu.zoomerVers(rendu.w / 2, rendu.h / 2, 1.6);
@@ -322,6 +366,10 @@ function finDePartie() {
 }
 
 // --- Départ -----------------------------------------------------------------
+
+// Exposés pour le banc d'essai : la page se pilote au doigt, mais un test
+// doit pouvoir viser une case précise.
+window.__rendu = rendu; window.__monde = monde;
 
 rendu.dimensionner();
 rendu.rafraichirIndex();

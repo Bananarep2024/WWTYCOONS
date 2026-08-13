@@ -246,6 +246,25 @@ export class Batiment {
     return this.resultat;
   }
 
+  // Ce que le bâtiment rapporte, rapporté à ce qu'il vaut. C'est le seul
+  // chiffre qui permette de comparer une coupe forestière à une manufacture.
+  rendement(multiple) {
+    const v = this.valeur(multiple);
+    return v > 0 ? this.profitAnnuel / v : 0;
+  }
+
+  // Ce qu'il a demandé, ce qu'il a reçu. Un atelier ne souffre jamais d'un prix
+  // seul : il souffre de ce qui lui manque, et c'est ce manque qu'il faut voir.
+  intrants() {
+    const out = [];
+    for (const [r, q] of Object.entries(this.def.intrants || {})) {
+      const demande = q * this.n * (this.activiteEffective ?? this.activite);
+      const recu = (this.recu && this.recu[r]) || 0;
+      out.push({ res: r, demande, recu, part: demande > 0 ? recu / demande : 1 });
+    }
+    return out;
+  }
+
   get profitAnnuel() {
     const s = this.histo.reduce((a, b) => a + b, 0);
     return this.histo.length ? s * 12 / this.histo.length : 0;

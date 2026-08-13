@@ -73,6 +73,7 @@ export class Rendu {
     this.monde = monde;
     this.filtre = null;              // null = on voit les bâtiments
     this.filtrePrix = null;          // ou le nom d'une ressource
+    this.filtreRdt = null;           // ou un type de bâtiment, ou 'tous'
     this.selection = null;
     this.zoom = 1;
     this.cx = 0; this.cy = 0;
@@ -137,9 +138,22 @@ export class Rendu {
     return this.monde.caseAt(x, y);
   }
 
-  choisirFiltre(nom, prix = null) {
-    this.filtre = nom; this.filtrePrix = prix;
+  choisirFiltre(nom, prix = null, rdt = null) {
+    this.filtre = nom; this.filtrePrix = prix; this.filtreRdt = rdt;
     this.solPerime = true;
+  }
+
+  // Y a-t-il un mode de lecture en cours ? Sous un filtre, le bâti s'efface
+  // pour laisser la donnée parler.
+  get sousFiltre() { return !!(this.filtre || this.filtrePrix || this.filtreRdt); }
+
+  // La rentabilité d'un bâtiment, ramenée sur l'échelle commune. Le vert est
+  // calé sur 20 % l'an — le rendement visé de la transformation, au milieu du
+  // barème — et le rouge sur zéro. Caler le vert sur les 25 % de la
+  // manufacture rendrait la carte uniformément orange : le vert doit désigner
+  // ce qui marche bien, pas seulement ce qui marche le mieux.
+  teinteRendement(b) {
+    return echelle(b.rendement(this.monde.multiple) / 0.20);
   }
 
   // Les bâtiments changent au mois, pas à l'image : on tient une liste à plat.
@@ -182,6 +196,9 @@ export class Rendu {
 
     const fCase = this.filtre && FILTRES_CASE[this.filtre] ? FILTRES_CASE[this.filtre] : null;
     const parVille = teinteVille.size > 0;
+    // En lecture de rentabilité, la donnée est portée par les bâtiments : le
+    // sol doit s'effacer pour ne pas leur disputer le regard.
+    const sourdine = !!this.filtreRdt;
     const joueurId = m.joueur.id;
     const couleursSocietes = new Map(m.societes.map(s => [s.id,
       [parseInt(s.couleur.substr(1, 2), 16), parseInt(s.couleur.substr(3, 2), 16),
@@ -191,7 +208,10 @@ export class Rendu {
       const c = m.cases[i];
       let r, g, b;
 
-      if (parVille) {
+      if (sourdine) {
+        const gris = 26 + c.alt * 22 + (c.ville ? 10 : 0);
+        r = gris; g = gris + 2; b = gris - 3;
+      } else if (parVille) {
         if (c.ville) {
           const t = teinteVille.get(c.ville);
           [r, g, b] = t;
@@ -267,7 +287,7 @@ export class Rendu {
     this.dessinerVoies(ctx, p, ox, oy, x0, y0, x1, y1);
 
     // Les rues, seulement quand elles se voient.
-    if (p >= 2.2 && !this.filtre && !this.filtrePrix) {
+    if (p >= 2.2 && !this.sousFiltre) {
       ctx.fillStyle = 'rgba(28,25,20,.55)';
       for (const v of m.villes) {
         for (const c of v.cases) {
@@ -330,16 +350,36 @@ export class Rendu {
 
   dessinerBatiments(ctx, p, ox, oy, vu) {
     const joueur = this.monde.joueur;
-    const dessine = p >= 5.5 && !this.filtre && !this.filtrePrix;
+    const dessine = p >= 5.5 && !this.sousFiltre;
 
     for (const b of this.index) {
       if (!vu(b)) continue;
       const c = b.cases[0];
       const x = ox + c.x * p, y = oy + c.y * p;
 
+      // Lecture de la rentabilité : le bâtiment porte lui-même la couleur, et
+      // ceux qui ne sont pas du type demandé restent en silhouette. C'est ce
+      // qui permet de comparer trente scieries d'un bout à l'autre de la carte.
+      if (this.filtreRdt) {
+        const vise = this.filtreRdt === 'tous' || this.filtreRdt === b.type;
+        if (vise) {
+          const t = this.teinteRendement(b);
+          ctx.fillStyle = 'rgb(' + t[0] + ',' + t[1] + ',' + t[2] + ')';
+        } else {
+          ctx.fillStyle = 'rgba(0,0,0,.34)';
+        }
+        ctx.fillRect(x, y, p * b.def.w, p * b.def.h);
+        if (b.societe === joueur && p >= 3) {
+          ctx.strokeStyle = '#e0b155';
+          ctx.lineWidth = Math.max(1, p * 0.10);
+          ctx.strokeRect(x + .5, y + .5, p * b.def.w - 1, p * b.def.h - 1);
+        }
+        continue;
+      }
+
       if (dessine) {
         ctx.drawImage(sprite(b.type, p), Math.round(x), Math.round(y));
-      } else if (!this.filtre && !this.filtrePrix) {
+      } else if (!this.sousFiltre) {
         // Trop petit pour un toit : on garde la couleur de famille, qui suffit
         // à lire la vocation des quartiers.
         ctx.fillStyle = COULEURS[b.type];

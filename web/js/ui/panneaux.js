@@ -6,14 +6,18 @@
 //   le joueur ne peut prendre aucune décision éclairée — il jouera au hasard. »
 // ---------------------------------------------------------------------------
 
-import { P, RES, RESSOURCES, BAT, niveauVille } from '../sim/params.js';
+import { P, RES, RESSOURCES, BAT, TYPES_BAT, niveauVille } from '../sim/params.js';
 import { COULEURS, FILTRES_CASE, FILTRES_VILLE, echelle } from './render.js';
 
 export const $ = (s) => document.querySelector(s);
 export const eur = (n) => (n < 0 ? '−' : '') + Math.abs(Math.round(n)).toLocaleString('fr-FR') + ' $';
 export const pct = (n) => Math.round(n * 100) + ' %';
 const cl = (n) => n > 0 ? 'vert' : n < 0 ? 'rouge' : 'doux';
-const rgb = (t) => `rgb(${t[0]},${t[1]},${t[2]})`;
+export const rgb = (t) => `rgb(${t[0]},${t[1]},${t[2]})`;
+
+// Les bâtiments dont la rentabilité veut dire quelque chose : l'entrepôt ne
+// rapporte rien par construction, il n'a pas de rendement à comparer.
+const RENTABLES = TYPES_BAT.filter(t => BAT[t].cat !== 'neg');
 
 // --- Filtres ----------------------------------------------------------------
 
@@ -23,7 +27,7 @@ export function voletFiltres(monde, rendu) {
     + (teinte ? `<span class="nuance" style="background:${teinte}"></span>` : '')
     + `${nom}</button>`;
 
-  const f = rendu.filtre, fp = rendu.filtrePrix;
+  const f = rendu.filtre, fp = rendu.filtrePrix, rendement = rendu.filtreRdt;
 
   return `
     <h3>Ce que montre la carte</h3>
@@ -43,6 +47,18 @@ export function voletFiltres(monde, rendu) {
       ${Object.entries(FILTRES_VILLE).map(([id, x]) =>
         past(id, x.nom, f === id)).join('')}
     </div>
+
+    <h3>La rentabilité, bâtiment par bâtiment</h3>
+    <div class="pastilles">
+      <button data-rdt="tous" class="${rendement === 'tous' ? 'actif' : ''}">Tous</button>
+      ${RENTABLES.map(t =>
+        `<button data-rdt="${t}" class="${rendement === t ? 'actif' : ''}">
+           <span class="nuance" style="background:${COULEURS[t]}"></span>${BAT[t].nom}</button>`
+      ).join('')}
+    </div>
+    <div class="note">Chaque bâtiment prend la couleur de son rendement : rouge s'il ne
+      rapporte rien, vert à 20 % l'an — le rendement visé de la transformation, au milieu du
+      barème. Ceux d'un autre métier restent en silhouette.</div>
 
     <h3>Le prix d'une marchandise, ville par ville</h3>
     <div class="pastilles">
