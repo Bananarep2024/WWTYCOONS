@@ -234,7 +234,14 @@ export function voletSociete(monde) {
         <td class="n">${x.cours(monde.multiple).toFixed(3).replace('.', ',')} $</td></tr>`).join('')}
     </table>
     <div class="note">Multiple du marché : <b>×${monde.multiple}</b>. Un bâtiment vaut son
-      terrain plus ses matériaux, plus ${monde.multiple} fois son résultat annuel.</div>`;
+      terrain plus ses matériaux, plus ${monde.multiple} fois son résultat annuel.</div>
+
+    <h3>La partie</h3>
+    <div class="note">Elle n'a pas de terme : elle court tant que vous la faites courir.
+      Il n'y a plus de décompte à battre, seulement une fortune à bâtir.</div>
+    <div class="actions" style="margin-top:8px">
+      <button onclick="location.reload()">Nouveau monde</button>
+    </div>`;
 }
 
 // --- Rail -------------------------------------------------------------------

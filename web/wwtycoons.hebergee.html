@@ -206,18 +206,6 @@ input[type=range] { width: 100%; accent-color: var(--or); }
 #feuilleCorps h2 { font-size: 16px; margin-bottom: 2px; }
 #feuilleCorps .soustitre { color: var(--doux); font-size: 12px; margin-bottom: 11px; }
 
-/* ---------- Fin de partie ---------- */
-
-#finPartie {
-  position: fixed; inset: 0; background: rgba(10,9,7,.95); z-index: 60;
-  display: flex; align-items: center; justify-content: center; padding: 22px;
-}
-#finPartie.cachee { display: none; }
-#finPartie .boite {
-  background: var(--fond2); border: 1px solid var(--bord); border-radius: 6px;
-  padding: 24px 26px; max-width: 460px; width: 100%;
-}
-#finPartie h1 { font-size: 20px; margin-bottom: 4px; }
 
 /* ---------- Téléphone ---------- */
 
@@ -276,7 +264,7 @@ input[type=range] { width: 100%; accent-color: var(--or); }
     <div class="jauge">
       <div class="etiq">Date</div>
       <div class="val" id="date">An 1 · janv.</div>
-      <div class="sous" id="restant">60 mois</div>
+      <div class="sous" id="restant">—</div>
     </div>
     <div class="jauge">
       <div class="etiq">Trésorerie</div>
@@ -347,8 +335,6 @@ input[type=range] { width: 100%; accent-color: var(--or); }
   <div id="feuillePoignee"></div>
   <div id="feuilleCorps"></div>
 </div>
-
-<div id="finPartie" class="cachee"></div>
 <script type="module">
 
 // ===== js/sim/params.js ==============================================
@@ -752,24 +738,13 @@ function genererMonde(nbVilles, graine) {
       }
     }
 
-    // La trame des rues, au cœur seulement : « une rue toutes les trois ou
-    // quatre cases avec des îlots mitoyens au centre, des parcelles isolées en
-    // périphérie » (§21). Son orientation suit celle de la ville.
-    for (const c of v.cases) {
-      if (c.distanceGare > rayon * 0.72) continue;
-      const dx = c.x - site.x, dy = c.y - site.y;
-      const ca = Math.cos(orientation), sa = Math.sin(orientation);
-      const u = Math.round(dx * ca + dy * sa), w = Math.round(-dx * sa + dy * ca);
-      if (u % 5 === 0 || w % 5 === 0) c.rue = true;
-    }
 
     cases[site.y * L + site.x].voie = true;
-    cases[site.y * L + site.x].rue = false;
 
     // 30 % des cases exploitables appartiennent d'emblée à des indépendants.
     for (const c of v.cases) {
-      if (!c.voie && !c.rue && rnd() < P.partIndependants) c.proprio = 'ind';
-      if (c.distanceGare <= 4 && !c.voie && !c.rue) c.vendue = true;
+      if (!c.voie && rnd() < P.partIndependants) c.proprio = 'ind';
+      if (c.distanceGare <= 4 && !c.voie) c.vendue = true;
     }
 
     return v;
@@ -827,7 +802,7 @@ function tracerVoie(cases, L, H, d, f) {
     for (let k = -0; k <= 0; k++) {
       const c = cases[Math.max(0, Math.min(H - 1, y + k)) * L + Math.max(0, Math.min(L - 1, x))];
       if (c.bat) continue;
-      c.voie = true; c.rue = false;
+      c.voie = true;
     }
   };
   poser();
@@ -854,7 +829,7 @@ function melanger(a, rnd) {
 // une terre déjà vendue ou bâtie. La ville s'étend en anneaux depuis sa gare, et
 // il existe à chaque instant une frontière étroite et disputée.
 function estAchetable(monde, c) {
-  if (!c || c.voie || c.rue || c.vendue || !c.ville) return false;
+  if (!c || c.voie || c.vendue || !c.ville) return false;
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
     const v = monde.caseAt(c.x + dx, c.y + dy);
     if (v && (v.vendue || v.voie)) return true;
@@ -1736,7 +1711,8 @@ function piloterSociete(monde, s) {
 
 
 class Monde {
-  constructor({ nbVilles = 5, duree = 60, graine = Date.now() } = {}) {
+  // duree : nombre de mois, ou null pour une partie sans fin.
+  constructor({ nbVilles = 5, duree = null, graine = Date.now() } = {}) {
     const carte = genererMonde(nbVilles, graine);
     this.L = carte.L; this.H = carte.H;
     this.cases = carte.cases;              // une seule grille pour tout le monde
@@ -1744,7 +1720,7 @@ class Monde {
     this.liaisons = carte.liaisons;
     this.graine = graine;
     this.mois = 0;
-    this.duree = duree;                 // 60 mois = 10 ans = 20 minutes
+    this.duree = duree;                 // null = la partie ne s'arrête jamais
     this.climat = 'normal';             // normal | euphorie | crise
     this.journal = [];
     this.offresDuMois = new Map();
@@ -1997,7 +1973,7 @@ class Monde {
       let ok = true;
       for (let dy = 0; dy < def.h && ok; dy++) for (let dx = 0; dx < def.w && ok; dx++) {
         const c = this.caseAt(depart.x + dx, depart.y + dy);
-        if (!c || c.ville !== ville || c.voie || c.rue || c.bat || c.chantier) { ok = false; break; }
+        if (!c || c.ville !== ville || c.voie || c.bat || c.chantier) { ok = false; break; }
         // Une société doit posséder toutes les cases de l'emprise ; le parc de
         // l'ordinateur s'installe sur les terres restées aux indépendants.
         if (societe && c.proprio !== societe.id) { ok = false; break; }
@@ -2177,7 +2153,7 @@ class Monde {
   // =========================================================================
 
   tick() {
-    if (this.mois >= this.duree) return false;
+    if (this.duree && this.mois >= this.duree) return false;
     this.mois++;
     this.offresDuMois.clear();   // une offre par mois et par adversaire
 
@@ -2436,6 +2412,10 @@ class Monde {
                      ...v.barometres });
       if (v.histo.length > 400) v.histo.shift();
     }
+
+    // Une partie sans fin ne doit rien accumuler sans limite : le journal ne
+    // garde que ce qui est encore lisible.
+    if (this.journal.length > 200) this.journal.splice(0, this.journal.length - 200);
 
     return true;
   }
@@ -3126,18 +3106,6 @@ class Rendu {
                    && b.cases[0].y >= y0 && b.cases[0].y <= y1;
 
     this.dessinerVoies(ctx, p, ox, oy, x0, y0, x1, y1);
-
-    // Les rues, seulement quand elles se voient.
-    if (p >= 2.2 && !this.sousFiltre) {
-      ctx.fillStyle = 'rgba(28,25,20,.55)';
-      for (const v of m.villes) {
-        for (const c of v.cases) {
-          if (!c.rue || c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
-          ctx.fillRect(ox + c.x * p, oy + c.y * p, p, p);
-        }
-      }
-    }
-
     this.dessinerBatiments(ctx, p, ox, oy, vu);
     this.dessinerChantiers(ctx, p, ox, oy, x0, y0, x1, y1);
 
@@ -3531,7 +3499,14 @@ function voletSociete(monde) {
         <td class="n">${x.cours(monde.multiple).toFixed(3).replace('.', ',')} $</td></tr>`).join('')}
     </table>
     <div class="note">Multiple du marché : <b>×${monde.multiple}</b>. Un bâtiment vaut son
-      terrain plus ses matériaux, plus ${monde.multiple} fois son résultat annuel.</div>`;
+      terrain plus ses matériaux, plus ${monde.multiple} fois son résultat annuel.</div>
+
+    <h3>La partie</h3>
+    <div class="note">Elle n'a pas de terme : elle court tant que vous la faites courir.
+      Il n'y a plus de décompte à battre, seulement une fortune à bâtir.</div>
+    <div class="actions" style="margin-top:8px">
+      <button onclick="location.reload()">Nouveau monde</button>
+    </div>`;
 }
 
 // --- Rail -------------------------------------------------------------------
@@ -3609,11 +3584,6 @@ const MENU = [
 function contenuFeuille(monde, c) {
   if (!c) return '';
   const v = c.ville;
-
-  if (c.rue) return entete('Rue', 'Voirie — non constructible')
-    + `<div class="note">Une rue toutes les cinq cases au centre, des parcelles isolées en
-       périphérie : c'est ce contraste qui fait lire la hiérarchie urbaine, bien mieux que
-       la superficie.</div>`;
 
   if (c.voie) return entete('Emprise de voie ferrée', 'Réservée — non constructible')
     + `<div class="note">Le rail passera ici. Les emprises sont visibles dès la première
@@ -3725,7 +3695,7 @@ function empriseDepuis(monde, c, type) {
     let ok = true;
     for (let j = 0; j < def.h && ok; j++) for (let i = 0; i < def.w && ok; i++) {
       const k = monde.caseAt(c.x - dx + i, c.y - dy + j);
-      if (!k || k.voie || k.rue || k.bat || k.chantier || k.proprio !== joueur.id) {
+      if (!k || k.voie || k.bat || k.chantier || k.proprio !== joueur.id) {
         ok = false; break;
       }
       cases.push(k);
@@ -3976,7 +3946,8 @@ function ficheBatiment(monde, b, c) {
 const MOIS = ['janv.', 'févr.', 'mars', 'avril', 'mai', 'juin',
               'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
-const monde = new Monde({ nbVilles: 5, duree: 60, graine: (Math.random() * 1e9) | 0 });
+// Pas de durée : la partie court tant que le joueur la fait courir.
+const monde = new Monde({ nbVilles: 5, graine: (Math.random() * 1e9) | 0 });
 const cv = $('#carte');
 const rendu = new Rendu(cv, monde);
 
@@ -3995,7 +3966,7 @@ function boucle(t) {
     const duree = P.moisParSeconde * 1000;
     while (horloge >= duree) {
       horloge -= duree;
-      if (!monde.tick()) { enMarche = false; majPause(); finDePartie(); break; }
+      monde.tick();
       rendu.rafraichirIndex();
       rafraichirTout();
     }
@@ -4012,7 +3983,11 @@ function rafraichirTout() { rafraichirBarre(); rafraichirVolet(); rafraichirFeui
 function rafraichirBarre() {
   const s = monde.joueur;
   $('#date').textContent = `An ${Math.floor(monde.mois / 12) + 1} · ${MOIS[monde.mois % 12]}`;
-  $('#restant').textContent = `${monde.duree - monde.mois} mois`;
+  // Sans date butoir, ce qui compte n'est plus le temps qui reste mais la
+  // valeur qu'on a bâtie. On affiche donc le rang.
+  const clst = monde.classement();
+  const rg = clst.findIndex(x => x.societe === s) + 1;
+  $('#restant').textContent = `${rg === 1 ? '1er' : rg + 'e'} sur ${clst.length}`;
   $('#tresorerie').textContent = eur(s.tresorerie);
 
   const r = s.resultatMensuel;
@@ -4021,9 +3996,7 @@ function rafraichirBarre() {
   el.className = 'sous ' + (r > 0 ? 'vert' : r < 0 ? 'rouge' : 'doux');
 
   $('#fortune').textContent = eur(s.cours(monde.multiple) * s.actions * P.partFondateur);
-  const cl = monde.classement();
-  const rang = cl.findIndex(x => x.societe === s) + 1;
-  $('#rang').textContent = `${rang === 1 ? '1er' : rang + 'e'} sur ${cl.length}`;
+  $('#rang').textContent = `cours ${s.cours(monde.multiple).toFixed(2).replace('.', ',')} $`;
 }
 
 // --- Volet ------------------------------------------------------------------
@@ -4306,25 +4279,6 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('resize', () => rendu.dimensionner());
 
-// --- Fin de partie ----------------------------------------------------------
-
-function finDePartie() {
-  const cl = monde.classement();
-  const moi = cl.findIndex(x => x.societe === monde.joueur) + 1;
-  $('#finPartie').innerHTML = `<div class="boite">
-    <h1>Fin de partie</h1>
-    <div class="note" style="margin-bottom:14px">Dix ans. Le cours retenu est la moyenne
-      des douze derniers mois.</div>
-    <table>${cl.map((x, i) => `<tr>
-      <td>${i + 1}. <span class="puce" style="background:${x.societe.couleur}"></span>${x.societe.nom}</td>
-      <td class="n ${x.societe === monde.joueur ? 'or' : ''}">${eur(x.fortune)}</td></tr>`).join('')}
-    </table>
-    <div class="note">Vous finissez <b>${moi === 1 ? '1er' : moi + 'e'}</b>.</div>
-    <div class="actions" style="margin-top:16px">
-      <button class="primaire" onclick="location.reload()">Nouvelle partie</button></div>
-  </div>`;
-  $('#finPartie').classList.remove('cachee');
-}
 
 // --- Départ -----------------------------------------------------------------
 

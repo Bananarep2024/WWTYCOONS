@@ -33,11 +33,6 @@ export function contenuFeuille(monde, c) {
   if (!c) return '';
   const v = c.ville;
 
-  if (c.rue) return entete('Rue', 'Voirie — non constructible')
-    + `<div class="note">Une rue toutes les cinq cases au centre, des parcelles isolées en
-       périphérie : c'est ce contraste qui fait lire la hiérarchie urbaine, bien mieux que
-       la superficie.</div>`;
-
   if (c.voie) return entete('Emprise de voie ferrée', 'Réservée — non constructible')
     + `<div class="note">Le rail passera ici. Les emprises sont visibles dès la première
        seconde : le joueur sait où la ligne aboutira, et peut acheter autour.</div>`;
@@ -148,7 +143,7 @@ export function empriseDepuis(monde, c, type) {
     let ok = true;
     for (let j = 0; j < def.h && ok; j++) for (let i = 0; i < def.w && ok; i++) {
       const k = monde.caseAt(c.x - dx + i, c.y - dy + j);
-      if (!k || k.voie || k.rue || k.bat || k.chantier || k.proprio !== joueur.id) {
+      if (!k || k.voie || k.bat || k.chantier || k.proprio !== joueur.id) {
         ok = false; break;
       }
       cases.push(k);

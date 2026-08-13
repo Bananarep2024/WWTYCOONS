@@ -204,18 +204,6 @@ input[type=range] { width: 100%; accent-color: var(--or); }
 #feuilleCorps h2 { font-size: 16px; margin-bottom: 2px; }
 #feuilleCorps .soustitre { color: var(--doux); font-size: 12px; margin-bottom: 11px; }
 
-/* ---------- Fin de partie ---------- */
-
-#finPartie {
-  position: fixed; inset: 0; background: rgba(10,9,7,.95); z-index: 60;
-  display: flex; align-items: center; justify-content: center; padding: 22px;
-}
-#finPartie.cachee { display: none; }
-#finPartie .boite {
-  background: var(--fond2); border: 1px solid var(--bord); border-radius: 6px;
-  padding: 24px 26px; max-width: 460px; width: 100%;
-}
-#finPartie h1 { font-size: 20px; margin-bottom: 4px; }
 
 /* ---------- Téléphone ---------- */
 

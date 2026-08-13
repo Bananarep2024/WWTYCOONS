@@ -8,7 +8,9 @@
 //   node build.mjs
 // ---------------------------------------------------------------------------
 
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, unlinkSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const RACINE = new URL('./web/', import.meta.url);
 const lire = (p) => readFileSync(new URL(p, RACINE), 'utf8');
@@ -146,4 +148,21 @@ for (const [nom, texte] of [['complete', page], ['hebergee', pageHebergee]]) {
     console.error(`ECHEC - ${restes.length} declaration(s) de module dans la page ${nom}`);
     process.exit(1);
   }
+}
+
+// Garde-fou : le script assemble doit etre du JavaScript valide. Une accolade
+// orpheline, une parenthese oubliee — et la page s'ouvre sur du vide, sans
+// qu'aucun des controles precedents n'ait rien vu.
+{
+  const tmp = new URL('./_syntaxe.mjs', RACINE);
+  writeFileSync(tmp, js);
+  try {
+    execFileSync(process.execPath, ['--check', fileURLToPath(tmp)], { stdio: 'pipe' });
+  } catch (e) {
+    console.error('ECHEC - le script assemble n\'est pas du JavaScript valide :');
+    console.error(String(e.stderr || e.message).split('\n').slice(0, 6).join('\n'));
+    unlinkSync(tmp);
+    process.exit(1);
+  }
+  unlinkSync(tmp);
 }

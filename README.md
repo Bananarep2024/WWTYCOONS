@@ -94,8 +94,8 @@ vingt ans de simulation sans joueur. Résultats attendus :
 
 ## Ce que la démo couvre
 
-Format 20 minutes : 5 villes, 60 mois de 10 secondes, 1 joueur et 3 sociétés pilotées par
-l'ordinateur.
+Cinq villes, 1 joueur et 3 sociétés pilotées par l'ordinateur. **La partie n'a pas de
+terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
 
 - **Une seule carte du monde** : cinq villes posées sur un relief, à distance minimale
   garantie, reliées par un réseau ferroviaire où les liaisons se chaînent

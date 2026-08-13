@@ -15,7 +15,8 @@ import { contenuFeuille, empriseDepuis } from './ui/feuille.js';
 const MOIS = ['janv.', 'févr.', 'mars', 'avril', 'mai', 'juin',
               'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
-const monde = new Monde({ nbVilles: 5, duree: 60, graine: (Math.random() * 1e9) | 0 });
+// Pas de durée : la partie court tant que le joueur la fait courir.
+const monde = new Monde({ nbVilles: 5, graine: (Math.random() * 1e9) | 0 });
 const cv = $('#carte');
 const rendu = new Rendu(cv, monde);
 
@@ -34,7 +35,7 @@ function boucle(t) {
     const duree = P.moisParSeconde * 1000;
     while (horloge >= duree) {
       horloge -= duree;
-      if (!monde.tick()) { enMarche = false; majPause(); finDePartie(); break; }
+      monde.tick();
       rendu.rafraichirIndex();
       rafraichirTout();
     }
@@ -51,7 +52,11 @@ function rafraichirTout() { rafraichirBarre(); rafraichirVolet(); rafraichirFeui
 function rafraichirBarre() {
   const s = monde.joueur;
   $('#date').textContent = `An ${Math.floor(monde.mois / 12) + 1} · ${MOIS[monde.mois % 12]}`;
-  $('#restant').textContent = `${monde.duree - monde.mois} mois`;
+  // Sans date butoir, ce qui compte n'est plus le temps qui reste mais la
+  // valeur qu'on a bâtie. On affiche donc le rang.
+  const clst = monde.classement();
+  const rg = clst.findIndex(x => x.societe === s) + 1;
+  $('#restant').textContent = `${rg === 1 ? '1er' : rg + 'e'} sur ${clst.length}`;
   $('#tresorerie').textContent = eur(s.tresorerie);
 
   const r = s.resultatMensuel;
@@ -60,9 +65,7 @@ function rafraichirBarre() {
   el.className = 'sous ' + (r > 0 ? 'vert' : r < 0 ? 'rouge' : 'doux');
 
   $('#fortune').textContent = eur(s.cours(monde.multiple) * s.actions * P.partFondateur);
-  const cl = monde.classement();
-  const rang = cl.findIndex(x => x.societe === s) + 1;
-  $('#rang').textContent = `${rang === 1 ? '1er' : rang + 'e'} sur ${cl.length}`;
+  $('#rang').textContent = `cours ${s.cours(monde.multiple).toFixed(2).replace('.', ',')} $`;
 }
 
 // --- Volet ------------------------------------------------------------------
@@ -345,25 +348,6 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('resize', () => rendu.dimensionner());
 
-// --- Fin de partie ----------------------------------------------------------
-
-function finDePartie() {
-  const cl = monde.classement();
-  const moi = cl.findIndex(x => x.societe === monde.joueur) + 1;
-  $('#finPartie').innerHTML = `<div class="boite">
-    <h1>Fin de partie</h1>
-    <div class="note" style="margin-bottom:14px">Dix ans. Le cours retenu est la moyenne
-      des douze derniers mois.</div>
-    <table>${cl.map((x, i) => `<tr>
-      <td>${i + 1}. <span class="puce" style="background:${x.societe.couleur}"></span>${x.societe.nom}</td>
-      <td class="n ${x.societe === monde.joueur ? 'or' : ''}">${eur(x.fortune)}</td></tr>`).join('')}
-    </table>
-    <div class="note">Vous finissez <b>${moi === 1 ? '1er' : moi + 'e'}</b>.</div>
-    <div class="actions" style="margin-top:16px">
-      <button class="primaire" onclick="location.reload()">Nouvelle partie</button></div>
-  </div>`;
-  $('#finPartie').classList.remove('cachee');
-}
 
 // --- Départ -----------------------------------------------------------------
 

@@ -289,18 +289,6 @@ export class Rendu {
                    && b.cases[0].y >= y0 && b.cases[0].y <= y1;
 
     this.dessinerVoies(ctx, p, ox, oy, x0, y0, x1, y1);
-
-    // Les rues, seulement quand elles se voient.
-    if (p >= 2.2 && !this.sousFiltre) {
-      ctx.fillStyle = 'rgba(28,25,20,.55)';
-      for (const v of m.villes) {
-        for (const c of v.cases) {
-          if (!c.rue || c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
-          ctx.fillRect(ox + c.x * p, oy + c.y * p, p, p);
-        }
-      }
-    }
-
     this.dessinerBatiments(ctx, p, ox, oy, vu);
     this.dessinerChantiers(ctx, p, ox, oy, x0, y0, x1, y1);
 

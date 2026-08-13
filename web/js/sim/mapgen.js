@@ -211,24 +211,13 @@ export function genererMonde(nbVilles, graine) {
       }
     }
 
-    // La trame des rues, au cœur seulement : « une rue toutes les trois ou
-    // quatre cases avec des îlots mitoyens au centre, des parcelles isolées en
-    // périphérie » (§21). Son orientation suit celle de la ville.
-    for (const c of v.cases) {
-      if (c.distanceGare > rayon * 0.72) continue;
-      const dx = c.x - site.x, dy = c.y - site.y;
-      const ca = Math.cos(orientation), sa = Math.sin(orientation);
-      const u = Math.round(dx * ca + dy * sa), w = Math.round(-dx * sa + dy * ca);
-      if (u % 5 === 0 || w % 5 === 0) c.rue = true;
-    }
 
     cases[site.y * L + site.x].voie = true;
-    cases[site.y * L + site.x].rue = false;
 
     // 30 % des cases exploitables appartiennent d'emblée à des indépendants.
     for (const c of v.cases) {
-      if (!c.voie && !c.rue && rnd() < P.partIndependants) c.proprio = 'ind';
-      if (c.distanceGare <= 4 && !c.voie && !c.rue) c.vendue = true;
+      if (!c.voie && rnd() < P.partIndependants) c.proprio = 'ind';
+      if (c.distanceGare <= 4 && !c.voie) c.vendue = true;
     }
 
     return v;
@@ -286,7 +275,7 @@ function tracerVoie(cases, L, H, d, f) {
     for (let k = -0; k <= 0; k++) {
       const c = cases[Math.max(0, Math.min(H - 1, y + k)) * L + Math.max(0, Math.min(L - 1, x))];
       if (c.bat) continue;
-      c.voie = true; c.rue = false;
+      c.voie = true;
     }
   };
   poser();
@@ -313,7 +302,7 @@ function melanger(a, rnd) {
 // une terre déjà vendue ou bâtie. La ville s'étend en anneaux depuis sa gare, et
 // il existe à chaque instant une frontière étroite et disputée.
 export function estAchetable(monde, c) {
-  if (!c || c.voie || c.rue || c.vendue || !c.ville) return false;
+  if (!c || c.voie || c.vendue || !c.ville) return false;
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
     const v = monde.caseAt(c.x + dx, c.y + dy);
     if (v && (v.vendue || v.voie)) return true;

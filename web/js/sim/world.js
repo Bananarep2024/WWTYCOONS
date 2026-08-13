@@ -21,7 +21,8 @@ import { Societe, Chantier } from './company.js';
 import { piloterVille, piloterSociete } from './ai.js';
 
 export class Monde {
-  constructor({ nbVilles = 5, duree = 60, graine = Date.now() } = {}) {
+  // duree : nombre de mois, ou null pour une partie sans fin.
+  constructor({ nbVilles = 5, duree = null, graine = Date.now() } = {}) {
     const carte = genererMonde(nbVilles, graine);
     this.L = carte.L; this.H = carte.H;
     this.cases = carte.cases;              // une seule grille pour tout le monde
@@ -29,7 +30,7 @@ export class Monde {
     this.liaisons = carte.liaisons;
     this.graine = graine;
     this.mois = 0;
-    this.duree = duree;                 // 60 mois = 10 ans = 20 minutes
+    this.duree = duree;                 // null = la partie ne s'arrête jamais
     this.climat = 'normal';             // normal | euphorie | crise
     this.journal = [];
     this.offresDuMois = new Map();
@@ -282,7 +283,7 @@ export class Monde {
       let ok = true;
       for (let dy = 0; dy < def.h && ok; dy++) for (let dx = 0; dx < def.w && ok; dx++) {
         const c = this.caseAt(depart.x + dx, depart.y + dy);
-        if (!c || c.ville !== ville || c.voie || c.rue || c.bat || c.chantier) { ok = false; break; }
+        if (!c || c.ville !== ville || c.voie || c.bat || c.chantier) { ok = false; break; }
         // Une société doit posséder toutes les cases de l'emprise ; le parc de
         // l'ordinateur s'installe sur les terres restées aux indépendants.
         if (societe && c.proprio !== societe.id) { ok = false; break; }
@@ -462,7 +463,7 @@ export class Monde {
   // =========================================================================
 
   tick() {
-    if (this.mois >= this.duree) return false;
+    if (this.duree && this.mois >= this.duree) return false;
     this.mois++;
     this.offresDuMois.clear();   // une offre par mois et par adversaire
 
@@ -721,6 +722,10 @@ export class Monde {
                      ...v.barometres });
       if (v.histo.length > 400) v.histo.shift();
     }
+
+    // Une partie sans fin ne doit rien accumuler sans limite : le journal ne
+    // garde que ce qui est encore lisible.
+    if (this.journal.length > 200) this.journal.splice(0, this.journal.length - 200);
 
     return true;
   }
