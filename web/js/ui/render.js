@@ -147,13 +147,17 @@ export class Rendu {
   // pour laisser la donnée parler.
   get sousFiltre() { return !!(this.filtre || this.filtrePrix || this.filtreRdt); }
 
-  // La rentabilité d'un bâtiment, ramenée sur l'échelle commune. Le vert est
-  // calé sur 20 % l'an — le rendement visé de la transformation, au milieu du
-  // barème — et le rouge sur zéro. Caler le vert sur les 25 % de la
-  // manufacture rendrait la carte uniformément orange : le vert doit désigner
-  // ce qui marche bien, pas seulement ce qui marche le mieux.
+  // La rentabilité d'un bâtiment sur l'échelle commune. On ne compare pas des
+  // pourcentages bruts — une coupe forestière vise 15 %, une manufacture 25 %,
+  // et les mettre côte à côte sur la même règle punirait la première pour une
+  // promesse qu'elle n'a jamais faite. On lit donc la TENUE : atteint-il le
+  // rendement que le barème lui assigne ?
+  //
+  //   rouge  : il ne rapporte rien, ou il perd
+  //   jaune  : il tient la moitié de sa promesse
+  //   vert   : il atteint son rendement visé, ou le dépasse
   teinteRendement(b) {
-    return echelle(b.rendement(this.monde.multiple) / 0.20);
+    return echelle(b.tenue());
   }
 
   // Les bâtiments changent au mois, pas à l'image : on tient une liste à plat.

@@ -6,7 +6,7 @@
 // perdrait le contexte de ce qu'il inspecte. (§21)
 // ---------------------------------------------------------------------------
 
-import { P, BAT, RES, RELIEFS, QUALITES, materiaux, coutRef, prixTerrain }
+import { P, BAT, RES, RELIEFS, QUALITES, materiaux, coutRef, prixTerrain, rendementVise }
   from '../sim/params.js';
 import { estAchetable } from '../sim/mapgen.js';
 import { COULEURS, echelle } from './render.js';
@@ -208,14 +208,16 @@ function ficheBatiment(monde, b, c) {
   const independant = !b.societe;
   const proprio = independant ? 'Propriétaire indépendant' : b.societe.nom;
 
-  const rdt = b.rendement(monde.multiple);
+  const rdt = b.rendement;
+  const vise = rendementVise(b.type);
   const seuil = b.seuilActivite(m);
 
   // --- Ce qu'il rapporte ---------------------------------------------------
   const exploitation = `
     <div class="grille">
       <div class="fiche"><div class="etiq">Rentabilité</div>
-        <div class="v" style="color:${rgb(echelle(rdt / 0.25))}">${(rdt * 100).toFixed(1)} %</div></div>
+        <div class="v" style="color:${rgb(echelle(b.tenue()))}">${(rdt * 100).toFixed(1)} %</div>
+        <div class="etiq" style="margin-top:2px">visé ${(vise * 100).toFixed(0)} %</div></div>
       <div class="fiche"><div class="etiq">Résultat du mois</div>
         <div class="v ${b.resultat >= 0 ? 'vert' : 'rouge'}">${eur(b.resultat)}</div></div>
       <div class="fiche"><div class="etiq">Profit sur 12 mois</div>
@@ -225,7 +227,14 @@ function ficheBatiment(monde, b, c) {
         <div class="v doux">${b.entretien.toFixed(2)} $</div></div>
       <div class="fiche"><div class="etiq">Valeur</div>
         <div class="v">${eur(b.valeur(monde.multiple))}</div></div>
-    </div>`;
+      <div class="fiche"><div class="etiq">Prix de revient</div>
+        <div class="v doux">${eur(b.prixDeRevient)}</div></div>
+    </div>
+    <div class="note">La rentabilité se mesure sur le prix de revient — terrain et matériaux
+      au prix du jour — et se compare au rendement que le barème assigne à son palier.
+      ${rdt >= vise ? '<span class="vert">Ce bâtiment tient sa promesse.</span>'
+        : rdt <= 0 ? '<span class="rouge">Il ne rapporte rien.</span>'
+        : `<span class="doux">Il en tient ${Math.round(b.tenue() * 100)} %.</span>`}</div>`;
 
   // --- Ce qu'il consomme, et ce qui lui manque -----------------------------
   let intrants = '';

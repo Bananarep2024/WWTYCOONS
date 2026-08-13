@@ -203,13 +203,15 @@ export function voletSociete(monde) {
       <td><span class="puce" style="background:${COULEURS[b.type]}"></span>${BAT[b.type].nom}</td>
       <td class="doux">${b.ville.nom.slice(0, 8)}</td>
       <td class="n">${pct(b.tauxReel)}</td>
+      <td class="n" style="color:${rgb(echelle(b.tenue()))}">${(b.rendement * 100).toFixed(0)} %</td>
       <td class="n ${cl(b.resultat)}">${eur(b.resultat)}</td>
     </tr>`).join('');
 
   return enTete + `
     <h3>Exploitation du mois</h3>
     <table>
-      <tr><th>Bâtiment</th><th>Ville</th><th class="n">Activité</th><th class="n">Résultat</th></tr>
+      <tr><th>Bâtiment</th><th>Ville</th><th class="n">Activ.</th>
+          <th class="n">Rdt</th><th class="n">Résultat</th></tr>
       ${lignes}
     </table>
 

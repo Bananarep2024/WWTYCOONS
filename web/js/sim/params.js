@@ -137,6 +137,20 @@ export function entretien(type, valeurBatie) {
   return (valeurBatie ?? coutRef(type)) * P.entretienAnnuel / 12;
 }
 
+// Le rendement annuel que chaque palier est censé rendre, à cent pour cent
+// d'utilisation et aux prix de référence, entretien déduit. C'est de lui que le
+// barème déduit les coûts de construction — et c'est la seule référence qui
+// permette de dire si un bâtiment tient sa promesse.
+export const RENDEMENT_VISE = {
+  expl: 0.15, trans: 0.20, manu: 0.25, bur: 0.12, neg: 0,
+};
+
+export function rendementVise(type) {
+  const b = BAT[type];
+  if (b.cat === 'loge') return type === 'maison' ? 0.15 : 0.20;
+  return RENDEMENT_VISE[b.cat] ?? 0.15;
+}
+
 // --- Terrain ----------------------------------------------------------------
 
 export const RELIEFS = {

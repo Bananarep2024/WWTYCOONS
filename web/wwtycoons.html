@@ -503,6 +503,20 @@ function entretien(type, valeurBatie) {
   return (valeurBatie ?? coutRef(type)) * P.entretienAnnuel / 12;
 }
 
+// Le rendement annuel que chaque palier est censé rendre, à cent pour cent
+// d'utilisation et aux prix de référence, entretien déduit. C'est de lui que le
+// barème déduit les coûts de construction — et c'est la seule référence qui
+// permette de dire si un bâtiment tient sa promesse.
+const RENDEMENT_VISE = {
+  expl: 0.15, trans: 0.20, manu: 0.25, bur: 0.12, neg: 0,
+};
+
+function rendementVise(type) {
+  const b = BAT[type];
+  if (b.cat === 'loge') return type === 'maison' ? 0.15 : 0.20;
+  return RENDEMENT_VISE[b.cat] ?? 0.15;
+}
+
 // --- Terrain ----------------------------------------------------------------
 
 const RELIEFS = {
@@ -1236,11 +1250,28 @@ class Batiment {
     return this.resultat;
   }
 
-  // Ce que le bâtiment rapporte, rapporté à ce qu'il vaut. C'est le seul
-  // chiffre qui permette de comparer une coupe forestière à une manufacture.
-  rendement(multiple) {
-    const v = this.valeur(multiple);
-    return v > 0 ? this.profitAnnuel / v : 0;
+  // Ce que le bâtiment rapporte, rapporté à ce qu'il a coûté — terrain et
+  // matériaux au prix du jour.
+  //
+  // Surtout pas rapporté à sa VALEUR : celle-ci vaut « base + 10 × profit », si
+  // bien que profit ÷ valeur tend vers 1/10 quel que soit le profit et ne peut
+  // jamais dépasser 10 %. Un rendement mesuré ainsi ne dit rien — il mesure le
+  // multiple de valorisation, pas la performance du bâtiment.
+  get prixDeRevient() { return this.terrainCourant + this.valeurBatie; }
+
+  get rendement() {
+    const base = this.prixDeRevient;
+    return base > 0 ? this.profitAnnuel / base : 0;
+  }
+
+  // Tient-il sa promesse ? De 0 (rien, ou perte) à 1 (il atteint son rendement
+  // visé) et au-delà. C'est cette mesure-là, et non le rendement brut, qui
+  // permet de comparer une coupe forestière à une manufacture : les deux n'ont
+  // jamais eu la même promesse à tenir.
+  tenue() {
+    const vise = rendementVise(this.type);
+    if (vise <= 0) return 0;
+    return this.rendement / vise;
   }
 
   // Ce qu'il a demandé, ce qu'il a reçu. Un atelier ne souffre jamais d'un prix
@@ -2964,13 +2995,17 @@ class Rendu {
   // pour laisser la donnée parler.
   get sousFiltre() { return !!(this.filtre || this.filtrePrix || this.filtreRdt); }
 
-  // La rentabilité d'un bâtiment, ramenée sur l'échelle commune. Le vert est
-  // calé sur 20 % l'an — le rendement visé de la transformation, au milieu du
-  // barème — et le rouge sur zéro. Caler le vert sur les 25 % de la
-  // manufacture rendrait la carte uniformément orange : le vert doit désigner
-  // ce qui marche bien, pas seulement ce qui marche le mieux.
+  // La rentabilité d'un bâtiment sur l'échelle commune. On ne compare pas des
+  // pourcentages bruts — une coupe forestière vise 15 %, une manufacture 25 %,
+  // et les mettre côte à côte sur la même règle punirait la première pour une
+  // promesse qu'elle n'a jamais faite. On lit donc la TENUE : atteint-il le
+  // rendement que le barème lui assigne ?
+  //
+  //   rouge  : il ne rapporte rien, ou il perd
+  //   jaune  : il tient la moitié de sa promesse
+  //   vert   : il atteint son rendement visé, ou le dépasse
   teinteRendement(b) {
-    return echelle(b.rendement(this.monde.multiple) / 0.20);
+    return echelle(b.tenue());
   }
 
   // Les bâtiments changent au mois, pas à l'image : on tient une liste à plat.
@@ -3476,13 +3511,15 @@ function voletSociete(monde) {
       <td><span class="puce" style="background:${COULEURS[b.type]}"></span>${BAT[b.type].nom}</td>
       <td class="doux">${b.ville.nom.slice(0, 8)}</td>
       <td class="n">${pct(b.tauxReel)}</td>
+      <td class="n" style="color:${rgb(echelle(b.tenue()))}">${(b.rendement * 100).toFixed(0)} %</td>
       <td class="n ${cl(b.resultat)}">${eur(b.resultat)}</td>
     </tr>`).join('');
 
   return enTete + `
     <h3>Exploitation du mois</h3>
     <table>
-      <tr><th>Bâtiment</th><th>Ville</th><th class="n">Activité</th><th class="n">Résultat</th></tr>
+      <tr><th>Bâtiment</th><th>Ville</th><th class="n">Activ.</th>
+          <th class="n">Rdt</th><th class="n">Résultat</th></tr>
       ${lignes}
     </table>
 
@@ -3759,14 +3796,16 @@ function ficheBatiment(monde, b, c) {
   const independant = !b.societe;
   const proprio = independant ? 'Propriétaire indépendant' : b.societe.nom;
 
-  const rdt = b.rendement(monde.multiple);
+  const rdt = b.rendement;
+  const vise = rendementVise(b.type);
   const seuil = b.seuilActivite(m);
 
   // --- Ce qu'il rapporte ---------------------------------------------------
   const exploitation = `
     <div class="grille">
       <div class="fiche"><div class="etiq">Rentabilité</div>
-        <div class="v" style="color:${rgb(echelle(rdt / 0.25))}">${(rdt * 100).toFixed(1)} %</div></div>
+        <div class="v" style="color:${rgb(echelle(b.tenue()))}">${(rdt * 100).toFixed(1)} %</div>
+        <div class="etiq" style="margin-top:2px">visé ${(vise * 100).toFixed(0)} %</div></div>
       <div class="fiche"><div class="etiq">Résultat du mois</div>
         <div class="v ${b.resultat >= 0 ? 'vert' : 'rouge'}">${eur(b.resultat)}</div></div>
       <div class="fiche"><div class="etiq">Profit sur 12 mois</div>
@@ -3776,7 +3815,14 @@ function ficheBatiment(monde, b, c) {
         <div class="v doux">${b.entretien.toFixed(2)} $</div></div>
       <div class="fiche"><div class="etiq">Valeur</div>
         <div class="v">${eur(b.valeur(monde.multiple))}</div></div>
-    </div>`;
+      <div class="fiche"><div class="etiq">Prix de revient</div>
+        <div class="v doux">${eur(b.prixDeRevient)}</div></div>
+    </div>
+    <div class="note">La rentabilité se mesure sur le prix de revient — terrain et matériaux
+      au prix du jour — et se compare au rendement que le barème assigne à son palier.
+      ${rdt >= vise ? '<span class="vert">Ce bâtiment tient sa promesse.</span>'
+        : rdt <= 0 ? '<span class="rouge">Il ne rapporte rien.</span>'
+        : `<span class="doux">Il en tient ${Math.round(b.tenue() * 100)} %.</span>`}</div>`;
 
   // --- Ce qu'il consomme, et ce qui lui manque -----------------------------
   let intrants = '';

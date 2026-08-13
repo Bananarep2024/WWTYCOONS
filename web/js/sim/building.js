@@ -9,7 +9,8 @@
 // pertes et qui fixe le seuil d'activité.
 // ---------------------------------------------------------------------------
 
-import { P, BAT, materiaux, coutRef, loyer, prixTerrain } from './params.js';
+import { P, BAT, materiaux, coutRef, loyer, prixTerrain, rendementVise }
+  from './params.js';
 
 let _idBatiment = 1;
 
@@ -246,11 +247,28 @@ export class Batiment {
     return this.resultat;
   }
 
-  // Ce que le bâtiment rapporte, rapporté à ce qu'il vaut. C'est le seul
-  // chiffre qui permette de comparer une coupe forestière à une manufacture.
-  rendement(multiple) {
-    const v = this.valeur(multiple);
-    return v > 0 ? this.profitAnnuel / v : 0;
+  // Ce que le bâtiment rapporte, rapporté à ce qu'il a coûté — terrain et
+  // matériaux au prix du jour.
+  //
+  // Surtout pas rapporté à sa VALEUR : celle-ci vaut « base + 10 × profit », si
+  // bien que profit ÷ valeur tend vers 1/10 quel que soit le profit et ne peut
+  // jamais dépasser 10 %. Un rendement mesuré ainsi ne dit rien — il mesure le
+  // multiple de valorisation, pas la performance du bâtiment.
+  get prixDeRevient() { return this.terrainCourant + this.valeurBatie; }
+
+  get rendement() {
+    const base = this.prixDeRevient;
+    return base > 0 ? this.profitAnnuel / base : 0;
+  }
+
+  // Tient-il sa promesse ? De 0 (rien, ou perte) à 1 (il atteint son rendement
+  // visé) et au-delà. C'est cette mesure-là, et non le rendement brut, qui
+  // permet de comparer une coupe forestière à une manufacture : les deux n'ont
+  // jamais eu la même promesse à tenir.
+  tenue() {
+    const vise = rendementVise(this.type);
+    if (vise <= 0) return 0;
+    return this.rendement / vise;
   }
 
   // Ce qu'il a demandé, ce qu'il a reçu. Un atelier ne souffre jamais d'un prix
