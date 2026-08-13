@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>WWTycoons — démo économique</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header id="barre">
+  <div class="bloc">
+    <div class="etiq">Date</div>
+    <div class="val" id="date">An 1 · janvier</div>
+    <div class="sous" id="restant">60 mois restants</div>
+  </div>
+  <div class="bloc">
+    <div class="etiq">Trésorerie</div>
+    <div class="val argent" id="tresorerie">15 000 $</div>
+    <div class="sous" id="resultat">—</div>
+  </div>
+  <div class="bloc">
+    <div class="etiq">Cours de l'action</div>
+    <div class="val" id="cours">1,00 $</div>
+    <div class="sous" id="actifnet">actif net 15 000 $</div>
+  </div>
+  <div class="bloc">
+    <div class="etiq">Votre fortune</div>
+    <div class="val or" id="fortune">1 500 $</div>
+    <div class="sous">10 % du capital</div>
+  </div>
+  <div class="bloc croissant">
+    <div class="etiq">Climat</div>
+    <div class="val" id="climat">Normal</div>
+    <div class="sous" id="rang">—</div>
+  </div>
+  <div class="commandes">
+    <button id="btnPause" class="cmd majeur">▶ Démarrer</button>
+    <button data-vitesse="1" class="cmd vit actif">×1</button>
+    <button data-vitesse="4" class="cmd vit">×4</button>
+    <button data-vitesse="20" class="cmd vit">×20</button>
+  </div>
+</header>
+
+<main>
+  <section id="colGauche">
+    <nav id="ongletsVilles"></nav>
+    <div id="zoneCarte">
+      <canvas id="carte"></canvas>
+      <div id="legende"></div>
+    </div>
+    <nav id="modesCarte">
+      <button data-mode="fonction" class="actif">Fonction</button>
+      <button data-mode="proprio">Propriétaire</button>
+      <button data-mode="fertilite">Fertilité</button>
+      <button data-mode="bois">Bois</button>
+      <button data-mode="argile">Argile</button>
+      <button data-mode="charbon">Charbon</button>
+      <button data-mode="minerai">Minerai</button>
+      <button data-mode="terrain">Prix du sol</button>
+    </nav>
+  </section>
+
+  <aside id="colDroite">
+    <nav id="ongletsPanneau">
+      <button data-onglet="ville" class="actif">Ville</button>
+      <button data-onglet="marche">Marché</button>
+      <button data-onglet="comptes">Comptes</button>
+      <button data-onglet="rail">Rail</button>
+    </nav>
+    <div id="panneau"></div>
+  </aside>
+</main>
+
+<div id="feuille" class="fermee">
+  <div id="feuillePoignee"></div>
+  <div id="feuilleCorps"></div>
+</div>
+
+<div id="finPartie" class="cachee"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

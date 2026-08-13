@@ -1,0 +1,285 @@
+// ---------------------------------------------------------------------------
+// Le bâtiment.
+//
+//   résultat mensuel = taux d'activité × marge brute − entretien
+//
+// Les trois lignes se contractent ensemble : un atelier à moitié achète la
+// moitié de ses intrants, paie la moitié de ses salaires et vend la moitié de
+// sa production. Seul l'entretien ne bouge jamais — c'est lui qui borne les
+// pertes et qui fixe le seuil d'activité.
+// ---------------------------------------------------------------------------
+
+import { P, BAT, materiaux, coutRef, loyer, prixTerrain } from './params.js';
+
+let _id = 1;
+
+export class Batiment {
+  constructor(type, ville, cases, societe) {
+    this.id = _id++;
+    this.type = type;
+    this.def = BAT[type];
+    this.ville = ville;
+    this.cases = cases;                 // les cases occupées
+    this.societe = societe;
+    this.activite = 1.0;                // curseur 0 → 1, réglable par le joueur
+    this.versEntrepot = false;          // affecter la production à son entrepôt
+    this.age = 0;
+    this.moisVide = 0;
+
+    // La facture a été établie au prix du marché du jour où le chantier a été
+    // ouvert : un bâtiment ne coûte jamais deux fois la même chose.
+    this.valeurBatie = coutRef(type);
+    this.terrain = cases.reduce((s, c) => s + (c.prixPaye || 0), 0);
+
+    // Qualité du sol : la sortie d'une exploitation vaut base × qualité ÷ 3.
+    // Elle ne joue jamais sur la transformation.
+    this.qualite = 3;
+    if (this.def.qual) {
+      this.qualite = cases.reduce((s, c) => s + c.q[this.def.qual], 0) / cases.length;
+    }
+
+    this.production = 0;
+    this.tauxReel = 0;
+    this.resultat = 0;
+    this.margeUnitaire = 0;
+    this.histo = [];                    // résultats des 12 derniers mois
+    this.alerte = null;                 // 'matieres' | 'bras' | 'invendus' | 'perte'
+    this.recu = {};
+  }
+
+  get n() { return this.def.cases; }
+  get enSommeil() { return this.activite <= 0.001; }
+
+  // Le loyer d'un bâtiment plein. Il ne découle pas d'un barème mais du
+  // foncier : loyer = rendement × (terrain + construction) ÷ 12 + entretien.
+  // C'est ce qui fait qu'acheter tôt paie deux fois — le loyer monte avec la
+  // ville, mais le rendement du joueur se calcule sur le prix qu'il a payé.
+  get loyerPlein() {
+    if (this.def.cat === 'loge') {
+      return loyer(this.type, this.terrainCourant, this.valeurBatie);
+    }
+    if (this.def.cat === 'bur') {
+      const rdtParNiveau = [0.12, 0.14, 0.16, 0.18, 0.20];
+      const rdt = rdtParNiveau[this.ville.niveau - 1];
+      return rdt * (this.terrainCourant + this.valeurBatie) / 12 + this.entretien;
+    }
+    return 0;
+  }
+
+  // Valeur actuelle du terrain sous le bâtiment : elle suit le niveau de la
+  // ville. Une usine sans profit implantée dans une ville qui a grandi prend
+  // malgré tout de la valeur.
+  get terrainCourant() {
+    return this.cases.reduce((s, c) =>
+      s + prixTerrain(this.ville.niveau, c.distanceGare), 0);
+  }
+
+  get entretien() { return this.valeurBatie * P.entretienAnnuel / 12; }
+  get masseSalarialePleine() { return this.n * P.salaireCase; }
+
+  // Capacité de production, qualité du sol comprise.
+  get capacite() {
+    if (!this.def.sort) return 0;
+    return this.def.debit * this.n * (this.def.qual ? this.qualite / 3 : 1);
+  }
+
+  besoinsIntrants() {
+    const out = {};
+    for (const [r, q] of Object.entries(this.def.intrants || {})) out[r] = q * this.n * this.activite;
+    return out;
+  }
+
+  // Marge brute unitaire aux prix du marché du jour. C'est le seul chiffre qui
+  // compte : le danger vient toujours de l'ÉCART entre le prix d'entrée et le
+  // prix de sortie, jamais d'un prix seul.
+  margeBrute(marche) {
+    if (!this.def.sort) return 0;
+    const recette = this.capacite * marche.prix[this.def.sort];
+    let couts = this.masseSalarialePleine;
+    for (const [r, q] of Object.entries(this.def.intrants || {})) {
+      couts += q * this.n * marche.prix[r];
+    }
+    return recette - couts;
+  }
+
+  // Le taux d'activité sous lequel la marge ne couvre plus l'entretien.
+  seuilActivite(marche) {
+    const mb = this.margeBrute(marche);
+    return mb <= 0 ? Infinity : this.entretien / mb;
+  }
+
+  // --- Le mois -------------------------------------------------------------
+
+  // 1. Déclarer ses besoins au marché et à la ville.
+  declarer(marche) {
+    if (this.def.cat === 'loge' || this.def.cat === 'bur' || this.def.cat === 'neg') {
+      return;
+    }
+    // Un atelier dont la marge brute est négative — la valeur de ce qu'il
+    // produit tombe sous le coût de ce qu'il consomme — arrête sa production de
+    // lui-même et retombe à son seul entretien.
+    if (this.margeBrute(marche) < 0 && !this.forcer) {
+      this.activiteEffective = 0;
+      this.alerte = 'perte';
+      return;
+    }
+    this.activiteEffective = this.activite;
+    for (const [r, q] of Object.entries(this.besoinsIntrants())) marche.demander(r, q);
+
+    // Le prix de revient réel fait plancher sur ce marché.
+    if (this.def.sort && this.capacite > 0) {
+      let c = this.masseSalarialePleine + this.entretien;
+      for (const [r, q] of Object.entries(this.def.intrants || {})) c += q * this.n * marche.prix[r];
+      marche.declarerRevient(this.def.sort, c / this.capacite);
+    }
+  }
+
+  // 2. Recevoir intrants et main-d'œuvre, produire, tenir ses comptes.
+  produire(marche, partBras) {
+    this.age++;
+    this.alerte = null;
+    const ent = this.entretien;
+
+    // Logement : n'est exposé que du côté du coût. Il achète — ses matériaux au
+    // chantier, puis son entretien — mais ne vend jamais de marchandise. Sa
+    // recette est un loyer, fixé par le développement de la ville, pas par la
+    // bourse. Le taux d'occupation est celui de la ville entière, partagé par
+    // tous les propriétaires.
+    if (this.def.cat === 'loge') {
+      this.production = 0;
+      this.tauxReel = this.vacantePenurie ? 0 : this.ville.occupation;
+      this.resultat = this.loyerPlein * this.tauxReel - ent;
+      if (this.tauxReel < 0.3) this.alerte = 'invendus';
+      return this.cloturer();
+    }
+
+    // Bureaux : le seul argent qui entre du dehors. Ils louent 20 postes à des
+    // sociétés extérieures à la carte, dont les salaires financent une
+    // consommation que la ville n'a pas eu à produire. Un poste vide ne
+    // rapporte rien — c'est ce qui les borne.
+    if (this.def.cat === 'bur') {
+      const occ = Math.max(0, Math.min(1, partBras));
+      this.production = 0;
+      this.tauxReel = occ;
+      this.resultat = this.loyerPlein * occ - ent;
+      if (occ < 0.5) this.alerte = 'bras';
+      return this.cloturer();
+    }
+
+    // Entrepôt : ne rapporte rien, coûte ses salaires et son entretien. C'est
+    // cette charge fixe qui rend le stockage massif coûteux, donc risqué.
+    if (this.def.cat === 'neg') {
+      this.production = 0;
+      this.tauxReel = 1;
+      this.resultat = -(this.masseSalarialePleine + ent);
+      return this.cloturer();
+    }
+
+    // Mise en sommeil : plus de matières, plus de salaires, plus de production.
+    // Le bâtiment reste debout moyennant un entretien réduit et se rallume
+    // quand le marché repart.
+    if (this.enSommeil || this.activiteEffective <= 0) {
+      this.production = 0;
+      this.tauxReel = 0;
+      this.resultat = -(ent + this.masseSalarialePleine * P.entretienSommeil);
+      return this.cloturer();
+    }
+
+    // Loi du minimum stricte : une scierie qui ne reçoit qu'un tiers de son bois
+    // tourne à un tiers, quel que soit le nombre d'ouvriers disponibles. On ne
+    // scie pas du bois qu'on n'a pas.
+    let ratioMat = 1;
+    const besoins = this.besoinsIntrants();
+    this.recu = {};
+    for (const [r, q] of Object.entries(besoins)) {
+      const obtenu = marche.prendre(r, q);
+      this.recu[r] = obtenu;
+      if (q > 0) ratioMat = Math.min(ratioMat, obtenu / q);
+    }
+
+    // Sous 15 % de ses besoins en matières, un bâtiment s'arrête complètement
+    // et ne paie plus que son entretien : on ne rallume pas une scierie pour
+    // produire trois planches par mois.
+    if (Object.keys(besoins).length && ratioMat < P.seuilMatieres) {
+      for (const [r, o] of Object.entries(this.recu)) marche.offrir(r, o); // on rend
+      this.production = 0; this.tauxReel = 0;
+      this.resultat = -ent;
+      this.alerte = 'matieres';
+      return this.cloturer();
+    }
+
+    const taux = this.activiteEffective * Math.min(ratioMat, partBras);
+    this.tauxReel = taux;
+    this.production = this.capacite * taux;
+
+    const prixSortie = marche.prix[this.def.sort];
+    const recette = this.production * prixSortie;
+    let achats = 0;
+    for (const [r, o] of Object.entries(this.recu)) achats += o * marche.prix[r];
+    const salaires = this.masseSalarialePleine * taux;
+
+    this.resultat = recette - achats - salaires - ent;
+    this.margeUnitaire = this.production > 0
+      ? (recette - achats - salaires) / this.production : 0;
+
+    // La production part sur le marché — sauf si le joueur l'affecte à son
+    // entrepôt, ce qui réduit directement les entrées et fait monter le prix.
+    if (this.versEntrepot && this.societe && this.societe.entrepotDans(this.ville)) {
+      this.societe.stocker(this.ville, this.def.sort, this.production);
+    } else {
+      marche.offrir(this.def.sort, this.production);
+    }
+
+    if (ratioMat < 0.9) this.alerte = 'matieres';
+    else if (partBras < 0.9) this.alerte = 'bras';
+    else if (this.resultat < 0) this.alerte = 'perte';
+
+    return this.cloturer();
+  }
+
+  cloturer() {
+    this.histo.push(this.resultat);
+    if (this.histo.length > P.fenetreProfit) this.histo.shift();
+    // Une case qui reste vide un an ferme : la fermeture libère les bras, le
+    // foncier et le droit de rebâtir ailleurs.
+    if (this.tauxReel <= 0.01) this.moisVide++; else this.moisVide = 0;
+    return this.resultat;
+  }
+
+  get profitAnnuel() {
+    const s = this.histo.reduce((a, b) => a + b, 0);
+    return this.histo.length ? s * 12 / this.histo.length : 0;
+  }
+
+  // Valeur : un profit se projette sur la durée, une perte se répare — les deux
+  // multiplicateurs ne sont pas les mêmes, et ce n'est pas arbitraire.
+  valeur(multiple) {
+    const base = this.terrainCourant + this.valeurBatie;
+    const p = this.profitAnnuel;
+    const v = p >= 0 ? base + multiple * p : base - P.malusPerte * p * -1;
+    const plancher = base - P.malusPerte * this.entretien * 12;
+    return Math.max(plancher, v);
+  }
+
+  // Ce que le bâtiment demande au marché du travail ce mois-ci.
+  get postesDemandes() {
+    if (this.def.cat === 'loge') return 0;                  // une maison n'emploie personne
+    if (this.def.cat === 'bur') return this.def.postes;
+    if (this.def.cat === 'neg') return this.n;
+    return this.n * (this.activiteEffective ?? this.activite);
+  }
+
+  // Ce qu'il emploie RÉELLEMENT, une fois le mois écoulé. C'est ce chiffre — et
+  // jamais la capacité installée — qui dit s'il reste de la main-d'œuvre pour un
+  // nouveau chantier : une usine à l'arrêt ne mobilise personne. En comptant les
+  // postes théoriques, la simulation refusait de construire une minoterie alors
+  // qu'un travailleur sur cinq était sans emploi, et la ville restait bloquée
+  // pendant des années sans qu'on comprenne pourquoi.
+  get postesPourvus() {
+    if (this.def.cat === 'loge') return 0;
+    if (this.def.cat === 'bur') return this.def.postes * (this.tauxReel || 0);
+    if (this.def.cat === 'neg') return this.n;
+    return this.n * (this.tauxReel || 0);
+  }
+}
+
