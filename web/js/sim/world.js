@@ -14,15 +14,17 @@
 
 import { P, RES, RESSOURCES, BAT, NOURRITURES, materiaux, coutRef,
          niveauVille, prixTerrain } from './params.js';
-import { genererCarte, caseAt, estAchetable } from './mapgen.js';
+import { genererMonde, estAchetable } from './mapgen.js';
 import { Marche } from './market.js';
 import { Batiment } from './building.js';
 import { Societe, Chantier } from './company.js';
 import { piloterVille, piloterSociete } from './ai.js';
 
 export class Monde {
-  constructor({ nbVilles = 3, duree = 60, graine = Date.now() } = {}) {
-    const carte = genererCarte(nbVilles, graine);
+  constructor({ nbVilles = 5, duree = 60, graine = Date.now() } = {}) {
+    const carte = genererMonde(nbVilles, graine);
+    this.L = carte.L; this.H = carte.H;
+    this.cases = carte.cases;              // une seule grille pour tout le monde
     this.villes = carte.villes;
     this.liaisons = carte.liaisons;
     this.graine = graine;
@@ -47,6 +49,11 @@ export class Monde {
 
     this.recomposerMarches();
     this.amorcer();
+  }
+
+  caseAt(x, y) {
+    if (x < 0 || y < 0 || x >= this.L || y >= this.H) return null;
+    return this.cases[y * this.L + x];
   }
 
   get multiple() {
@@ -176,25 +183,33 @@ export class Monde {
   // --- Foncier --------------------------------------------------------------
 
   prixCase(ville, c) {
-    const base = prixTerrain(ville.niveau, c.distanceGare);
+    const base = prixTerrain((c.ville || ville).niveau, c.distanceGare);
     return c.proprio === 'ind' ? base * P.surprixIndependants : base;
   }
 
+  // Où va quel bâtiment. Les quartiers ne sont pas décoratifs : ils empêchent
+  // les ateliers de cerner les maisons, et donnent à chaque ville un plan qui
+  // lui est propre.
+  static VOCATION_PREFEREE = {
+    loge: 'residentiel', bur: 'residentiel', neg: 'negoce',
+    trans: 'industriel', manu: 'industriel', expl: 'agricole',
+  };
+
   // Cherche la meilleure emprise libre de la bonne forme. Les exploitations
   // vont là où le sol est bon — une ferme sur une terre de qualité 5 sort une
-  // fois et demie ce que sort la même ferme sur une qualité 3 ; le reste se
+  // fois et demie ce que sort la même ferme sur une qualité 3 ; le logement se
   // serre autour de la gare, là où le foncier est cher mais la ville dense.
   trouverEmplacement(ville, type, societe) {
     const def = BAT[type];
-    const N = ville.N;
+    const voulu = Monde.VOCATION_PREFEREE[def.cat];
     let meilleur = null, meilleurScore = -Infinity;
 
-    for (let y = 0; y + def.h <= N; y++) for (let x = 0; x + def.w <= N; x++) {
+    for (const depart of ville.cases) {
       const cases = [];
       let ok = true;
       for (let dy = 0; dy < def.h && ok; dy++) for (let dx = 0; dx < def.w && ok; dx++) {
-        const c = caseAt(ville, x + dx, y + dy);
-        if (!c || c.voie || c.rue || c.bat || c.chantier) { ok = false; break; }
+        const c = this.caseAt(depart.x + dx, depart.y + dy);
+        if (!c || c.ville !== ville || c.voie || c.rue || c.bat || c.chantier) { ok = false; break; }
         // Une société doit posséder toutes les cases de l'emprise ; le parc de
         // l'ordinateur s'installe sur les terres restées aux indépendants.
         if (societe && c.proprio !== societe.id) { ok = false; break; }
@@ -203,13 +218,27 @@ export class Monde {
       }
       if (!ok || cases.length !== def.cases) continue;
 
-      // Le foncier est d'autant plus recherché qu'il est proche de la gare,
-      // mais une exploitation préfère toujours la bonne terre.
-      let score = -cases[0].distanceGare;
+      let score = 0;
+
+      // Le quartier d'abord. On n'interdit rien — une ville doit toujours
+      // pouvoir bâtir quelque part — mais on décourage franchement.
+      const q = cases[0].quartier;
+      if (q === voulu) score += 90;
+      else if (voulu === 'residentiel' && q === 'negoce') score += 30;
+      else if (voulu === 'industriel' && q === 'negoce') score += 30;
+      else if (voulu === 'agricole' && q === 'industriel') score += 25;
+      // Une usine dans un quartier d'habitation est le seul cas vraiment banni.
+      else if (q === 'residentiel' && (def.cat === 'trans' || def.cat === 'manu')) score -= 70;
+
       if (def.qual) {
-        const q = cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length;
-        score = q * 40 - cases[0].distanceGare * 0.5;
+        // Une exploitation suit la ressource : c'est la seule chose qui compte.
+        const moy = cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length;
+        score += moy * 45 - cases[0].distanceGare * 0.4;
+      } else {
+        // Le reste se rapproche de la gare, où la ville est dense.
+        score += -cases[0].distanceGare * 1.4;
       }
+
       if (score > meilleurScore) { meilleurScore = score; meilleur = cases; }
     }
     return meilleur;
@@ -250,7 +279,7 @@ export class Monde {
   }
 
   acheterTerrain(ville, c, societe) {
-    if (!estAchetable(ville, c) && c.proprio !== 'ind') return false;
+    if (!estAchetable(this, c) && c.proprio !== 'ind') return false;
     const prix = this.prixCase(ville, c);
     if (!societe.peutPayer(prix)) return false;
     societe.payer(prix);

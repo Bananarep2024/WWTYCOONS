@@ -73,7 +73,7 @@ ok('case contre la gare, métropole', prixTerrain(5, 0), 400, 0.01);
 ok('case à 32 cases, métropole', prixTerrain(5, 32), 175.4, 0.02);
 
 console.log('\n=== Vingt ans de simulation, sans joueur ===');
-const monde = new Monde({ nbVilles: 3, duree: 240, graine: 12345 });
+const monde = new Monde({ nbVilles: 5, duree: 240, graine: 12345 });
 const t0 = Date.now();
 while (monde.tick());
 const dt = Date.now() - t0;

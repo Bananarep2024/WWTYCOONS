@@ -54,8 +54,14 @@ export const P = {
   // Amorçage
   stockAmorcage: { planches: 800, briques: 400 },
 
-  // Carte
-  tailleVille: 48,             // 48 × 48 pour la démo (64 en production)
+  // Carte — une seule grille pour tout le monde
+  largeurMonde: 190,
+  hauteurMonde: 130,
+  margeMonde: 16,              // on ne fonde pas une ville au bord de la carte
+  rayonVille: 19,              // rayon moyen d'un territoire, dévié par ville
+  distanceMinVilles: 46,       // de centre à centre : sans quoi le rail n'a pas de sens
+  moisParCaseDeVoie: 0.42,     // une ligne longue demande plus de travail
+  menagesInitiaux: 80,         // toutes les villes démarrent au niveau 1 (Comptoir)
 };
 
 // --- Ressources -------------------------------------------------------------
@@ -134,10 +140,10 @@ export function entretien(type, valeurBatie) {
 // --- Terrain ----------------------------------------------------------------
 
 export const RELIEFS = {
-  plaine:   { nom: 'Plaine',   couleur: '#8fa361', biais: { fertilite: 2.0, argile: 1.5, bois: 0.6, charbon: 0.3, minerai: 0.2 } },
-  foret:    { nom: 'Forêt',    couleur: '#4f7042', biais: { fertilite: 0.9, argile: 0.6, bois: 2.4, charbon: 0.4, minerai: 0.3 } },
-  colline:  { nom: 'Colline',  couleur: '#9c8f6a', biais: { fertilite: 0.7, argile: 1.0, bois: 0.9, charbon: 2.0, minerai: 1.1 } },
-  montagne: { nom: 'Montagne', couleur: '#8a8a92', biais: { fertilite: 0.2, argile: 0.5, bois: 0.4, charbon: 1.3, minerai: 2.4 } },
+  plaine:   { nom: 'Plaine',   couleur: '#7f9455', biais: { fertilite: 2.1, argile: 1.6, bois: 0.5, charbon: 0.20, minerai: 0.15 } },
+  foret:    { nom: 'Forêt',    couleur: '#3f6238', biais: { fertilite: 0.9, argile: 0.6, bois: 2.5, charbon: 0.35, minerai: 0.25 } },
+  colline:  { nom: 'Colline',  couleur: '#8d8055', biais: { fertilite: 0.6, argile: 1.0, bois: 0.9, charbon: 2.3, minerai: 1.0 } },
+  montagne: { nom: 'Montagne', couleur: '#7d7a80', biais: { fertilite: 0.15, argile: 0.4, bois: 0.3, charbon: 1.2, minerai: 2.6 } },
 };
 
 export const QUALITES = ['fertilite', 'argile', 'bois', 'charbon', 'minerai'];

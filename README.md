@@ -81,9 +81,15 @@ vingt ans de simulation sans joueur. Résultats attendus :
 
 ## Ce que la démo couvre
 
-Format 20 minutes : 3 villes, 60 mois de 10 secondes, 1 joueur et 3 sociétés pilotées par
+Format 20 minutes : 5 villes, 60 mois de 10 secondes, 1 joueur et 3 sociétés pilotées par
 l'ordinateur.
 
+- **Une seule carte du monde** : cinq villes posées sur un relief, à distance minimale
+  garantie, reliées par un réseau ferroviaire où les liaisons se chaînent
+- **Bâtiments dessinés** — toits, dents de scie, silos, chevalements — et quartiers de
+  vocations distinctes : l'industrie ne cerne jamais l'habitation
+- **Filtres** en dégradé rouge → vert : qualité du sol case par case, baromètres ville par
+  ville, et le prix de chacune des douze marchandises sur les cinq villes
 - Marché foncier : contiguïté, propriétaires indépendants, prix selon le niveau et la distance
 - Douze ressources, trois niveaux de filière, qualité de sol de 1 à 5 par case
 - Prix formés sur les **flux**, rationnement au prorata, prix de revient local en plancher

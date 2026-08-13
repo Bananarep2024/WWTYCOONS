@@ -1,316 +1,348 @@
 <title>WWTycoons</title>
 <style>
-/* WWTycoons — démo. Sobre, dense, lisible sur téléphone comme sur écran large. */
+/* WWTycoons — la carte occupe tout l'écran, tout le reste flotte au-dessus.
+   Palette sépia et or : celle des papiers et des lampes de 1900, pas celle d'un
+   tableau de bord moderne. */
 
 :root {
-  --fond:       #14130f;
-  --fond2:      #1c1a15;
-  --fond3:      #24211a;
-  --bord:       #38332a;
-  --texte:      #e6e0d2;
-  --doux:       #a39a86;
-  --faible:     #6d6555;
-  --or:         #d9a441;
-  --vert:       #6faa72;
-  --rouge:      #c2544b;
-  --bleu:       #6f9fc9;
-  --joueur:     #d9a441;
+  --fond:    #14130f;
+  --fond2:   #1b1915;   /* les panneaux */
+  --fond3:   #262219;
+  --bord:    #3b352b;
+  --texte:   #ece6d6;
+  --doux:    #a89e88;
+  --faible:  #6f6656;
+  --or:      #e0b155;
+  --vert:    #5da560;
+  --rouge:   #c25a4e;
+  --voile:   rgba(20, 19, 15, .93);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-button:focus-visible, [tabindex]:focus-visible {
-  outline: 2px solid var(--or); outline-offset: 1px;
-}
-
+button:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
-  * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+  * { transition-duration: .01ms !important; }
 }
 
 body {
   background: var(--fond);
   color: var(--texte);
   font: 13px/1.45 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
-  height: 100vh;
-  height: 100dvh;
-  display: flex;
-  overscroll-behavior: none;
-  flex-direction: column;
+  height: 100vh; height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
 }
+
+#carte { position: fixed; inset: 0; display: block; touch-action: none; }
+
+.etiq   { font-size: 9px; text-transform: uppercase; letter-spacing: .09em; color: var(--faible); }
+.val    { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.sous   { font-size: 10px; color: var(--doux); font-variant-numeric: tabular-nums; }
+.or { color: var(--or); } .vert { color: var(--vert); } .rouge { color: var(--rouge); }
+.doux { color: var(--doux); } .faible { color: var(--faible); }
 
 /* ---------- Barre du haut ---------- */
 
 #barre {
-  display: flex;
-  align-items: stretch;
-  gap: 1px;
-  background: var(--bord);
-  border-bottom: 1px solid var(--bord);
-  flex: 0 0 auto;
-  overflow-x: auto;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+  display: flex; align-items: stretch; gap: 8px;
+  padding: calc(6px + env(safe-area-inset-top)) 8px 6px;
+  background: linear-gradient(180deg, rgba(16,15,12,.95) 60%, rgba(16,15,12,0));
+  pointer-events: none;
 }
-#barre .bloc {
-  background: var(--fond2);
-  padding: 7px 14px;
-  min-width: 120px;
-  flex: 0 0 auto;
-}
-#barre .bloc.croissant { flex: 1 1 auto; }
-.etiq { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--faible); }
-.val  { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.25; }
-.val.argent { color: var(--texte); }
-.val.or { color: var(--or); }
-.sous { font-size: 11px; color: var(--doux); font-variant-numeric: tabular-nums; }
+#barre > * { pointer-events: auto; }
 
-.commandes { background: var(--fond2); display: flex; align-items: center; gap: 5px; padding: 0 12px; }
+.jauges { display: flex; gap: 1px; background: var(--bord); border-radius: 4px; overflow: hidden; }
+.jauge  { background: var(--fond2); padding: 5px 10px; min-width: 78px; }
+
+.icones { display: flex; gap: 4px; flex: 1 1 auto; justify-content: center; }
+.ico {
+  background: var(--fond2); border: 1px solid var(--bord); border-radius: 4px;
+  color: var(--doux); cursor: pointer; font-family: inherit;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; padding: 4px 9px; min-width: 50px;
+}
+.ico svg { width: 19px; height: 19px; fill: currentColor; }
+.ico span { font-size: 9px; letter-spacing: .03em; }
+.ico:hover, .ico.actif { color: var(--or); border-color: var(--or); }
+
+.horloge { display: flex; gap: 4px; }
 .cmd {
+  background: var(--fond2); color: var(--texte); border: 1px solid var(--bord);
+  border-radius: 4px; padding: 6px 11px; cursor: pointer; font: inherit; font-size: 13px;
+  min-width: 44px;
+}
+.cmd.majeur { background: var(--or); color: #1a1710; border-color: var(--or); font-weight: 700; }
+
+/* ---------- Bandeau du filtre actif ---------- */
+
+#bandeauFiltre {
+  position: fixed; z-index: 9; left: 50%; transform: translateX(-50%);
+  top: calc(64px + env(safe-area-inset-top));
+  display: flex; align-items: center; gap: 10px;
+  background: var(--voile); border: 1px solid var(--bord); border-radius: 20px;
+  padding: 5px 6px 5px 14px; font-size: 12px; max-width: calc(100vw - 24px);
+}
+#bandeauFiltre.cachee { display: none; }
+#bandeauEchelle {
+  width: 96px; height: 8px; border-radius: 4px; flex: 0 0 auto;
+  background: linear-gradient(90deg, #b0362d, #c97a2e, #ceb23a, #5da560);
+}
+#btnQuitterFiltre {
+  background: var(--fond3); color: var(--doux); border: 1px solid var(--bord);
+  border-radius: 14px; padding: 5px 11px; cursor: pointer; font: inherit; font-size: 11px;
+}
+#btnQuitterFiltre:hover { color: var(--or); border-color: var(--or); }
+
+/* ---------- Outils de navigation ---------- */
+
+#outils {
+  position: fixed; right: 10px; z-index: 8;
+  top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 6px;
+}
+#outils button {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--voile); color: var(--doux);
+  border: 1px solid var(--bord); cursor: pointer; font: inherit; font-size: 17px;
+}
+#outils button:active { color: var(--or); border-color: var(--or); }
+
+/* ---------- Volet latéral (filtres, villes, marché, société, rail) ---------- */
+
+#volet {
+  position: fixed; z-index: 20; top: 0; right: 0; bottom: 0; width: 340px; max-width: 88vw;
+  background: var(--fond2); border-left: 1px solid var(--bord);
+  display: flex; flex-direction: column;
+  transition: transform .2s ease;
+  padding-top: env(safe-area-inset-top);
+}
+#volet.cachee { transform: translateX(101%); }
+.voletTete {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px; border-bottom: 1px solid var(--bord); flex: 0 0 auto;
+}
+.voletTete b { font-size: 14px; }
+#btnFermerVolet {
+  background: none; border: 0; color: var(--doux); font-size: 17px; cursor: pointer;
+  padding: 4px 8px; font-family: inherit;
+}
+#voletCorps { flex: 1 1 auto; overflow-y: auto; padding: 12px 14px calc(16px + env(safe-area-inset-bottom)); }
+
+h3 {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--faible); margin: 15px 0 7px; font-weight: 600;
+}
+h3:first-child { margin-top: 0; }
+
+/* Les filtres, en pastilles : on en voit beaucoup d'un coup et on vise au pouce. */
+.pastilles { display: flex; flex-wrap: wrap; gap: 5px; }
+.pastilles button {
   background: var(--fond3); color: var(--texte); border: 1px solid var(--bord);
-  padding: 6px 11px; border-radius: 3px; cursor: pointer; font-size: 12px; font-family: inherit;
+  border-radius: 15px; padding: 7px 12px; cursor: pointer; font: inherit; font-size: 12px;
+  display: flex; align-items: center; gap: 6px;
 }
-.cmd:hover { background: #2e2a21; }
-.cmd.majeur { background: var(--or); color: #191710; border-color: var(--or); font-weight: 600; }
-.cmd.vit.actif { border-color: var(--or); color: var(--or); }
+.pastilles button:hover { border-color: var(--or); }
+.pastilles button.actif { background: var(--or); color: #1a1710; border-color: var(--or); font-weight: 600; }
+.pastilles .nuance { width: 9px; height: 9px; border-radius: 2px; flex: 0 0 auto; }
 
-/* ---------- Corps ---------- */
-
-main { flex: 1 1 auto; display: flex; min-height: 0; }
-
-#colGauche { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
-#colDroite {
-  flex: 0 0 370px; border-left: 1px solid var(--bord);
-  display: flex; flex-direction: column; min-height: 0; background: var(--fond2);
+.listeVilles { display: flex; flex-direction: column; gap: 6px; }
+.listeVilles button {
+  background: var(--fond3); border: 1px solid var(--bord); border-radius: 5px;
+  padding: 9px 11px; cursor: pointer; font: inherit; color: var(--texte);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
 }
+.listeVilles button:hover { border-color: var(--or); }
+.listeVilles .cv { font-size: 11px; color: var(--doux); font-variant-numeric: tabular-nums; }
 
-nav#ongletsVilles, nav#modesCarte, nav#ongletsPanneau {
-  display: flex; gap: 1px; background: var(--bord); flex: 0 0 auto; overflow-x: auto;
-}
-nav button {
-  background: var(--fond2); color: var(--doux); border: 0; padding: 8px 13px;
-  cursor: pointer; font-size: 12px; font-family: inherit; white-space: nowrap; flex: 0 0 auto;
-}
-nav button:hover { color: var(--texte); background: var(--fond3); }
-nav button.actif { background: var(--fond3); color: var(--or); box-shadow: inset 0 -2px 0 var(--or); }
-nav#ongletsPanneau button { flex: 1 1 0; }
-nav#modesCarte button { font-size: 11px; padding: 6px 10px; }
-
-#zoneCarte { flex: 1 1 auto; position: relative; overflow: hidden; background: #0e0d0a; }
-#carte { display: block; cursor: crosshair; touch-action: none; }
-#legende {
-  position: absolute; left: 10px; bottom: 10px; background: rgba(20,19,15,.9);
-  border: 1px solid var(--bord); border-radius: 3px; padding: 7px 9px;
-  font-size: 11px; color: var(--doux); pointer-events: none; max-width: 260px;
-}
-#legende .ligne { display: flex; align-items: center; gap: 6px; }
-#legende i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
-
-/* ---------- Panneau ---------- */
-
-#panneau { flex: 1 1 auto; overflow-y: auto; padding: 12px; }
-#panneau h3 {
-  font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
-  color: var(--faible); margin: 16px 0 7px; font-weight: 600;
-}
-#panneau h3:first-child { margin-top: 0; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 500; color: var(--faible); font-size: 9px;
+     text-transform: uppercase; letter-spacing: .07em; padding: 4px 6px 4px 0; }
+td { padding: 5px 6px 5px 0; border-top: 1px solid #241f18; }
+td.n, th.n { text-align: right; }
+.puce { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+.ligneBat { cursor: pointer; }
+.ligneBat:hover td { background: var(--fond3); }
 
 .barometre { margin-bottom: 9px; }
 .barometre .tete { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
 .barometre .piste { height: 7px; background: var(--fond); border-radius: 4px; overflow: hidden; }
-.barometre .jauge { height: 100%; border-radius: 4px; transition: width .3s; }
-.barometre.critique .jauge { background: var(--rouge) !important; }
+.barometre .jauge2 { height: 100%; border-radius: 4px; }
 
-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
-th { text-align: left; font-weight: 500; color: var(--faible); font-size: 10px;
-     text-transform: uppercase; letter-spacing: .06em; padding: 4px 6px 4px 0; }
-td { padding: 3px 6px 3px 0; border-top: 1px solid #221f19; }
-td.n, th.n { text-align: right; }
-.vert { color: var(--vert); } .rouge { color: var(--rouge); } .or { color: var(--or); }
-.doux { color: var(--doux); } .faible { color: var(--faible); }
-
-.puce { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
-.ligneBat { cursor: pointer; }
-.ligneBat:hover td { background: var(--fond3); }
-
-/* ---------- Feuille du bas ---------- */
-/* Sur mobile, une feuille qui remonte du bas, la carte restant visible
-   au-dessus : à cette inclinaison, un panneau flottant masquerait plusieurs
-   bâtiments et le joueur perdrait le contexte de ce qu'il inspecte. */
-
-#feuille {
-  position: fixed; left: 0; right: 370px; bottom: 0;
-  background: var(--fond2); border-top: 1px solid var(--bord);
-  box-shadow: 0 -8px 24px rgba(0,0,0,.5);
-  transition: transform .22s ease; z-index: 20; max-height: 58vh; overflow-y: auto;
-}
-#feuille.fermee { transform: translateY(101%); }
-#feuillePoignee {
-  height: 3px; width: 44px; background: var(--bord); border-radius: 2px;
-  margin: 7px auto 0; cursor: pointer;
-}
-#feuilleCorps { padding: 10px 16px 16px; }
-#feuilleCorps h2 { font-size: 15px; margin-bottom: 2px; }
-#feuilleCorps .soustitre { color: var(--doux); font-size: 12px; margin-bottom: 10px; }
-.grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 8px; margin-bottom: 10px; }
-.fiche { background: var(--fond3); border: 1px solid var(--bord); border-radius: 3px; padding: 6px 9px; }
-.fiche .etiq { margin-bottom: 1px; }
+.grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 7px; margin-bottom: 10px; }
+.fiche { background: var(--fond3); border: 1px solid var(--bord); border-radius: 4px; padding: 6px 9px; }
 .fiche .v { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .actions button {
   background: var(--fond3); color: var(--texte); border: 1px solid var(--bord);
-  padding: 7px 12px; border-radius: 3px; cursor: pointer; font-size: 12px; font-family: inherit;
+  border-radius: 4px; padding: 9px 13px; cursor: pointer; font: inherit; font-size: 12px;
 }
 .actions button:hover:not(:disabled) { border-color: var(--or); color: var(--or); }
-.actions button:disabled { opacity: .38; cursor: not-allowed; }
-.actions button.primaire { background: var(--or); color: #191710; border-color: var(--or); font-weight: 600; }
+.actions button:disabled { opacity: .35; cursor: not-allowed; }
+.actions button.primaire { background: var(--or); color: #1a1710; border-color: var(--or); font-weight: 600; }
 
 input[type=range] { width: 100%; accent-color: var(--or); }
-
+.note  { color: var(--doux); font-size: 11px; margin-top: 7px; line-height: 1.55; }
 .avert { color: var(--rouge); font-size: 11px; margin-top: 6px; }
-.note { color: var(--doux); font-size: 11px; margin-top: 6px; line-height: 1.5; }
+
+/* ---------- Feuille d'inspection ---------- */
+
+#feuille {
+  position: fixed; z-index: 15; left: 0; right: 0; bottom: 0;
+  background: var(--fond2); border-top: 1px solid var(--bord);
+  box-shadow: 0 -10px 30px rgba(0,0,0,.55);
+  transition: transform .2s ease; max-height: 64vh; overflow-y: auto;
+  border-radius: 10px 10px 0 0;
+}
+#feuille.fermee { transform: translateY(101%); }
+#feuillePoignee {
+  height: 4px; width: 56px; background: var(--bord); border-radius: 2px;
+  margin: 9px auto 0; cursor: pointer;
+}
+#feuilleCorps { padding: 10px 15px calc(18px + env(safe-area-inset-bottom)); }
+#feuilleCorps h2 { font-size: 16px; margin-bottom: 2px; }
+#feuilleCorps .soustitre { color: var(--doux); font-size: 12px; margin-bottom: 11px; }
 
 /* ---------- Fin de partie ---------- */
 
 #finPartie {
-  position: fixed; inset: 0; background: rgba(10,9,7,.94); z-index: 60;
-  display: flex; align-items: center; justify-content: center; padding: 24px;
+  position: fixed; inset: 0; background: rgba(10,9,7,.95); z-index: 60;
+  display: flex; align-items: center; justify-content: center; padding: 22px;
 }
 #finPartie.cachee { display: none; }
-#finPartie .boite { background: var(--fond2); border: 1px solid var(--bord); border-radius: 5px;
-  padding: 26px 30px; max-width: 480px; width: 100%; }
-#finPartie h1 { font-size: 21px; margin-bottom: 4px; }
-
-/* ---------- Boutons flottants sur la carte ---------- */
-
-#btnRecentrer, #btnLegende {
-  position: absolute; right: 10px;
-  width: 40px; height: 40px; border-radius: 50%;
-  background: rgba(28,26,21,.92); color: var(--doux);
-  border: 1px solid var(--bord); cursor: pointer;
-  font-size: 16px; line-height: 1; font-family: inherit;
-  display: flex; align-items: center; justify-content: center;
+#finPartie .boite {
+  background: var(--fond2); border: 1px solid var(--bord); border-radius: 6px;
+  padding: 24px 26px; max-width: 460px; width: 100%;
 }
-#btnRecentrer { top: 10px; }
-#btnLegende   { top: 58px; }
-#btnRecentrer:active, #btnLegende:active { background: var(--fond3); color: var(--or); }
+#finPartie h1 { font-size: 20px; margin-bottom: 4px; }
 
-/* ---------- Tablette et téléphone ---------- */
-/* La carte doit rester la pièce maîtresse : c'est elle qu'on lit, et une
-   feuille qui remonte du bas laisse le contexte visible au-dessus. */
+/* ---------- Téléphone ---------- */
 
-@media (max-width: 860px) {
-  main { flex-direction: column; }
-  #colGauche { flex: 1 1 auto; min-height: 42vh; }
-  #colDroite { flex: 0 0 40vh; border-left: 0; border-top: 1px solid var(--bord); }
-  #feuille { right: 0; max-height: 72vh; }
+/* ---------- Téléphone et tablette étroite ---------- */
+/* Les menus descendent en bas de l'écran : c'est là que se trouve le pouce, et
+   c'est ce qui libère le haut pour les seuls chiffres qui commandent une
+   décision. La carte, elle, ne perd pas un pixel. */
 
-  /* Des cibles qu'on vise au pouce, pas à la souris. */
-  nav button { padding: 11px 15px; font-size: 13px; }
-  nav#modesCarte button { padding: 10px 13px; font-size: 12px; }
-  .actions button { padding: 11px 15px; font-size: 13px; }
-  .cmd { padding: 10px 14px; }
-  #feuillePoignee { height: 4px; width: 60px; margin-top: 10px; }
-  #feuilleCorps { padding: 10px 14px calc(20px + env(safe-area-inset-bottom)); }
+@media (max-width: 760px) {
+  #barre { gap: 6px; }
+  .jauges { flex: 1 1 auto; }
+  .jauge { flex: 1 1 0; min-width: 0; padding: 5px 7px; }
+  .val { font-size: 13px; }
+  .etiq { font-size: 8px; }
 
-  #barre { padding-top: env(safe-area-inset-top); }
-  #barre .bloc { min-width: 88px; padding: 6px 11px; }
-  .val { font-size: 15px; }
-  .sous { font-size: 10px; }
-  .commandes { padding: 0 8px; gap: 4px; }
+  .icones {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 12;
+    flex: 0 0 auto; gap: 0;
+    background: var(--voile); border-top: 1px solid var(--bord);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .ico {
+    flex: 1 1 0; min-width: 0; border: 0; border-radius: 0;
+    background: none; padding: 5px 2px;
+  }
+  .ico svg { width: 21px; height: 21px; }
+  .ico span { display: block; font-size: 9px; }
+  .ico.actif { color: var(--or); background: none; }
 
-  #legende { display: none; }
-  #legende.montre { display: block; }
-  table { font-size: 13px; }
-  td { padding: 5px 6px 5px 0; }
+  #outils { top: auto; bottom: calc(72px + env(safe-area-inset-bottom)); transform: none; }
+  #outils button { width: 38px; height: 38px; font-size: 15px; }
+
+  #volet { width: 100%; max-width: none; top: auto;
+           height: calc(76vh - env(safe-area-inset-bottom));
+           bottom: calc(58px + env(safe-area-inset-bottom));
+           border-left: 0; border: 1px solid var(--bord); border-radius: 10px 10px 0 0; }
+  #volet.cachee { transform: translateY(140%); }
+  #feuille { max-height: 68vh; bottom: calc(58px + env(safe-area-inset-bottom));
+             border-radius: 10px 10px 0 0; }
+  /* Décalée de la barre du bas, il lui faut plus d'un tour complet pour sortir
+     entièrement de l'écran. */
+  #feuille.fermee { transform: translateY(calc(101% + 60px + env(safe-area-inset-bottom))); }
+  #feuilleCorps { padding-bottom: 18px; }
 }
 
-#btnVitesseCycle { display: none; }
-
-/* Sur un téléphone, la barre n'a pas la largeur de tout montrer. On garde ce
-   qui commande une décision — la date, l'argent — et on replie les trois
-   boutons de vitesse en un seul, qui tourne. Le reste vit dans les onglets. */
-@media (max-width: 620px) {
-  #barre .bloc.masquable { display: none; }
-  #barre .bloc { min-width: 0; padding: 6px 9px; }
-  .val { font-size: 14px; }
-  .etiq { font-size: 9px; letter-spacing: .05em; }
-  .cmd.vit { display: none; }
-  #btnVitesseCycle { display: block; min-width: 44px; }
-  #btnPause .mot { display: none; }
-  #btnPause { min-width: 46px; font-size: 15px; }
-  .commandes { padding: 0 7px; }
-  #colDroite { flex: 0 0 38vh; }
+@media (max-width: 400px) {
+  .jauge:nth-child(3) { display: none; }   /* la fortune vit dans « Société » */
 }
 
 </style>
+<!-- La carte occupe tout l'écran. Tout le reste flotte au-dessus. -->
+<canvas id="carte"></canvas>
+
 <header id="barre">
-  <div class="bloc">
-    <div class="etiq">Date</div>
-    <div class="val" id="date">An 1 · janvier</div>
-    <div class="sous" id="restant">60 mois restants</div>
+  <div class="jauges">
+    <div class="jauge">
+      <div class="etiq">Date</div>
+      <div class="val" id="date">An 1 · janv.</div>
+      <div class="sous" id="restant">60 mois</div>
+    </div>
+    <div class="jauge">
+      <div class="etiq">Trésorerie</div>
+      <div class="val" id="tresorerie">15 000 $</div>
+      <div class="sous" id="resultat">—</div>
+    </div>
+    <div class="jauge masquable">
+      <div class="etiq">Fortune</div>
+      <div class="val or" id="fortune">1 500 $</div>
+      <div class="sous" id="rang">—</div>
+    </div>
   </div>
-  <div class="bloc">
-    <div class="etiq">Trésorerie</div>
-    <div class="val argent" id="tresorerie">15 000 $</div>
-    <div class="sous" id="resultat">—</div>
-  </div>
-  <div class="bloc masquable">
-    <div class="etiq">Cours de l'action</div>
-    <div class="val" id="cours">1,00 $</div>
-    <div class="sous" id="actifnet">actif net 15 000 $</div>
-  </div>
-  <div class="bloc masquable">
-    <div class="etiq">Votre fortune</div>
-    <div class="val or" id="fortune">1 500 $</div>
-    <div class="sous">10 % du capital</div>
-  </div>
-  <div class="bloc croissant masquable">
-    <div class="etiq">Climat</div>
-    <div class="val" id="climat">Normal</div>
-    <div class="sous" id="rang">—</div>
-  </div>
-  <div class="commandes">
-    <button id="btnPause" class="cmd majeur"><span class="signe">▶</span><span class="mot"> Démarrer</span></button>
-    <button data-vitesse="1" class="cmd vit actif">×1</button>
-    <button data-vitesse="4" class="cmd vit">×4</button>
-    <button data-vitesse="20" class="cmd vit">×20</button>
-    <button id="btnVitesseCycle" class="cmd">×1</button>
+
+  <nav class="icones">
+    <button class="ico" data-vue="villes" title="Les villes" aria-label="Les villes">
+      <svg viewBox="0 0 24 24"><path d="M3 21V9l5-3v4l6-4v5l6-3v13z"/></svg>
+      <span>Villes</span>
+    </button>
+    <button class="ico" data-vue="marche" title="Le marché" aria-label="Le marché">
+      <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 4 4-7 5 6v3H3z" opacity=".55"/><path d="M3 13l5-6 4 4 4-7 5 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      <span>Marché</span>
+    </button>
+    <button class="ico" data-vue="societe" title="Ma société" aria-label="Ma société">
+      <svg viewBox="0 0 24 24"><path d="M4 21V6l8-3 8 3v15zM9 21v-5h6v5z" opacity=".55"/><path d="M4 21V6l8-3 8 3v15H4z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      <span>Société</span>
+    </button>
+    <button class="ico" data-vue="rail" title="Le chemin de fer" aria-label="Le chemin de fer">
+      <svg viewBox="0 0 24 24"><path d="M6 3h12v12H6z" opacity=".5"/><path d="M6 3h12v12H6zM4 19h16M8 15l-2 5M16 15l2 5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      <span>Rail</span>
+    </button>
+    <button class="ico" id="btnFiltres" title="Filtres" aria-label="Filtres">
+      <svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      <span>Filtres</span>
+    </button>
+  </nav>
+
+  <div class="horloge">
+    <button id="btnPause" class="cmd majeur" aria-label="Démarrer"><span class="signe">▶</span></button>
+    <button id="btnVitesse" class="cmd">×1</button>
   </div>
 </header>
 
-<main>
-  <section id="colGauche">
-    <nav id="ongletsVilles"></nav>
-    <div id="zoneCarte">
-      <canvas id="carte"></canvas>
-      <div id="legende"></div>
-      <button id="btnRecentrer" title="Vue d'ensemble">⤢</button>
-      <button id="btnLegende" title="Légende">i</button>
-    </div>
-    <nav id="modesCarte">
-      <button data-mode="fonction" class="actif">Fonction</button>
-      <button data-mode="proprio">Propriétaire</button>
-      <button data-mode="fertilite">Fertilité</button>
-      <button data-mode="bois">Bois</button>
-      <button data-mode="argile">Argile</button>
-      <button data-mode="charbon">Charbon</button>
-      <button data-mode="minerai">Minerai</button>
-      <button data-mode="terrain">Prix du sol</button>
-    </nav>
-  </section>
+<!-- Le filtre actif, rappelé sous la barre : sans ce bandeau, on oublie qu'on
+     regarde une donnée et non la carte. -->
+<div id="bandeauFiltre" class="cachee">
+  <span id="bandeauNom"></span>
+  <span id="bandeauEchelle"></span>
+  <button id="btnQuitterFiltre">Voir les bâtiments</button>
+</div>
 
-  <aside id="colDroite">
-    <nav id="ongletsPanneau">
-      <button data-onglet="ville" class="actif">Ville</button>
-      <button data-onglet="marche">Marché</button>
-      <button data-onglet="comptes">Comptes</button>
-      <button data-onglet="rail">Rail</button>
-    </nav>
-    <div id="panneau"></div>
-  </aside>
-</main>
+<div id="outils">
+  <button id="btnRecentrer" title="Vue d'ensemble" aria-label="Vue d'ensemble">⤢</button>
+  <button id="btnZoomPlus" title="Zoomer" aria-label="Zoomer">+</button>
+  <button id="btnZoomMoins" title="Dézoomer" aria-label="Dézoomer">−</button>
+</div>
 
+<!-- Panneau des filtres -->
+<div id="volet" class="cachee">
+  <div class="voletTete">
+    <b id="voletTitre">Filtres</b>
+    <button id="btnFermerVolet" aria-label="Fermer">✕</button>
+  </div>
+  <div id="voletCorps"></div>
+</div>
+
+<!-- Feuille d'inspection, remontée du bas -->
 <div id="feuille" class="fermee">
   <div id="feuillePoignee"></div>
   <div id="feuilleCorps"></div>
@@ -377,8 +409,14 @@ const P = {
   // Amorçage
   stockAmorcage: { planches: 800, briques: 400 },
 
-  // Carte
-  tailleVille: 48,             // 48 × 48 pour la démo (64 en production)
+  // Carte — une seule grille pour tout le monde
+  largeurMonde: 190,
+  hauteurMonde: 130,
+  margeMonde: 16,              // on ne fonde pas une ville au bord de la carte
+  rayonVille: 19,              // rayon moyen d'un territoire, dévié par ville
+  distanceMinVilles: 46,       // de centre à centre : sans quoi le rail n'a pas de sens
+  moisParCaseDeVoie: 0.42,     // une ligne longue demande plus de travail
+  menagesInitiaux: 80,         // toutes les villes démarrent au niveau 1 (Comptoir)
 };
 
 // --- Ressources -------------------------------------------------------------
@@ -457,10 +495,10 @@ function entretien(type, valeurBatie) {
 // --- Terrain ----------------------------------------------------------------
 
 const RELIEFS = {
-  plaine:   { nom: 'Plaine',   couleur: '#8fa361', biais: { fertilite: 2.0, argile: 1.5, bois: 0.6, charbon: 0.3, minerai: 0.2 } },
-  foret:    { nom: 'Forêt',    couleur: '#4f7042', biais: { fertilite: 0.9, argile: 0.6, bois: 2.4, charbon: 0.4, minerai: 0.3 } },
-  colline:  { nom: 'Colline',  couleur: '#9c8f6a', biais: { fertilite: 0.7, argile: 1.0, bois: 0.9, charbon: 2.0, minerai: 1.1 } },
-  montagne: { nom: 'Montagne', couleur: '#8a8a92', biais: { fertilite: 0.2, argile: 0.5, bois: 0.4, charbon: 1.3, minerai: 2.4 } },
+  plaine:   { nom: 'Plaine',   couleur: '#7f9455', biais: { fertilite: 2.1, argile: 1.6, bois: 0.5, charbon: 0.20, minerai: 0.15 } },
+  foret:    { nom: 'Forêt',    couleur: '#3f6238', biais: { fertilite: 0.9, argile: 0.6, bois: 2.5, charbon: 0.35, minerai: 0.25 } },
+  colline:  { nom: 'Colline',  couleur: '#8d8055', biais: { fertilite: 0.6, argile: 1.0, bois: 0.9, charbon: 2.3, minerai: 1.0 } },
+  montagne: { nom: 'Montagne', couleur: '#7d7a80', biais: { fertilite: 0.15, argile: 0.4, bois: 0.3, charbon: 1.2, minerai: 2.6 } },
 };
 
 const QUALITES = ['fertilite', 'argile', 'bois', 'charbon', 'minerai'];
@@ -489,16 +527,16 @@ function loyer(type, terrain, construction) {
 // ===== js/sim/mapgen.js ==============================================
 
 // ---------------------------------------------------------------------------
-// Génération de carte. Une carte neuve à chaque partie.
+// La carte du monde. Une seule grille, cinq villes posées dessus.
 //
-// Principe (§CQ14) : toutes les ressources sont présentes dans toutes les
-// villes, mais chacune a une prédominance et deux ou trois ressources
-// nettement plus rares. Aucune ville ne peut se suffire à elle-même, aucune
-// n'est privée de quoi que ce soit.
+// Le relief vient d'abord : c'est lui qui décide où sont les montagnes, donc où
+// sont le minerai et le charbon, donc où passeront les voies. Les villes
+// s'installent ensuite dans les creux, à bonne distance les unes des autres, et
+// se découpent en quartiers de vocations différentes.
 // ---------------------------------------------------------------------------
 
 
-// PRNG déterministe (mulberry32) : même graine, même carte.
+// PRNG déterministe (mulberry32) : même graine, même monde.
 function rng(graine) {
   let a = graine >>> 0;
   return function () {
@@ -509,135 +547,285 @@ function rng(graine) {
   };
 }
 
-// Bruit de valeur lissé : des taches cohérentes plutôt qu'un poivre aléatoire.
-function bruit(rnd, taille, echelle) {
-  const g = Math.ceil(taille / echelle) + 2;
+// Bruit de valeur lissé, sommé sur plusieurs octaves : des reliefs cohérents
+// plutôt qu'un poivre aléatoire.
+function bruit(rnd, echelle) {
+  const g = 96;
   const pts = Array.from({ length: g * g }, () => rnd());
   const lisse = (t) => t * t * (3 - 2 * t);
   return (x, y) => {
     const fx = x / echelle, fy = y / echelle;
     const x0 = Math.floor(fx), y0 = Math.floor(fy);
     const tx = lisse(fx - x0), ty = lisse(fy - y0);
-    const at = (i, j) => pts[Math.min(j, g - 1) * g + Math.min(i, g - 1)];
+    const at = (i, j) => pts[((j % g) + g) % g * g + ((i % g) + g) % g];
     const a = at(x0, y0), b = at(x0 + 1, y0), c = at(x0, y0 + 1), d = at(x0 + 1, y0 + 1);
     return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
   };
 }
 
-const NOMS = ['Grands-Bois', 'Val-de-Fer', 'Plaine-Dorée', 'Terre-Rouge', 'Port-Neuf',
-              'Bois-Perdu', 'Roche-Noire', 'Champs-Longs', 'Argilières', 'Confluent'];
+function fractal(rnd, echelles, poids) {
+  const couches = echelles.map(e => bruit(rnd, e));
+  const total = poids.reduce((a, b) => a + b, 0);
+  return (x, y) => couches.reduce((s, f, i) => s + f(x, y) * poids[i], 0) / total;
+}
 
-// Chaque ville reçoit une prédominance et deux raretés. Ce sont des biais sur
-// la distribution des qualités, jamais une absence : le minerai existe partout,
-// il est simplement médiocre là où il n'est pas la vocation du lieu.
+const NOMS = ['Grands-Bois', 'Val-de-Fer', 'Plaine-Dorée', 'Terre-Rouge', 'Port-Neuf',
+              'Bois-Perdu', 'Roche-Noire', 'Champs-Longs', 'Argilières', 'Confluent',
+              'Fort-Union', 'Sainte-Agathe'];
+
+// Chaque ville a une prédominance et deux raretés. Ce sont des biais sur la
+// distribution des qualités, jamais une absence : le minerai existe partout, il
+// est simplement médiocre là où il n'est pas la vocation du lieu.
 const PROFILS = [
-  { pred: 'bois',      rares: ['minerai', 'charbon'],  relief: 'foret'    },
-  { pred: 'minerai',   rares: ['fertilite', 'bois'],   relief: 'montagne' },
-  { pred: 'fertilite', rares: ['charbon', 'minerai'],  relief: 'plaine'   },
-  { pred: 'argile',    rares: ['bois', 'minerai'],     relief: 'plaine'   },
-  { pred: 'charbon',   rares: ['fertilite', 'argile'], relief: 'colline'  },
+  { pred: 'bois',      rares: ['minerai', 'charbon'],  penteVoulue: 0.35 },
+  { pred: 'minerai',   rares: ['fertilite', 'bois'],   penteVoulue: 0.80 },
+  { pred: 'charbon',   rares: ['fertilite', 'argile'], penteVoulue: 0.65 },
+  { pred: 'fertilite', rares: ['charbon', 'minerai'],  penteVoulue: 0.12 },
+  { pred: 'argile',    rares: ['bois', 'minerai'],     penteVoulue: 0.20 },
 ];
 
-function genererCarte(nbVilles, graine) {
+// Les vocations de quartier. Un quartier est une tache de Voronoï à l'intérieur
+// du territoire d'une ville : c'est ce qui empêche les ateliers de cerner les
+// maisons, et ce qui donne à chaque ville un plan différent.
+const VOCATIONS = ['residentiel', 'industriel', 'negoce', 'agricole'];
+
+function genererMonde(nbVilles, graine) {
   const rnd = rng(graine);
-  const N = P.tailleVille;
+  const L = P.largeurMonde, H = P.hauteurMonde;
+
+  // --- 1. Le relief -------------------------------------------------------
+  const fAlt = fractal(rnd, [38, 17, 7], [1, 0.5, 0.22]);
+  const fHum = fractal(rnd, [29, 11], [1, 0.4]);
+  const bQ = {}; for (const q of QUALITES) bQ[q] = fractal(rnd, [21, 9], [1, 0.45]);
+
+  const cases = new Array(L * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < L; x++) {
+    // On abaisse les bords pour que le continent ne soit pas coupé net.
+    const bordX = Math.min(1, Math.min(x, L - 1 - x) / 14);
+    const bordY = Math.min(1, Math.min(y, H - 1 - y) / 12);
+    const alt = Math.max(0, Math.min(1, fAlt(x, y) * (0.35 + 0.65 * bordX * bordY)));
+    const hum = fHum(x, y);
+
+    let relief;
+    if (alt > 0.70) relief = 'montagne';
+    else if (alt > 0.56) relief = 'colline';
+    else if (hum > 0.58 && alt > 0.30) relief = 'foret';
+    else relief = 'plaine';
+
+    cases[y * L + x] = {
+      x, y, alt, relief,
+      q: null,                  // rempli juste après
+      ville: null, distanceGare: 0, quartier: null,
+      rue: false, voie: false,
+      proprio: null, bat: null, chantier: null, vendue: false,
+    };
+  }
+
+  // Pente locale : elle sert à l'ombrage du relief et au choix des sites.
+  for (const c of cases) {
+    const e = (x, y) => (cases[Math.max(0, Math.min(H - 1, y)) * L
+                             + Math.max(0, Math.min(L - 1, x))]).alt;
+    c.pente = (e(c.x + 1, c.y) - e(c.x - 1, c.y)) * 0.5;
+    c.penteY = (e(c.x, c.y + 1) - e(c.x, c.y - 1)) * 0.5;
+  }
+
+  // --- 2. Les qualités, gouvernées par le relief --------------------------
+  // Le minerai et le charbon sont dans la roche, la fertilité dans les
+  // plaines : ce n'est pas décoratif, c'est ce qui oblige à relier les villes.
+  for (const c of cases) {
+    const biais = RELIEFS[c.relief].biais;
+    const q = {};
+    for (const nom of QUALITES) {
+      let v = bQ[nom](c.x, c.y) * 4.2 + 0.9;
+      v *= biais[nom];
+      q[nom] = Math.max(1, Math.min(5, Math.round(v)));
+    }
+    c.q = q;
+  }
+
+  // --- 3. Les sites de ville ----------------------------------------------
+  // On tire des candidats et on ne garde que ceux qui respectent la distance
+  // minimale : sans elle, deux villes se recouvrent et le rail n'a plus de sens.
   const profils = melanger(PROFILS.slice(), rnd).slice(0, nbVilles);
   const noms = melanger(NOMS.slice(), rnd);
+  const sites = [];
 
-  const villes = profils.map((profil, i) => {
-    const bReliefA = bruit(rnd, N, 11), bReliefB = bruit(rnd, N, 5);
-    const bQ = {}; for (const q of QUALITES) bQ[q] = bruit(rnd, N, 8);
-
-    const gare = { x: N >> 1, y: N >> 1 };
-    const cases = new Array(N * N);
-
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      const h = bReliefA(x, y) * 0.7 + bReliefB(x, y) * 0.3;
-      // Le relief dominant du profil est sur-représenté sans être exclusif.
-      let relief;
-      if (h > 0.72) relief = 'montagne';
-      else if (h > 0.56) relief = 'colline';
-      else if (h > 0.40) relief = 'foret';
-      else relief = 'plaine';
-      if (rnd() < 0.28) relief = profil.relief;
-
-      const biais = RELIEFS[relief].biais;
-      const q = {};
-      for (const nom of QUALITES) {
-        // base 1-5 tirée du bruit, modulée par le relief puis par le profil
-        let v = bQ[nom](x, y) * 4 + 1;
-        v *= biais[nom];
-        if (nom === profil.pred) v *= 1.45;
-        if (profil.rares.includes(nom)) v *= 0.55;
-        q[nom] = Math.max(1, Math.min(5, Math.round(v)));
+  for (const profil of profils) {
+    let meilleur = null, meilleurScore = -Infinity;
+    for (let essai = 0; essai < 900; essai++) {
+      const x = P.margeMonde + Math.floor(rnd() * (L - 2 * P.margeMonde));
+      const y = P.margeMonde + Math.floor(rnd() * (H - 2 * P.margeMonde));
+      const c = cases[y * L + x];
+      if (c.alt > 0.66) continue;                       // on ne fonde pas sur un sommet
+      let tropPres = false;
+      for (const s of sites) {
+        if (Math.hypot(s.x - x, s.y - y) < P.distanceMinVilles) { tropPres = true; break; }
       }
+      if (tropPres) continue;
 
-      const d = Math.abs(x - gare.x) + Math.abs(y - gare.y);
-      cases[y * N + x] = {
-        x, y, relief, q, distanceGare: d,
-        rue: false,
-        proprio: null,      // null = vierge ; 'ind' = indépendant ; sinon id de société
-        bat: null,          // référence vers le bâtiment posé
-        chantier: null,
-        voie: false,
-        vendue: false,
-      };
+      // On note le voisinage : la ville veut la ressource de sa vocation à
+      // portée, et un terrain à peu près plat pour s'étendre.
+      let score = 0, n = 0;
+      for (let dy = -9; dy <= 9; dy += 3) for (let dx = -9; dx <= 9; dx += 3) {
+        const v = cases[Math.max(0, Math.min(H - 1, y + dy)) * L
+                      + Math.max(0, Math.min(L - 1, x + dx))];
+        score += v.q[profil.pred]; n++;
+      }
+      score = score / n - Math.abs(c.alt - profil.penteVoulue) * 4;
+      if (score > meilleurScore) { meilleurScore = score; meilleur = { x, y }; }
     }
+    if (meilleur) sites.push(meilleur);
+  }
 
-    // La gare, et les emprises de voie qui en partent — réservées, non
-    // constructibles, visibles dès la première seconde.
-    cases[gare.y * N + gare.x].voie = true;
-    for (let x = 0; x < N; x++) cases[gare.y * N + x].voie = true;
+  // --- 4. Les territoires, les quartiers ----------------------------------
+  const villes = sites.map((site, i) => {
+    const profil = profils[i];
+    // Un rayon propre à chaque ville et une déformation directionnelle : sans
+    // cela, les cinq villes auraient exactement le même plan.
+    const rayon = P.rayonVille * (0.85 + rnd() * 0.35);
+    const orientation = rnd() * Math.PI;
+    const aplatissement = 0.62 + rnd() * 0.5;
+    const fLisiere = fractal(rnd, [7, 3], [1, 0.5]);
 
-    // La trame des rues. « La densité des rues fait la hiérarchie urbaine. Un
-    // bâtiment seul dans sa parcelle, entouré de rue sur quatre côtés, met la
-    // moitié de la surface en gris : parfait pour un bourg, désastreux pour une
-    // métropole qui doit paraître dense. Une rue toutes les trois ou quatre
-    // cases avec des îlots mitoyens au centre, des parcelles isolées en
-    // périphérie. » (§21)
-    const RAYON_URBAIN = Math.round(N * 0.38);
-    for (const c of cases) {
-      const dx = c.x - gare.x, dy = c.y - gare.y;
-      if (Math.abs(dx) + Math.abs(dy) > RAYON_URBAIN) continue;   // la campagne n'a pas de rues
-      if (dx % 5 === 0 || dy % 5 === 0) c.rue = true;
-    }
-
-    // 30 % des cases exploitables appartiennent à des indépendants. Ils vendent
-    // au prix du marché majoré de 20 % : le raccourci payant.
-    for (const c of cases) if (!c.voie && !c.rue && rnd() < P.partIndependants) c.proprio = 'ind';
-
-    // Les cases autour de la gare sont ouvertes d'emblée, sans quoi la règle de
-    // contiguïté n'aurait aucun point de départ.
-    for (const c of cases) if (c.distanceGare <= 4 && !c.voie && !c.rue) c.vendue = true;
-
-    return {
-      id: i, nom: noms[i], profil, N, gare, cases,
-      menages: 200,               // 200 ménages = 400 employés au départ
-      occupation: 0.85,
-      salaire: P.salaireCase,
-      niveau: 1,
+    const v = {
+      id: i, nom: noms[i], profil, gare: { x: site.x, y: site.y },
+      rayon, cases: [],
+      menages: P.menagesInitiaux,
+      occupation: 0.85, salaire: P.salaireCase, niveau: 1,
       barometres: { nourriture: 1, emploi: 0.78, produits: 0.6 },
-      epargne: 0,
-      marche: null,               // affecté par world.js
-      histo: [],
+      epargne: 0, marche: null, histo: [],
     };
+
+    // Les germes de quartiers. La vocation résidentielle est la plus fréquente
+    // et occupe le centre ; l'industrie et le négoce se posent en couronne.
+    const germes = [];
+    const nbGermes = 6 + Math.floor(rnd() * 4);
+    germes.push({ x: site.x, y: site.y, vocation: 'residentiel' });
+    for (let k = 1; k < nbGermes; k++) {
+      const a = rnd() * Math.PI * 2, d = rayon * (0.30 + rnd() * 0.72);
+      const vocation = k <= 2 ? 'residentiel'
+                     : k <= 4 ? 'industriel'
+                     : k === 5 ? 'negoce' : 'agricole';
+      germes.push({ x: site.x + Math.cos(a) * d, y: site.y + Math.sin(a) * d, vocation });
+    }
+    v.germes = germes;
+
+    const port = Math.ceil(rayon * 2);
+    for (let dy = -port; dy <= port; dy++) {
+      for (let dx = -port; dx <= port; dx++) {
+        const x = site.x + dx, y = site.y + dy;
+        if (x < 0 || y < 0 || x >= L || y >= H) continue;
+        const c = cases[y * L + x];
+        if (c.ville) continue;                     // premier arrivé, premier servi
+
+        // Une ellipse orientée, dont la lisière est brouillée par du bruit :
+        // les villes cessent d'être des losanges identiques.
+        const ca = Math.cos(orientation), sa = Math.sin(orientation);
+        const u = (dx * ca + dy * sa), w = (-dx * sa + dy * ca) / aplatissement;
+        const d = Math.hypot(u, w) / rayon;
+        if (d > 0.55 + fLisiere(x, y) * 0.62) continue;
+
+        c.ville = v;
+        c.distanceGare = Math.round(Math.hypot(dx, dy));
+        // Le quartier le plus proche donne sa vocation à la case.
+        let meilleur = germes[0], best = Infinity;
+        for (const g of germes) {
+          const dd = Math.hypot(g.x - x, g.y - y);
+          if (dd < best) { best = dd; meilleur = g; }
+        }
+        c.quartier = meilleur.vocation;
+        v.cases.push(c);
+      }
+    }
+
+    // La trame des rues, au cœur seulement : « une rue toutes les trois ou
+    // quatre cases avec des îlots mitoyens au centre, des parcelles isolées en
+    // périphérie » (§21). Son orientation suit celle de la ville.
+    for (const c of v.cases) {
+      if (c.distanceGare > rayon * 0.72) continue;
+      const dx = c.x - site.x, dy = c.y - site.y;
+      const ca = Math.cos(orientation), sa = Math.sin(orientation);
+      const u = Math.round(dx * ca + dy * sa), w = Math.round(-dx * sa + dy * ca);
+      if (u % 5 === 0 || w % 5 === 0) c.rue = true;
+    }
+
+    cases[site.y * L + site.x].voie = true;
+    cases[site.y * L + site.x].rue = false;
+
+    // 30 % des cases exploitables appartiennent d'emblée à des indépendants.
+    for (const c of v.cases) {
+      if (!c.voie && !c.rue && rnd() < P.partIndependants) c.proprio = 'ind';
+      if (c.distanceGare <= 4 && !c.voie && !c.rue) c.vendue = true;
+    }
+
+    return v;
   });
 
-  // Les liaisons : toutes les paires de villes, dates d'achèvement échelonnées
-  // et annoncées dès le début de la partie.
-  const liaisons = [];
-  for (let a = 0; a < nbVilles; a++) for (let b = a + 1; b < nbVilles; b++) {
-    liaisons.push({
-      a, b,
-      nom: `${villes[a].nom} — ${villes[b].nom}`,
-      dateInitiale: 14 + Math.floor(rnd() * 22),   // mois
-      date: 0, capital: 0, achevee: false, cotee: false,
-      actions: 0, tresorerie: 0, parts: {},
-    });
-  }
-  for (const l of liaisons) l.date = l.dateInitiale;
+  // --- 5. Le réseau ferroviaire -------------------------------------------
+  // On relie les villes en arbre couvrant minimal, plus une boucle si la carte
+  // s'y prête. Deux villes reliées par une chaîne d'autres villes sont reliées :
+  // A–B et B–C valent A–C, sans troisième ligne à construire.
+  const liaisons = construireReseau(villes, rnd);
+  for (const l of liaisons) tracerVoie(cases, L, H, villes[l.a].gare, villes[l.b].gare);
 
-  return { villes, liaisons, graine };
+  return { L, H, cases, villes, liaisons, graine };
+}
+
+// Arbre couvrant minimal sur les distances, puis une arête supplémentaire prise
+// parmi les plus courtes restantes : le réseau n'est ni une simple ligne ni un
+// graphe complet.
+function construireReseau(villes, rnd) {
+  const aretes = [];
+  for (let a = 0; a < villes.length; a++) for (let b = a + 1; b < villes.length; b++) {
+    aretes.push({ a, b, d: Math.hypot(villes[a].gare.x - villes[b].gare.x,
+                                      villes[a].gare.y - villes[b].gare.y) });
+  }
+  aretes.sort((p, q) => p.d - q.d);
+
+  const parent = villes.map((_, i) => i);
+  const find = (i) => parent[i] === i ? i : (parent[i] = find(parent[i]));
+  const retenues = [], rejetees = [];
+  for (const e of aretes) {
+    if (find(e.a) !== find(e.b)) { parent[find(e.a)] = find(e.b); retenues.push(e); }
+    else rejetees.push(e);
+  }
+  if (rejetees.length && villes.length >= 4) retenues.push(rejetees[0]);
+
+  return retenues.map(e => {
+    // La date d'achèvement est proportionnelle à la longueur : une ligne longue
+    // demande plus de travail, et le joueur le voit dès la première seconde.
+    const mois = Math.round(8 + e.d * P.moisParCaseDeVoie + rnd() * 6);
+    return {
+      a: e.a, b: e.b, longueur: Math.round(e.d),
+      nom: `${villes[e.a].nom} — ${villes[e.b].nom}`,
+      dateInitiale: mois, date: mois,
+      capital: 0, achevee: false, cotee: false, parts: {},
+    };
+  });
+}
+
+// Trace l'emprise de la voie, en escalier doux entre deux gares. Elle est
+// réservée et visible dès la première seconde : le joueur sait où la ligne
+// aboutira, et peut acheter autour.
+function tracerVoie(cases, L, H, d, f) {
+  let x = d.x, y = d.y;
+  const poser = () => {
+    for (let k = -0; k <= 0; k++) {
+      const c = cases[Math.max(0, Math.min(H - 1, y + k)) * L + Math.max(0, Math.min(L - 1, x))];
+      if (c.bat) continue;
+      c.voie = true; c.rue = false;
+    }
+  };
+  poser();
+  let garde = 0;
+  while ((x !== f.x || y !== f.y) && garde++ < 4000) {
+    const dx = Math.sign(f.x - x), dy = Math.sign(f.y - y);
+    // On avance en diagonale douce : deux pas horizontaux pour un pas vertical
+    // quand l'écart horizontal domine, et l'inverse sinon.
+    if (Math.abs(f.x - x) > Math.abs(f.y - y)) x += dx;
+    else y += dy;
+    poser();
+  }
 }
 
 function melanger(a, rnd) {
@@ -648,18 +836,13 @@ function melanger(a, rnd) {
   return a;
 }
 
-function caseAt(ville, x, y) {
-  if (x < 0 || y < 0 || x >= ville.N || y >= ville.N) return null;
-  return ville.cases[y * ville.N + x];
-}
-
 // Règle de contiguïté : on ne peut acheter une terre vierge que si elle touche
 // une terre déjà vendue ou bâtie. La ville s'étend en anneaux depuis sa gare, et
 // il existe à chaque instant une frontière étroite et disputée.
-function estAchetable(ville, c) {
-  if (!c || c.voie || c.rue || c.vendue) return false;
+function estAchetable(monde, c) {
+  if (!c || c.voie || c.rue || c.vendue || !c.ville) return false;
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    const v = caseAt(ville, c.x + dx, c.y + dy);
+    const v = monde.caseAt(c.x + dx, c.y + dy);
     if (v && (v.vendue || v.voie)) return true;
   }
   return false;
@@ -1503,8 +1686,10 @@ function piloterSociete(monde, s) {
 
 
 class Monde {
-  constructor({ nbVilles = 3, duree = 60, graine = Date.now() } = {}) {
-    const carte = genererCarte(nbVilles, graine);
+  constructor({ nbVilles = 5, duree = 60, graine = Date.now() } = {}) {
+    const carte = genererMonde(nbVilles, graine);
+    this.L = carte.L; this.H = carte.H;
+    this.cases = carte.cases;              // une seule grille pour tout le monde
     this.villes = carte.villes;
     this.liaisons = carte.liaisons;
     this.graine = graine;
@@ -1529,6 +1714,11 @@ class Monde {
 
     this.recomposerMarches();
     this.amorcer();
+  }
+
+  caseAt(x, y) {
+    if (x < 0 || y < 0 || x >= this.L || y >= this.H) return null;
+    return this.cases[y * this.L + x];
   }
 
   get multiple() {
@@ -1658,25 +1848,33 @@ class Monde {
   // --- Foncier --------------------------------------------------------------
 
   prixCase(ville, c) {
-    const base = prixTerrain(ville.niveau, c.distanceGare);
+    const base = prixTerrain((c.ville || ville).niveau, c.distanceGare);
     return c.proprio === 'ind' ? base * P.surprixIndependants : base;
   }
 
+  // Où va quel bâtiment. Les quartiers ne sont pas décoratifs : ils empêchent
+  // les ateliers de cerner les maisons, et donnent à chaque ville un plan qui
+  // lui est propre.
+  static VOCATION_PREFEREE = {
+    loge: 'residentiel', bur: 'residentiel', neg: 'negoce',
+    trans: 'industriel', manu: 'industriel', expl: 'agricole',
+  };
+
   // Cherche la meilleure emprise libre de la bonne forme. Les exploitations
   // vont là où le sol est bon — une ferme sur une terre de qualité 5 sort une
-  // fois et demie ce que sort la même ferme sur une qualité 3 ; le reste se
+  // fois et demie ce que sort la même ferme sur une qualité 3 ; le logement se
   // serre autour de la gare, là où le foncier est cher mais la ville dense.
   trouverEmplacement(ville, type, societe) {
     const def = BAT[type];
-    const N = ville.N;
+    const voulu = Monde.VOCATION_PREFEREE[def.cat];
     let meilleur = null, meilleurScore = -Infinity;
 
-    for (let y = 0; y + def.h <= N; y++) for (let x = 0; x + def.w <= N; x++) {
+    for (const depart of ville.cases) {
       const cases = [];
       let ok = true;
       for (let dy = 0; dy < def.h && ok; dy++) for (let dx = 0; dx < def.w && ok; dx++) {
-        const c = caseAt(ville, x + dx, y + dy);
-        if (!c || c.voie || c.rue || c.bat || c.chantier) { ok = false; break; }
+        const c = this.caseAt(depart.x + dx, depart.y + dy);
+        if (!c || c.ville !== ville || c.voie || c.rue || c.bat || c.chantier) { ok = false; break; }
         // Une société doit posséder toutes les cases de l'emprise ; le parc de
         // l'ordinateur s'installe sur les terres restées aux indépendants.
         if (societe && c.proprio !== societe.id) { ok = false; break; }
@@ -1685,13 +1883,27 @@ class Monde {
       }
       if (!ok || cases.length !== def.cases) continue;
 
-      // Le foncier est d'autant plus recherché qu'il est proche de la gare,
-      // mais une exploitation préfère toujours la bonne terre.
-      let score = -cases[0].distanceGare;
+      let score = 0;
+
+      // Le quartier d'abord. On n'interdit rien — une ville doit toujours
+      // pouvoir bâtir quelque part — mais on décourage franchement.
+      const q = cases[0].quartier;
+      if (q === voulu) score += 90;
+      else if (voulu === 'residentiel' && q === 'negoce') score += 30;
+      else if (voulu === 'industriel' && q === 'negoce') score += 30;
+      else if (voulu === 'agricole' && q === 'industriel') score += 25;
+      // Une usine dans un quartier d'habitation est le seul cas vraiment banni.
+      else if (q === 'residentiel' && (def.cat === 'trans' || def.cat === 'manu')) score -= 70;
+
       if (def.qual) {
-        const q = cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length;
-        score = q * 40 - cases[0].distanceGare * 0.5;
+        // Une exploitation suit la ressource : c'est la seule chose qui compte.
+        const moy = cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length;
+        score += moy * 45 - cases[0].distanceGare * 0.4;
+      } else {
+        // Le reste se rapproche de la gare, où la ville est dense.
+        score += -cases[0].distanceGare * 1.4;
       }
+
       if (score > meilleurScore) { meilleurScore = score; meilleur = cases; }
     }
     return meilleur;
@@ -1732,7 +1944,7 @@ class Monde {
   }
 
   acheterTerrain(ville, c, societe) {
-    if (!estAchetable(ville, c) && c.proprio !== 'ind') return false;
+    if (!estAchetable(this, c) && c.proprio !== 'ind') return false;
     const prix = this.prixCase(ville, c);
     if (!societe.peutPayer(prix)) return false;
     societe.payer(prix);
@@ -2147,75 +2359,116 @@ function totalMenages(marche) {
 // ===== js/ui/render.js ===============================================
 
 // ---------------------------------------------------------------------------
-// Le rendu de la carte.
+// Le rendu de la carte du monde.
 //
-// Deux états, pas un dégradé (§21) : la vue de ville, où chaque bâtiment a sa
-// couleur de fonction, et le mode carte colorée, qui teinte les cases selon une
-// donnée unique — fertilité, prix des terres, chômage, propriétaire. Ce second
-// mode n'est pas une concession technique : c'est le mode déclaré obligatoire
-// au §19 pour rendre le jeu lisible.
+// Deux couches, deux traitements. Le sol est une image : une fois par
+// changement de filtre, on peint la carte entière à raison d'un pixel par case,
+// puis on l'étire — repeindre vingt-cinq mille cases à chaque image mettrait un
+// téléphone à genoux. Les bâtiments, eux, sont dessinés au-dessus, et seulement
+// ceux que la fenêtre voit.
+//
+// Par défaut on voit les bâtiments, pas des données. Les filtres sont un mode
+// qu'on demande, jamais l'état de repos de la carte.
 // ---------------------------------------------------------------------------
 
 
 
-// La couleur sert la fonction avant l'ornement : un joueur doit distinguer d'un
-// coup d'œil une scierie d'une aciérie parmi des centaines de bâtiments, sur un
-// écran de téléphone. La teinte dit la famille, la valeur dit le bâtiment.
-const COULEURS = {
-  coupe: '#6b8f4e', carriere: '#a8724a', mineCharbon: '#3a3a40', mineFer: '#6e5f78',
-  ferme: '#c9a93f', ranch: '#a8804f',
-  scierie: '#b5894f', briqueterie: '#9c4a35', minoterie: '#d6b74e',
-  abattoir: '#a83f3f', acierie: '#5a7d8c', manufacture: '#4f8f6a',
-  maison: '#8a7f6d', immeuble: '#b3a68e', bureaux: '#7fa3c4', entrepot: '#5f5a4d',
+
+export { COULEURS };
+
+const ALERTES = { matieres: '#e0993f', bras: '#6f9fc9', invendus: '#a97fc0', perte: '#e05a4e' };
+
+// L'échelle des filtres : rouge pour le mauvais, jaune au milieu, vert pour le
+// bon. Une seule échelle pour tous les filtres, pour que le joueur n'ait jamais
+// à réapprendre à lire une couleur.
+function echelle(t) {
+  t = Math.max(0, Math.min(1, t));
+  const arrets = [
+    [0.00, [176, 54, 45]],    // rouge
+    [0.35, [201, 122, 46]],   // orange
+    [0.55, [206, 178, 58]],   // jaune
+    [1.00, [93, 165, 96]],    // vert
+  ];
+  for (let i = 1; i < arrets.length; i++) {
+    if (t <= arrets[i][0]) {
+      const [t0, c0] = arrets[i - 1], [t1, c1] = arrets[i];
+      const k = (t - t0) / (t1 - t0);
+      return c0.map((v, j) => Math.round(v + (c1[j] - v) * k));
+    }
+  }
+  return arrets[arrets.length - 1][1];
+}
+
+// Les filtres par case : chacun sait lire une case et en tirer une valeur de 0
+// (mauvais, rouge) à 1 (bon, vert).
+const FILTRES_CASE = {
+  fertilite: { nom: 'Fertilité', lire: (c) => (c.q.fertilite - 1) / 4 },
+  bois:      { nom: 'Bois',      lire: (c) => (c.q.bois - 1) / 4 },
+  argile:    { nom: 'Argile',    lire: (c) => (c.q.argile - 1) / 4 },
+  charbon:   { nom: 'Charbon',   lire: (c) => (c.q.charbon - 1) / 4 },
+  minerai:   { nom: 'Minerai',   lire: (c) => (c.q.minerai - 1) / 4 },
+  terrain:   { nom: 'Prix du sol',
+               lire: (c) => 1 - Math.min(1, (prixTerrain(c.ville ? c.ville.niveau : 1,
+                                                          c.distanceGare) - 60) / 340) },
 };
 
-const ALERTES = { matieres: '#c9863f', bras: '#6f9fc9', invendus: '#9a6fb0', perte: '#c2544b' };
+// Les filtres par ville : l'emploi, le salaire et les baromètres ne se
+// mesurent pas à la case mais à la ville entière. Tout son territoire prend
+// donc la même teinte, et les cinq villes se comparent d'un coup d'œil.
+const FILTRES_VILLE = {
+  emploi:     { nom: 'Emploi',     lire: (v) => v.barometres.emploi },
+  nourriture: { nom: 'Nourriture', lire: (v) => v.barometres.nourriture },
+  produits:   { nom: 'Produits',   lire: (v) => v.barometres.produits },
+  occupation: { nom: 'Logement',   lire: (v) => 1 - Math.abs(v.occupation - 0.9) / 0.9 },
+  // Un salaire élevé est une bonne nouvelle pour la ville et une mauvaise pour
+  // l'industriel. On le lit ici du point de vue du patron : bas = vert.
+  salaire:    { nom: 'Salaire',    lire: (v) => 1 - Math.min(1, (v.salaire - 10) / 25) },
+};
 
 class Rendu {
   constructor(canvas, monde) {
     this.cv = canvas;
     this.ctx = canvas.getContext('2d');
     this.monde = monde;
-    this.mode = 'fonction';
+    this.filtre = null;              // null = on voit les bâtiments
+    this.filtrePrix = null;          // ou le nom d'une ressource
     this.selection = null;
-    this.survol = null;
     this.zoom = 1;
-    this.cx = 0; this.cy = 0;          // décalage en cases
+    this.cx = 0; this.cy = 0;
+    this.index = [];                 // les bâtiments, rafraîchis au mois
+    this.solPerime = true;
   }
 
   dimensionner() {
     const z = this.cv.parentElement;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     this.w = z.clientWidth; this.h = z.clientHeight;
-    this.cv.width = this.w * dpr; this.cv.height = this.h * dpr;
+    this.cv.width = Math.round(this.w * dpr); this.cv.height = Math.round(this.h * dpr);
     this.cv.style.width = this.w + 'px'; this.cv.style.height = this.h + 'px';
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.ctx.imageSmoothingEnabled = false;
   }
 
-  get ville() { return this.monde.villes[this.iVille || 0]; }
+  // À zoom 1, le monde entier tient dans la fenêtre.
+  get pasBase() { return Math.min(this.w / this.monde.L, this.h / this.monde.H); }
+  get pas() { return this.pasBase * this.zoom; }
+  get ox() { return (this.w - this.monde.L * this.pas) / 2 + this.cx; }
+  get oy() { return (this.h - this.monde.H * this.pas) / 2 + this.cy; }
 
-  // Taille d'une case à l'écran. À zoom 1, la ville tient entièrement dans la
-  // fenêtre, quel que soit l'écran — c'est la vue d'ensemble. Au-delà, on entre
-  // dans le détail, et sur un téléphone c'est indispensable : une case de sept
-  // pixels ne se vise pas au doigt.
-  get pasBase() { return Math.min(this.w, this.h) / this.ville.N; }
-  get pas() { return Math.max(2, this.pasBase * this.zoom); }
-  get ox() { return Math.round((this.w - this.ville.N * this.pas) / 2 + this.cx); }
-  get oy() { return Math.round((this.h - this.ville.N * this.pas) / 2 + this.cy); }
-
-  // On ne laisse jamais la ville sortir entièrement de l'écran.
+  // La carte ne quitte jamais l'écran. Quand elle est plus grande que la
+  // fenêtre, ses bords s'y arrêtent — on ne dérive pas dans le vide ; quand
+  // elle est plus petite, elle reste centrée.
   recadrer() {
-    const etendue = this.ville.N * this.pas;
-    const margeX = Math.max(0, (etendue - this.w) / 2 + this.w * 0.35);
-    const margeY = Math.max(0, (etendue - this.h) / 2 + this.h * 0.35);
-    this.cx = Math.max(-margeX, Math.min(margeX, this.cx));
-    this.cy = Math.max(-margeY, Math.min(margeY, this.cy));
+    const eL = this.monde.L * this.pas, eH = this.monde.H * this.pas;
+    const mx = Math.max(0, (eL - this.w) / 2);
+    const my = Math.max(0, (eH - this.h) / 2);
+    this.cx = Math.max(-mx, Math.min(mx, this.cx));
+    this.cy = Math.max(-my, Math.min(my, this.cy));
   }
 
-  // Zoome en gardant fixe le point visé — sinon la carte glisse sous le doigt.
   zoomerVers(px, py, facteur) {
     const avant = this.pas;
-    this.zoom = Math.max(1, Math.min(6, this.zoom * facteur));
+    this.zoom = Math.max(1, Math.min(28, this.zoom * facteur));
     const apres = this.pas;
     if (apres === avant) return;
     const k = apres / avant;
@@ -2224,101 +2477,181 @@ class Rendu {
     this.recadrer();
   }
 
-  caseSous(px, py) {
-    const x = Math.floor((px - this.ox) / this.pas), y = Math.floor((py - this.oy) / this.pas);
-    const v = this.ville;
-    if (x < 0 || y < 0 || x >= v.N || y >= v.N) return null;
-    return v.cases[y * v.N + x];
+  // Centre la vue sur une ville, au zoom où l'on distingue les bâtiments.
+  cadrerVille(v) {
+    // On cadre sur la plus petite dimension : en portrait, c'est la largeur qui
+    // décide, et une ville coupée au bord n'est pas une ville cadrée.
+    const tenir = Math.min(this.w, this.h) * 0.88;
+    this.zoom = Math.max(1, Math.min(28, tenir / (v.rayon * 2.5 * this.pasBase)));
+    this.cx = (this.monde.L / 2 - v.gare.x - 0.5) * this.pas;
+    this.cy = (this.monde.H / 2 - v.gare.y - 0.5) * this.pas;
+    this.recadrer();
   }
 
+  caseSous(px, py) {
+    const x = Math.floor((px - this.ox) / this.pas), y = Math.floor((py - this.oy) / this.pas);
+    return this.monde.caseAt(x, y);
+  }
+
+  choisirFiltre(nom, prix = null) {
+    this.filtre = nom; this.filtrePrix = prix;
+    this.solPerime = true;
+  }
+
+  // Les bâtiments changent au mois, pas à l'image : on tient une liste à plat.
+  rafraichirIndex() {
+    this.index = [];
+    for (const v of this.monde.villes) {
+      for (const b of this.monde.tousBatiments(v)) this.index.push(b);
+    }
+    if (this.filtre && FILTRES_VILLE[this.filtre]) this.solPerime = true;
+    if (this.filtrePrix) this.solPerime = true;
+  }
+
+  // --- Le sol -------------------------------------------------------------
+  // Peint une fois, à un pixel par case, puis étiré. C'est ce qui rend une
+  // carte de vingt-cinq mille cases affichable sur un téléphone.
+
+  peindreSol() {
+    const m = this.monde;
+    if (!this.sol) {
+      this.sol = document.createElement('canvas');
+      this.sol.width = m.L; this.sol.height = m.H;
+    }
+    const ctx = this.sol.getContext('2d');
+    const img = ctx.createImageData(m.L, m.H);
+    const d = img.data;
+
+    // Teintes de ville, calculées une fois pour toutes les cases du territoire.
+    const teinteVille = new Map();
+    if (this.filtrePrix) {
+      for (const v of m.villes) {
+        const ind = v.marche.prix[this.filtrePrix] / RES[this.filtrePrix].prix;
+        // Cher = rouge, bon marché = vert. L'échelle couvre la moitié au double
+        // du prix de référence, là où se joue tout ce qui est lisible.
+        teinteVille.set(v, echelle(1 - (ind - 0.5) / 1.5));
+      }
+    } else if (this.filtre && FILTRES_VILLE[this.filtre]) {
+      const f = FILTRES_VILLE[this.filtre];
+      for (const v of m.villes) teinteVille.set(v, echelle(f.lire(v)));
+    }
+
+    const fCase = this.filtre && FILTRES_CASE[this.filtre] ? FILTRES_CASE[this.filtre] : null;
+    const parVille = teinteVille.size > 0;
+    const joueurId = m.joueur.id;
+    const couleursSocietes = new Map(m.societes.map(s => [s.id,
+      [parseInt(s.couleur.substr(1, 2), 16), parseInt(s.couleur.substr(3, 2), 16),
+       parseInt(s.couleur.substr(5, 2), 16)]]));
+
+    for (let i = 0; i < m.cases.length; i++) {
+      const c = m.cases[i];
+      let r, g, b;
+
+      if (parVille) {
+        if (c.ville) {
+          const t = teinteVille.get(c.ville);
+          [r, g, b] = t;
+        } else {
+          // Hors des villes, on garde le relief mais en sourdine : le regard
+          // doit aller aux territoires comparés.
+          const gris = 32 + c.alt * 26;
+          r = gris; g = gris + 2; b = gris - 2;
+        }
+      } else if (this.filtre === 'proprio') {
+        // Ce qui est à vous saute aux yeux ; le reste s'efface. C'est le seul
+        // filtre qui ne suit pas l'échelle rouge-vert : il ne mesure rien, il
+        // désigne.
+        if (c.proprio === joueurId) { r = 224; g = 177; b = 85; }
+        else if (c.proprio && c.proprio !== 'ind') {
+          const s = couleursSocietes.get(c.proprio) || [90, 84, 72];
+          [r, g, b] = s;
+        } else if (c.bat || c.proprio === 'ind') { r = 74; g = 70; b = 60; }
+        else if (c.ville) { r = 42; g = 39; b = 33; }
+        else { r = 24; g = 23; b = 20; }
+      } else if (fCase) {
+        [r, g, b] = echelle(fCase.lire(c));
+        if (!c.ville && this.filtre === 'terrain') { r = 34; g = 34; b = 30; }
+      } else {
+        const base = RELIEFS[c.relief].couleur;
+        r = parseInt(base.substr(1, 2), 16);
+        g = parseInt(base.substr(3, 2), 16);
+        b = parseInt(base.substr(5, 2), 16);
+      }
+
+      // L'ombrage du relief : une lumière rasante venue du nord-ouest. C'est
+      // elle, et rien d'autre, qui fait exister les montagnes sur une carte
+      // vue de dessus.
+      // L'altitude assombrit les fonds et blanchit les hauteurs ; l'ombrage
+      // rasant du nord-ouest fait le reste. C'est ce couple, et rien d'autre,
+      // qui fait exister un relief sur une carte vue de dessus.
+      const etage = 0.86 + c.alt * 0.42;
+      const lum = 1 + (-c.pente * 1.7 - c.penteY * 1.3) * 5.2;
+      const k = Math.max(0.42, Math.min(1.7, lum * etage));
+      d[i * 4]     = Math.min(255, r * k);
+      d[i * 4 + 1] = Math.min(255, g * k);
+      d[i * 4 + 2] = Math.min(255, b * k);
+      d[i * 4 + 3] = 255;
+    }
+
+    ctx.putImageData(img, 0, 0);
+    this.solPerime = false;
+  }
+
+  // --- L'image ------------------------------------------------------------
+
   dessiner() {
-    const { ctx } = this, v = this.ville, p = this.pas, ox = this.ox, oy = this.oy;
-    ctx.clearRect(0, 0, this.w, this.h);
-    ctx.fillStyle = '#0e0d0a';
+    const { ctx } = this, m = this.monde, p = this.pas, ox = this.ox, oy = this.oy;
+    if (this.solPerime || !this.sol) this.peindreSol();
+    if (p !== this._dernierPas) { videCache(); this._dernierPas = p; }
+
+    ctx.fillStyle = '#0f1512';
     ctx.fillRect(0, 0, this.w, this.h);
 
-    const joueur = this.monde.joueur;
+    ctx.imageSmoothingEnabled = p < 3;
+    ctx.drawImage(this.sol, ox, oy, m.L * p, m.H * p);
 
-    for (const c of v.cases) {
-      const x = ox + c.x * p, y = oy + c.y * p;
-      if (x + p < 0 || y + p < 0 || x > this.w || y > this.h) continue;
+    // La fenêtre, en cases : tout le reste du dessin s'y limite.
+    const x0 = Math.floor(-ox / p) - 1, y0 = Math.floor(-oy / p) - 1;
+    const x1 = Math.ceil((this.w - ox) / p) + 1, y1 = Math.ceil((this.h - oy) / p) + 1;
+    const vu = (b) => b.cases[0].x >= x0 && b.cases[0].x <= x1
+                   && b.cases[0].y >= y0 && b.cases[0].y <= y1;
 
-      ctx.fillStyle = this.couleurCase(c, v);
-      ctx.fillRect(x, y, p, p);
+    this.dessinerVoies(ctx, p, ox, oy, x0, y0, x1, y1);
 
-      if (c.rue && this.mode === 'fonction') {
-        ctx.fillStyle = '#2a2822';
-        ctx.fillRect(x, y, p, p);
-      }
-
-      // Les emprises de voie sont réservées et visibles dès la première
-      // seconde : le joueur sait où le rail passera.
-      if (c.voie) {
-        ctx.fillStyle = '#2f2c25';
-        ctx.fillRect(x, y, p, p);
-        ctx.strokeStyle = '#4a463a'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(x, y + p / 2); ctx.lineTo(x + p, y + p / 2); ctx.stroke();
+    // Les rues, seulement quand elles se voient.
+    if (p >= 2.2 && !this.filtre && !this.filtrePrix) {
+      ctx.fillStyle = 'rgba(28,25,20,.55)';
+      for (const v of m.villes) {
+        for (const c of v.cases) {
+          if (!c.rue || c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
+          ctx.fillRect(ox + c.x * p, oy + c.y * p, p, p);
+        }
       }
     }
 
-    // Le contour remplace l'occlusion et se voit à toutes les distances (§21) :
-    // un trait sombre sur les ruptures rend la trame urbaine lisible.
-    if (p >= 5 && this.mode === 'fonction') {
-      ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1;
-      const vus = new Set();
-      for (const c of v.cases) {
-        if (!c.bat || vus.has(c.bat.id)) continue;
-        vus.add(c.bat.id);
-        const xs = c.bat.cases.map(k => k.x), ys = c.bat.cases.map(k => k.y);
-        const x0 = ox + Math.min(...xs) * p, y0 = oy + Math.min(...ys) * p;
-        const w = (Math.max(...xs) - Math.min(...xs) + 1) * p;
-        const h = (Math.max(...ys) - Math.min(...ys) + 1) * p;
-        ctx.strokeRect(x0 + .5, y0 + .5, w - 1, h - 1);
-      }
+    this.dessinerBatiments(ctx, p, ox, oy, vu);
+    this.dessinerChantiers(ctx, p, ox, oy, x0, y0, x1, y1);
+
+    // Les gares, toujours visibles : ce sont les repères de la carte.
+    for (const v of m.villes) {
+      const gx = ox + v.gare.x * p, gy = oy + v.gare.y * p;
+      const r = Math.max(3, Math.min(9, p * 0.7));
+      ctx.fillStyle = '#e0b155';
+      ctx.beginPath(); ctx.arc(gx + p / 2, gy + p / 2, r, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 1.5;
+      ctx.stroke();
     }
 
-    // La gare, au centre.
-    ctx.fillStyle = '#d9a441';
-    ctx.fillRect(ox + v.gare.x * p, oy + v.gare.y * p, p, p);
+    this.dessinerAlertes(ctx, p, ox, oy, vu);
+    this.dessinerEtiquettes(ctx, p, ox, oy);
 
-    // Chantiers : une case terrassée à plat, visible de tous dès le premier
-    // jour. Personne n'est jamais pris par surprise.
-    for (const c of v.cases) {
-      if (!c.chantier) continue;
-      const x = ox + c.x * p, y = oy + c.y * p;
-      ctx.fillStyle = '#3d3527';
-      ctx.fillRect(x, y, p, p);
-      ctx.strokeStyle = c.chantier.societe === joueur ? '#d9a441' : '#6b6252';
-      ctx.setLineDash([2, 2]); ctx.lineWidth = 1;
-      ctx.strokeRect(x + .5, y + .5, p - 1, p - 1);
-      ctx.setLineDash([]);
-      if (p >= 8) {
-        ctx.fillStyle = '#d9a441';
-        ctx.fillRect(x + 1, y + p - 3, (p - 2) * c.chantier.progression(), 2);
-      }
-    }
-
-    // Les pastilles d'alerte : quatre états seulement, et jamais recouvertes.
-    // C'est la couche que le joueur lit vraiment.
-    if (p >= 6) {
-      const vus = new Set();
-      for (const c of v.cases) {
-        const b = c.bat;
-        if (!b || !b.alerte || vus.has(b.id)) continue;
-        vus.add(b.id);
-        ctx.fillStyle = ALERTES[b.alerte];
-        ctx.beginPath();
-        ctx.arc(ox + c.x * p + p - 2.5, oy + c.y * p + 2.5, Math.min(2.5, p / 4), 0, 7);
-        ctx.fill();
-      }
-    }
-
-    // La frontière achetable : étroite et disputée. Les joueurs se battent sur
-    // le même mince liseré, ce qui concentre la compétition.
-    if (this.mode === 'proprio' || this.mode === 'terrain') {
-      ctx.strokeStyle = 'rgba(217,164,65,.55)'; ctx.lineWidth = 1;
-      for (const c of v.cases) {
-        if (!estAchetable(v, c)) continue;
+    // La frontière achetable : étroite et disputée, c'est là que se joue le
+    // foncier. On ne la montre que quand elle sert.
+    if (p >= 4 && (this.filtre === 'terrain' || this.filtre === 'proprio')) {
+      ctx.strokeStyle = 'rgba(224,177,85,.75)'; ctx.lineWidth = 1;
+      for (const v of m.villes) for (const c of v.cases) {
+        if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
+        if (!estAchetable(m, c)) continue;
         ctx.strokeRect(ox + c.x * p + .5, oy + c.y * p + .5, p - 1, p - 1);
       }
     }
@@ -2330,68 +2663,116 @@ class Rendu {
     }
   }
 
-  couleurCase(c, v) {
-    switch (this.mode) {
-      case 'fonction': {
-        // « Si la teinte sert à l'individualité, elle n'est plus disponible
-        //   pour l'information. » On ne fait donc varier que la valeur : la
-        //   teinte reste celle de la famille, et deux maisons voisines se
-        //   distinguent quand même.
-        if (c.bat) return nuance(COULEURS[c.bat.type], c.bat.id);
-        return nuance(RELIEFS[c.relief].couleur, c.x * 31 + c.y * 17);
+  dessinerVoies(ctx, p, ox, oy, x0, y0, x1, y1) {
+    const m = this.monde;
+    // Une ligne achevée est un trait plein et doré ; une ligne en chantier
+    // reste grisée. Le joueur voit dès la première seconde où le rail passera.
+    for (const l of m.liaisons) {
+      const a = m.villes[l.a].gare, b = m.villes[l.b].gare;
+      ctx.strokeStyle = l.achevee ? 'rgba(224,177,85,.85)' : 'rgba(120,112,96,.55)';
+      ctx.lineWidth = l.achevee ? Math.max(1.5, p * 0.30) : Math.max(1, p * 0.18);
+      ctx.setLineDash(l.achevee ? [] : [Math.max(3, p), Math.max(3, p)]);
+      ctx.beginPath();
+      ctx.moveTo(ox + (a.x + .5) * p, oy + (a.y + .5) * p);
+      ctx.lineTo(ox + (b.x + .5) * p, oy + (b.y + .5) * p);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  dessinerBatiments(ctx, p, ox, oy, vu) {
+    const joueur = this.monde.joueur;
+    const dessine = p >= 5.5 && !this.filtre && !this.filtrePrix;
+
+    for (const b of this.index) {
+      if (!vu(b)) continue;
+      const c = b.cases[0];
+      const x = ox + c.x * p, y = oy + c.y * p;
+
+      if (dessine) {
+        ctx.drawImage(sprite(b.type, p), Math.round(x), Math.round(y));
+      } else if (!this.filtre && !this.filtrePrix) {
+        // Trop petit pour un toit : on garde la couleur de famille, qui suffit
+        // à lire la vocation des quartiers.
+        ctx.fillStyle = COULEURS[b.type];
+        ctx.fillRect(x, y, p * b.def.w, p * b.def.h);
+      } else {
+        // Sous un filtre, le bâti ne doit pas voler la couleur de la donnée :
+        // il n'en reste qu'une silhouette sombre.
+        ctx.fillStyle = 'rgba(0,0,0,.28)';
+        ctx.fillRect(x, y, p * b.def.w, p * b.def.h);
       }
 
-      case 'proprio': {
-        if (!c.vendue && !c.proprio) return '#1e1c17';
-        if (c.proprio === 'ind') return '#4a463a';
-        const s = this.monde.societes.find(x => x.id === c.proprio);
-        return s ? s.couleur : '#2a2822';
-      }
-
-      case 'terrain': {
-        const t = prixTerrain(v.niveau, c.distanceGare);
-        const k = Math.min(1, (t - 60) / 360);
-        return melange('#22201a', '#d9a441', k);
-      }
-
-      default: {
-        // Les cartes de qualité : le seul endroit où se lit le handicap de
-        // terrain, qui ne fait aucun bruit et ne se guérit jamais.
-        const q = c.q[this.mode];
-        return q == null ? '#22201a' : melange('#241f17', '#7dd48a', (q - 1) / 4);
+      // Ce qui est à vous se voit toujours, quel que soit le mode.
+      if (b.societe === joueur && p >= 3) {
+        ctx.strokeStyle = '#e0b155';
+        ctx.lineWidth = Math.max(1, p * 0.10);
+        ctx.strokeRect(x + .5, y + .5, p * b.def.w - 1, p * b.def.h - 1);
       }
     }
   }
-}
 
-// Fait varier la luminosité d'une teinte selon un identifiant, sans jamais
-// toucher à la teinte elle-même.
-function nuance(hex, graine) {
-  const h = ((graine * 2654435761) >>> 0) % 1000 / 1000;
-  const k = 0.86 + h * 0.28;
-  const p = (i) => Math.max(0, Math.min(255, Math.round(parseInt(hex.substr(i, 2), 16) * k)));
-  const c = (v) => v.toString(16).padStart(2, '0');
-  return `#${c(p(1))}${c(p(3))}${c(p(5))}`;
-}
+  dessinerChantiers(ctx, p, ox, oy, x0, y0, x1, y1) {
+    const joueur = this.monde.joueur;
+    for (const s of this.monde.societes) for (const ch of s.chantiers) {
+      const c = ch.cases[0];
+      if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
+      const x = ox + c.x * p, y = oy + c.y * p;
+      const w = p * BAT[ch.type].w, h = p * BAT[ch.type].h;
+      ctx.fillStyle = '#3a3226';
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = s === joueur ? '#e0b155' : 'rgba(150,140,120,.7)';
+      ctx.setLineDash([Math.max(2, p * 0.3), Math.max(2, p * 0.3)]);
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + .5, y + .5, w - 1, h - 1);
+      ctx.setLineDash([]);
+      if (p >= 7) {
+        ctx.fillStyle = '#e0b155';
+        ctx.fillRect(x + 2, y + h - 4, (w - 4) * ch.progression(), 2);
+      }
+    }
+  }
 
-function melange(a, b, t) {
-  t = Math.max(0, Math.min(1, t));
-  const p = (h) => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
-  const [r1, g1, b1] = p(a), [r2, g2, b2] = p(b);
-  const c = (x, y) => Math.round(x + (y - x) * t).toString(16).padStart(2, '0');
-  return `#${c(r1, r2)}${c(g1, g2)}${c(b1, b2)}`;
+  // Les pastilles d'alerte : quatre états seulement, jamais recouvertes. C'est
+  // la couche que le joueur lit vraiment.
+  dessinerAlertes(ctx, p, ox, oy, vu) {
+    if (p < 4) return;
+    for (const b of this.index) {
+      if (!b.alerte || !vu(b)) continue;
+      const c = b.cases[0];
+      const r = Math.min(3.2, Math.max(1.6, p / 4));
+      ctx.fillStyle = ALERTES[b.alerte];
+      ctx.beginPath();
+      ctx.arc(ox + (c.x + b.def.w) * p - r - 1, oy + c.y * p + r + 1, r, 0, 7);
+      ctx.fill();
+    }
+  }
+
+  dessinerEtiquettes(ctx, p, ox, oy) {
+    ctx.textAlign = 'center';
+    ctx.font = `600 ${Math.max(10, Math.min(15, 9 + p * 0.5))}px ui-sans-serif, system-ui, sans-serif`;
+    for (const v of this.monde.villes) {
+      const x = ox + (v.gare.x + .5) * p;
+      const y = oy + v.gare.y * p - Math.max(8, p * 0.9);
+      if (x < -60 || x > this.w + 60 || y < -20 || y > this.h + 20) continue;
+      const texte = p < 4 ? v.nom : `${v.nom} · ${Math.round(v.menages)}`;
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(8,7,6,.85)';
+      ctx.strokeText(texte, x, y);
+      ctx.fillStyle = v.enCrise ? '#e05a4e' : '#efe8d8';
+      ctx.fillText(texte, x, y);
+    }
+    ctx.textAlign = 'left';
+  }
 }
 
 // ===== js/ui/panneaux.js =============================================
 
 // ---------------------------------------------------------------------------
-// Les panneaux d'information.
+// Le contenu des volets : filtres, villes, marché, société, rail.
 //
 // « Le registre est ce qui permet au joueur de repérer le bâtiment qui perd de
 //   l'argent. Sans lui, une société de trente bâtiments est une boîte noire et
-//   le joueur ne peut prendre aucune décision éclairée — il jouera au hasard.
-//   C'est un écran à soigner autant que la carte, et probablement à concevoir
-//   avant elle. » (§3)
+//   le joueur ne peut prendre aucune décision éclairée — il jouera au hasard. »
 // ---------------------------------------------------------------------------
 
 
@@ -2400,27 +2781,101 @@ const $ = (s) => document.querySelector(s);
 const eur = (n) => (n < 0 ? '−' : '') + Math.abs(Math.round(n)).toLocaleString('fr-FR') + ' $';
 const pct = (n) => Math.round(n * 100) + ' %';
 const cl = (n) => n > 0 ? 'vert' : n < 0 ? 'rouge' : 'doux';
+const rgb = (t) => `rgb(${t[0]},${t[1]},${t[2]})`;
 
-// --- Ville ------------------------------------------------------------------
+// --- Filtres ----------------------------------------------------------------
 
-function panneauVille(monde, v) {
+function voletFiltres(monde, rendu) {
+  const past = (id, nom, actif, teinte) =>
+    `<button data-filtre="${id}" class="${actif ? 'actif' : ''}">`
+    + (teinte ? `<span class="nuance" style="background:${teinte}"></span>` : '')
+    + `${nom}</button>`;
+
+  const f = rendu.filtre, fp = rendu.filtrePrix;
+
+  return `
+    <h3>Ce que montre la carte</h3>
+    <div class="pastilles">
+      ${past('', 'Les bâtiments', !f && !fp)}
+      ${past('proprio', 'Mes possessions', f === 'proprio')}
+    </div>
+
+    <h3>Le terrain — case par case</h3>
+    <div class="pastilles">
+      ${Object.entries(FILTRES_CASE).map(([id, x]) =>
+        past(id, x.nom, f === id)).join('')}
+    </div>
+
+    <h3>Les villes — territoire entier</h3>
+    <div class="pastilles">
+      ${Object.entries(FILTRES_VILLE).map(([id, x]) =>
+        past(id, x.nom, f === id)).join('')}
+    </div>
+
+    <h3>Le prix d'une marchandise, ville par ville</h3>
+    <div class="pastilles">
+      ${RESSOURCES.map(r =>
+        `<button data-prix="${r}" class="${fp === r ? 'actif' : ''}">
+           <span class="nuance" style="background:${RES[r].couleur}"></span>${RES[r].nom}</button>`
+      ).join('')}
+    </div>
+
+    <div class="note">
+      Une seule échelle pour tout : <b class="rouge">rouge</b> pour ce qui va mal,
+      jaune au milieu, <b class="vert">vert</b> pour ce qui va bien. Sur les prix,
+      le rouge dit « cher » — mauvaise nouvelle pour qui achète, bonne pour qui vend.
+    </div>
+  `;
+}
+
+// --- Villes -----------------------------------------------------------------
+
+function voletVilles(monde) {
+  return `<h3>Les cinq villes</h3>
+    <div class="listeVilles">
+      ${monde.villes.map(v => {
+        const b = v.barometres;
+        const moy = (b.nourriture + b.emploi + b.produits) / 3;
+        return `<button data-ville="${v.id}">
+          <span>
+            <b>${v.nom}</b>${v.enCrise ? ' <span class="rouge">⚠</span>' : ''}
+            <span class="cv"><br>${P.nomsNiveau[v.niveau - 1]} · ${Math.round(v.menages)} ménages</span>
+          </span>
+          <span class="cv" style="text-align:right">
+            <span style="color:${rgb(echelle(moy))}">●</span> ${pct(moy)}
+            <br>salaire ${v.salaire.toFixed(1)} $
+          </span>
+        </button>`;
+      }).join('')}
+    </div>
+    <div class="note">Touchez une ville pour l'atteindre sur la carte.</div>
+    ${monde.villeChoisie ? detailVille(monde, monde.villeChoisie) : ''}
+  `;
+}
+
+function detailVille(monde, v) {
   const b = v.barometres;
   const moy = (b.nourriture + b.emploi + b.produits) / 3;
 
-  // Les trois barres doivent être affichées côte à côte avec leur moyenne, pour
-  // qu'on voie d'un coup d'œil laquelle tire vers le bas : trois facteurs
-  // médiocres donnent un résultat médiocre sans qu'aucun ne saute aux yeux.
-  const jauge = (nom, val, seuil, couleur) => `
-    <div class="barometre ${val < seuil ? 'critique' : ''}">
+  const jauge = (nom, val, seuil) => `
+    <div class="barometre">
       <div class="tete"><span>${nom}</span>
         <span class="${val < seuil ? 'rouge' : 'doux'}">${pct(val)}${val < seuil ? ' ⚠' : ''}</span></div>
-      <div class="piste"><div class="jauge" style="width:${Math.min(100, val * 100)}%;background:${couleur}"></div></div>
+      <div class="piste"><div class="jauge2"
+        style="width:${Math.min(100, val * 100)}%;background:${rgb(echelle(val))}"></div></div>
     </div>`;
 
-  const tendance = v.enCrise ? '<span class="rouge">seuil critique franchi — la ville se vide de 5 % par mois</span>'
-    : moy > P.pivot + 0.005 ? `<span class="vert">attractive — elle grossit de ${(0.2 * (moy - P.pivot) * 100).toFixed(1)} % par mois</span>`
+  const tendance = v.enCrise
+    ? '<span class="rouge">seuil critique franchi — la ville se vide de 5 % par mois</span>'
+    : moy > P.pivot + 0.005 ? `<span class="vert">attractive — +${(0.2 * (moy - P.pivot) * 100).toFixed(1)} % par mois</span>`
     : moy < P.pivot - 0.005 ? `<span class="rouge">elle repousse — ${(0.2 * (moy - P.pivot) * 100).toFixed(1)} % par mois</span>`
     : '<span class="doux">à l\'équilibre, sur son pivot</span>';
+
+  const n = niveauVille(v.menages);
+  const palier = n >= 5 ? 'Métropole — dernier palier.'
+    : `${P.nomsNiveau[n]} à ${P.seuilsNiveau[n]} ménages — il en manque
+       <b>${Math.max(0, Math.ceil(P.seuilsNiveau[n] - v.menages))}</b>, et le foncier
+       passerait de ×${P.facteurNiveau[n - 1].toFixed(1)} à ×${P.facteurNiveau[n].toFixed(1)}.`;
 
   return `
     <h3>${v.nom} · ${P.nomsNiveau[v.niveau - 1]}</h3>
@@ -2428,166 +2883,128 @@ function panneauVille(monde, v) {
       <div class="fiche"><div class="etiq">Ménages</div><div class="v">${Math.round(v.menages)}</div></div>
       <div class="fiche"><div class="etiq">Occupation</div><div class="v">${pct(v.occupation)}</div></div>
       <div class="fiche"><div class="etiq">Salaire</div><div class="v">${v.salaire.toFixed(1)} $</div></div>
-      <div class="fiche"><div class="etiq">Bras libres</div><div class="v">${Math.round(Math.max(0, v.bras - v.postesDemandes))}</div></div>
+      <div class="fiche"><div class="etiq">Bras libres</div>
+        <div class="v">${Math.round(Math.max(0, (v.bras || 0) - (v.postesDemandes || 0)))}</div></div>
     </div>
 
     <h3>Les trois baromètres</h3>
-    ${jauge('Nourriture', b.nourriture, P.seuilsCritiques.nourriture, '#d9a441')}
-    ${jauge('Emploi', b.emploi, P.seuilsCritiques.emploi, '#6f9fc9')}
-    ${jauge('Produits manufacturés', b.produits, P.seuilsCritiques.produits, '#6faa72')}
-    <div class="barometre" style="margin-top:11px">
-      <div class="tete"><span><b>Moyenne</b> — pivot à ${pct(P.pivot)}</span><span class="or"><b>${pct(moy)}</b></span></div>
-      <div class="piste"><div class="jauge" style="width:${moy * 100}%;background:#d9a441"></div></div>
+    ${jauge('Nourriture', b.nourriture, P.seuilsCritiques.nourriture)}
+    ${jauge('Emploi', b.emploi, P.seuilsCritiques.emploi)}
+    ${jauge('Produits manufacturés', b.produits, P.seuilsCritiques.produits)}
+    <div class="barometre" style="margin-top:10px">
+      <div class="tete"><span><b>Moyenne</b> — pivot à ${pct(P.pivot)}</span>
+        <span class="or"><b>${pct(moy)}</b></span></div>
+      <div class="piste"><div class="jauge2" style="width:${moy * 100}%;background:var(--or)"></div></div>
     </div>
     <div class="note">${tendance}</div>
-
-    <h3>Prochain palier</h3>
-    <div class="note">${paliersuivant(v)}</div>
-
-    <h3>Chantiers en cours (${monde.tousChantiers(v).length})</h3>
-    ${tableChantiers(monde, v)}
+    <div class="note">${palier}</div>
   `;
-}
-
-function paliersuivant(v) {
-  const n = niveauVille(v.menages);
-  if (n >= 5) return 'Métropole — le dernier palier est atteint.';
-  const cible = P.seuilsNiveau[n];
-  return `${P.nomsNiveau[n]} à ${cible} ménages — il en manque <b>${Math.max(0, Math.ceil(cible - v.menages))}</b>. `
-       + `Le foncier passerait de ×${P.facteurNiveau[n - 1].toFixed(1)} à ×${P.facteurNiveau[n].toFixed(1)}.`;
-}
-
-function tableChantiers(monde, v) {
-  const chs = monde.tousChantiers(v).sort((a, b) => a.ouvertLe - b.ouvertLe);
-  if (!chs.length) return '<div class="note faible">Aucun.</div>';
-  return `<table><tr><th>Ouvert</th><th>Bâtiment</th><th>Société</th><th class="n">Avancement</th></tr>
-    ${chs.map(c => `<tr>
-      <td class="doux">mois ${c.ouvertLe}</td>
-      <td>${BAT[c.type].nom}</td>
-      <td style="color:${c.societe.couleur}">${c.societe.nom}</td>
-      <td class="n">${pct(c.progression())}</td></tr>`).join('')}
-  </table>
-  <div class="note">Priorité au plus ancien : un chantier ouvert il y a dix mois ne cède
-  jamais sa place à un chantier ouvert hier.</div>`;
 }
 
 // --- Marché -----------------------------------------------------------------
 
-function panneauMarche(monde, v) {
-  const m = v.marche;
-  const lignes = RESSOURCES.map(r => {
-    const i = m.indice(r);
-    const classe = i > 1.4 ? 'rouge' : i < 0.75 ? 'vert' : 'doux';
-    const serv = m.service[r];
-    return `<tr>
-      <td><span class="puce" style="background:${RES[r].couleur}"></span>${RES[r].nom}</td>
-      <td class="n">${m.prix[r].toFixed(2)} $</td>
-      <td class="n ${classe}">${i.toFixed(2)}×</td>
-      <td class="n ${serv < 0.95 ? 'rouge' : 'doux'}">${pct(serv)}</td>
-      <td class="n doux">${Math.round(m.stock[r])}</td>
-    </tr>`;
-  }).join('');
-
-  return `
-    <h3>Marché de ${m.nom}</h3>
-    <table>
-      <tr><th>Ressource</th><th class="n">Prix</th><th class="n">/ réf.</th><th class="n">Servi</th><th class="n">Stock</th></tr>
-      ${lignes}
-    </table>
+function voletMarche(monde, rendu) {
+  return monde.marches.map(m => {
+    const lignes = RESSOURCES.map(r => {
+      const i = m.indice(r);
+      const classe = i > 1.35 ? 'rouge' : i < 0.8 ? 'vert' : 'doux';
+      return `<tr class="ligneRes" data-prix="${r}">
+        <td><span class="puce" style="background:${RES[r].couleur}"></span>${RES[r].nom}</td>
+        <td class="n">${m.prix[r].toFixed(2)} $</td>
+        <td class="n ${classe}">${i.toFixed(2)}×</td>
+        <td class="n ${m.service[r] < 0.95 ? 'rouge' : 'doux'}">${pct(m.service[r])}</td>
+      </tr>`;
+    }).join('');
+    return `<h3>${m.nom}${m.villes.length > 1 ? ' — marché fusionné' : ''}</h3>
+      <table>
+        <tr><th>Marchandise</th><th class="n">Prix</th><th class="n">/ réf.</th><th class="n">Servi</th></tr>
+        ${lignes}
+      </table>`;
+  }).join('') + `
     <div class="note">
-      Le prix suit les <b>flux</b>, jamais le stock : il monte quand les besoins réels du mois
+      Touchez une marchandise pour la voir sur la carte, ville par ville.<br><br>
+      Le prix suit les <b>flux</b>, jamais le stock : il monte quand les besoins du mois
       dépassent ce qui entre sur le marché. Rafler un stock ne fait pas bouger le cours —
       cela vide le matelas, et les usines s'arrêtent au premier accroc.
-    </div>
-    ${m.villes.length > 1 ? `<div class="note or">★ ${m.villes.length} villes fusionnées :
-      leurs stocks se confondent et un prix unique s'établit.</div>` : ''}
-  `;
+    </div>`;
 }
 
-// --- Comptes ----------------------------------------------------------------
+// --- Société ----------------------------------------------------------------
 
-function panneauComptes(monde) {
+function voletSociete(monde) {
   const s = monde.joueur;
-  const bats = s.batiments;
-
   const enTete = `
     <div class="grille">
       <div class="fiche"><div class="etiq">Votre fortune</div>
         <div class="v or">${eur(s.cours(monde.multiple) * s.actions * P.partFondateur)}</div></div>
-      <div class="fiche"><div class="etiq">Cours de l'action</div>
+      <div class="fiche"><div class="etiq">Cours</div>
         <div class="v">${s.cours(monde.multiple).toFixed(3).replace('.', ',')} $</div></div>
-      <div class="fiche"><div class="etiq">Climat</div>
-        <div class="v">${{ normal: 'Normal', euphorie: 'Euphorie', crise: 'Crise' }[monde.climat]}</div></div>
+      <div class="fiche"><div class="etiq">Trésorerie</div><div class="v">${eur(s.tresorerie)}</div></div>
     </div>`;
-  if (!bats.length && !s.chantiers.length) {
+
+  if (!s.batiments.length && !s.chantiers.length) {
     return enTete + `<h3>Livre de comptes</h3>
       <div class="note">Votre société ne possède encore rien.<br><br>
-      Cliquez une case sur la carte pour acheter du terrain, puis ouvrez un chantier.
-      Le terrain est la moitié du coût d'une maison — et la totalité de ce qui fait
-      les fortunes.</div>`;
+      Approchez une ville, touchez une case libre à la lisière du bâti, achetez-la, puis
+      ouvrez un chantier. Le terrain est la moitié du coût d'une maison — et la totalité
+      de ce qui fait les fortunes.</div>`;
   }
 
-  const lignes = bats.map(b => {
-    const marge = b.margeUnitaire;
-    return `<tr class="ligneBat" data-bat="${b.id}">
+  const lignes = s.batiments.map(b => `
+    <tr class="ligneBat" data-bat="${b.id}">
       <td><span class="puce" style="background:${COULEURS[b.type]}"></span>${BAT[b.type].nom}</td>
-      <td class="doux">${b.ville.nom.slice(0, 7)}</td>
+      <td class="doux">${b.ville.nom.slice(0, 8)}</td>
       <td class="n">${pct(b.tauxReel)}</td>
       <td class="n ${cl(b.resultat)}">${eur(b.resultat)}</td>
-      <td class="n doux">${b.def.sort ? marge.toFixed(2) : '—'}</td>
-    </tr>`;
-  }).join('');
-
-  const resultat = s.resultatMensuel;
-  const actif = s.actifNet(monde.multiple);
+    </tr>`).join('');
 
   return enTete + `
     <h3>Exploitation du mois</h3>
     <table>
-      <tr><th>Bâtiment</th><th>Ville</th><th class="n">Activité</th><th class="n">Résultat</th><th class="n">Marge/u</th></tr>
+      <tr><th>Bâtiment</th><th>Ville</th><th class="n">Activité</th><th class="n">Résultat</th></tr>
       ${lignes}
     </table>
 
     <h3>Bilan</h3>
     <table>
-      <tr><td>Résultat net du mois</td><td class="n ${cl(resultat)}">${eur(resultat)}</td></tr>
-      <tr><td>Masse salariale</td><td class="n doux">${eur(s.masseSalariale)}</td></tr>
-      <tr><td>Trésorerie</td><td class="n">${eur(s.tresorerie)}</td></tr>
-      <tr><td>Immobilisé en chantiers</td><td class="n doux">${eur(s.chantiers.reduce((a, c) => a + c.engage, 0))}</td></tr>
-      <tr><td>Valeur des bâtiments</td><td class="n">${eur(bats.reduce((a, b) => a + b.valeur(monde.multiple), 0))}</td></tr>
-      <tr><td><b>Actif net réévalué</b></td><td class="n"><b>${eur(actif)}</b></td></tr>
-      <tr><td>Cours de l'action</td><td class="n or">${s.cours(monde.multiple).toFixed(3)} $</td></tr>
+      <tr><td>Résultat net</td><td class="n ${cl(s.resultatMensuel)}">${eur(s.resultatMensuel)}</td></tr>
+      <tr><td>Immobilisé en chantiers</td>
+          <td class="n doux">${eur(s.chantiers.reduce((a, c) => a + c.engage, 0))}</td></tr>
+      <tr><td>Valeur des bâtiments</td>
+          <td class="n">${eur(s.batiments.reduce((a, b) => a + b.valeur(monde.multiple), 0))}</td></tr>
+      <tr><td><b>Actif net réévalué</b></td><td class="n"><b>${eur(s.actifNet(monde.multiple))}</b></td></tr>
     </table>
-    <div class="note">
-      Multiple du marché : <b>×${monde.multiple}</b>. Un bâtiment vaut son terrain plus ses
-      matériaux, plus ${monde.multiple} fois son résultat annuel — et jamais moins que son plancher.
-    </div>
 
-    <h3>Concurrents</h3>
+    <h3>Les concurrents</h3>
     <table>
       <tr><th>Société</th><th class="n">Bâtiments</th><th class="n">Cours</th></tr>
       ${monde.societes.map(x => `<tr>
         <td><span class="puce" style="background:${x.couleur}"></span>${x.nom}</td>
         <td class="n doux">${x.batiments.length}</td>
-        <td class="n">${x.cours(monde.multiple).toFixed(3)} $</td></tr>`).join('')}
+        <td class="n">${x.cours(monde.multiple).toFixed(3).replace('.', ',')} $</td></tr>`).join('')}
     </table>
-  `;
+    <div class="note">Multiple du marché : <b>×${monde.multiple}</b>. Un bâtiment vaut son
+      terrain plus ses matériaux, plus ${monde.multiple} fois son résultat annuel.</div>`;
 }
 
 // --- Rail -------------------------------------------------------------------
 
-function panneauRail(monde) {
+function voletRail(monde) {
   const lignes = monde.liaisons.map((l, i) => {
     const reste = l.date - monde.mois;
     const part = l.capital > 0 ? (l.parts[monde.joueur.id] || 0) / l.capital : 0;
     return `<tr>
-      <td>${l.nom}</td>
+      <td>${l.nom}<br><span class="faible">${l.longueur} cases</span></td>
       <td class="n ${l.achevee ? 'vert' : reste <= 3 ? 'or' : 'doux'}">
         ${l.achevee ? 'ouverte' : reste + ' mois'}</td>
       <td class="n doux">${part > 0 ? pct(part) : '—'}</td>
-      <td class="n">${l.achevee ? '—' : `<button class="miniInvest" data-liaison="${i}">+800 $</button>`}</td>
+      <td class="n">${l.achevee ? '—'
+        : `<button class="miniInvest" data-liaison="${i}">+800 $</button>`}</td>
     </tr>`;
   }).join('');
+
+  // Ce que voit le joueur : quelles villes partagent déjà un marché.
+  const reseaux = monde.marches.map(m => m.villes.map(v => v.nom).join(' + ')).join('<br>');
 
   return `
     <h3>Les liaisons</h3>
@@ -2597,15 +3014,17 @@ function panneauRail(monde) {
     </table>
     <div class="note">
       Chaque tranche de 800 $ avance la date d'un mois, dans la limite de 40 % du délai
-      initial : on peut avancer le rendez-vous, jamais le supprimer.<br><br>
-      Le jour où une ligne s'ouvre, les deux villes n'ont plus qu'un seul marché. Les prix
-      s'effondrent d'un côté, s'envolent de l'autre, et tous les calculs de rentabilité sont
-      à refaire. <b>Celui qui a acheté les bonnes terres avant que la ligne n'aboutisse a
-      gagné sa partie.</b>
+      initial : on peut avancer le rendez-vous, jamais le supprimer.
     </div>
 
+    <h3>Marchés en présence</h3>
+    <div class="note">${reseaux}<br><br>
+      Les liaisons ne s'additionnent pas, elles se chaînent : si A rejoint B et B rejoint C,
+      alors A et C partagent déjà le même marché, sans qu'aucune ligne supplémentaire ait
+      été posée.</div>
+
     <h3>Journal</h3>
-    <div class="note">${monde.journal.slice(-9).reverse().join('<br>') || 'Rien à signaler.'}</div>
+    <div class="note">${monde.journal.slice(-8).reverse().join('<br>') || 'Rien à signaler.'}</div>
   `;
 }
 
@@ -2626,6 +3045,11 @@ function panneauRail(monde) {
 const NOMS_QUALITE = { fertilite: 'Fertilité', argile: 'Argile', bois: 'Bois',
                        charbon: 'Charbon', minerai: 'Minerai' };
 
+// Les quartiers ne sont pas décoratifs : ils décident de ce qu'on peut y bâtir
+// à bon compte, et empêchent les ateliers de cerner les maisons.
+const NOMS_QUARTIER = { residentiel: 'd\'habitation', industriel: 'industriel',
+                        negoce: 'de négoce', agricole: 'agricole' };
+
 // Ce qu'on peut bâtir, groupé comme le joueur y pense.
 const MENU = [
   ['Logement', ['maison', 'immeuble']],
@@ -2635,9 +3059,9 @@ const MENU = [
   ['Rapport et négoce', ['bureaux', 'entrepot']],
 ];
 
-function contenuFeuille(monde, v, c) {
+function contenuFeuille(monde, c) {
   if (!c) return '';
-  const joueur = monde.joueur;
+  const v = c.ville;
 
   if (c.rue) return entete('Rue', 'Voirie — non constructible')
     + `<div class="note">Une rue toutes les cinq cases au centre, des parcelles isolées en
@@ -2650,6 +3074,7 @@ function contenuFeuille(monde, v, c) {
 
   if (c.chantier) return ficheChantier(monde, c.chantier);
   if (c.bat) return ficheBatiment(monde, c.bat, c);
+  if (!v) return ficheCampagne(c);
   return ficheTerrain(monde, v, c);
 }
 
@@ -2679,7 +3104,7 @@ function ficheTerrain(monde, v, c) {
     proprio = s ? s.nom : 'Inconnu';
   }
 
-  const achetable = estAchetable(v, c) || c.proprio === 'ind';
+  const achetable = estAchetable(monde, c) || c.proprio === 'ind';
   let actions = '';
   if (aMoi) {
     actions = menuConstruire(monde, v, c);
@@ -2699,7 +3124,7 @@ function ficheTerrain(monde, v, c) {
   }
 
   return entete(`${RELIEFS[c.relief].nom} · ${c.x},${c.y}`,
-                `${proprio} — à ${c.distanceGare} cases de la gare`)
+                `${proprio} · ${c.quartier ? 'quartier ' + NOMS_QUARTIER[c.quartier] : ''} — à ${c.distanceGare} cases de la gare`)
     + `<div class="grille">${qualites}</div>`
     + `<div class="grille">
         <div class="fiche"><div class="etiq">Prix du sol</div><div class="v">${eur(prix)}</div></div>
@@ -2745,22 +3170,37 @@ function menuConstruire(monde, v, c) {
 
 // Cherche une emprise de la bonne forme, ancrée sur la case cliquée, dont le
 // joueur possède toutes les cases.
-function empriseDepuis(monde, v, c, type) {
+function empriseDepuis(monde, c, type) {
   const def = BAT[type];
   const joueur = monde.joueur;
   for (let dy = 0; dy < def.h; dy++) for (let dx = 0; dx < def.w; dx++) {
-    const x0 = c.x - dx, y0 = c.y - dy;
     const cases = [];
     let ok = true;
     for (let j = 0; j < def.h && ok; j++) for (let i = 0; i < def.w && ok; i++) {
-      const k = v.cases[(y0 + j) * v.N + (x0 + i)];
-      if (!k || x0 + i < 0 || y0 + j < 0 || x0 + i >= v.N || y0 + j >= v.N) { ok = false; break; }
-      if (k.voie || k.rue || k.bat || k.chantier || k.proprio !== joueur.id) { ok = false; break; }
+      const k = monde.caseAt(c.x - dx + i, c.y - dy + j);
+      if (!k || k.voie || k.rue || k.bat || k.chantier || k.proprio !== joueur.id) {
+        ok = false; break;
+      }
       cases.push(k);
     }
     if (ok && cases.length === def.cases) return cases;
   }
   return null;
+}
+
+// Hors des territoires : on ne bâtit pas en rase campagne. C'est ce qui donne
+// leur valeur aux cases de la frontière urbaine.
+function ficheCampagne(c) {
+  const qualites = QUALITES.map(q => {
+    const n = c.q[q];
+    return `<div class="fiche"><div class="etiq">${NOMS_QUALITE[q]}</div>
+      <div class="v ${n >= 4 ? 'vert' : n <= 2 ? 'rouge' : 'doux'}">${n}
+      <span class="faible" style="font-size:11px"> / 5</span></div></div>`;
+  }).join('');
+  return entete(RELIEFS[c.relief].nom, 'Rase campagne — hors de tout territoire')
+    + `<div class="grille">${qualites}</div>`
+    + `<div class="note">Aucune ville ne s'étend jusqu'ici. On ne bâtit que dans le
+       territoire d'une ville, et il s'étend en anneaux depuis sa gare.</div>`;
 }
 
 // --- Un chantier ------------------------------------------------------------
@@ -2867,18 +3307,15 @@ function ficheBatiment(monde, b, c) {
 
 
 
-const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-              'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+const MOIS = ['janv.', 'févr.', 'mars', 'avril', 'mai', 'juin',
+              'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
-const monde = new Monde({ nbVilles: 3, duree: 60, graine: (Math.random() * 1e9) | 0 });
+const monde = new Monde({ nbVilles: 5, duree: 60, graine: (Math.random() * 1e9) | 0 });
 const cv = $('#carte');
 const rendu = new Rendu(cv, monde);
-rendu.iVille = 0;
 
-let enMarche = false;
-let vitesse = 1;
-let horloge = 0;
-let ongletPanneau = 'ville';
+let enMarche = false, vitesse = 1, horloge = 0;
+let vueVolet = null;                 // 'filtres' | 'villes' | 'marche' | 'societe' | 'rail'
 
 // --- Boucle -----------------------------------------------------------------
 
@@ -2892,7 +3329,8 @@ function boucle(t) {
     const duree = P.moisParSeconde * 1000;
     while (horloge >= duree) {
       horloge -= duree;
-      if (!monde.tick()) { enMarche = false; finDePartie(); break; }
+      if (!monde.tick()) { enMarche = false; majPause(); finDePartie(); break; }
+      rendu.rafraichirIndex();
       rafraichirTout();
     }
   }
@@ -2903,80 +3341,102 @@ function boucle(t) {
 
 // --- Affichage --------------------------------------------------------------
 
-function rafraichirTout() {
-  rafraichirBarre();
-  rafraichirPanneau();
-  rafraichirFeuille();
-  rafraichirOngletsVilles();
-}
+function rafraichirTout() { rafraichirBarre(); rafraichirVolet(); rafraichirFeuille(); }
 
 function rafraichirBarre() {
   const s = monde.joueur;
-  const an = Math.floor(monde.mois / 12) + 1;
-  $('#date').textContent = `An ${an} · ${MOIS[monde.mois % 12]}`;
-  $('#restant').textContent = `${monde.duree - monde.mois} mois restants`;
+  $('#date').textContent = `An ${Math.floor(monde.mois / 12) + 1} · ${MOIS[monde.mois % 12]}`;
+  $('#restant').textContent = `${monde.duree - monde.mois} mois`;
   $('#tresorerie').textContent = eur(s.tresorerie);
 
   const r = s.resultatMensuel;
   const el = $('#resultat');
-  el.textContent = (r >= 0 ? '+' : '') + eur(r) + ' / mois';
+  el.textContent = (r >= 0 ? '+' : '') + eur(r);
   el.className = 'sous ' + (r > 0 ? 'vert' : r < 0 ? 'rouge' : 'doux');
 
-  $('#cours').textContent = s.cours(monde.multiple).toFixed(3).replace('.', ',') + ' $';
-  $('#actifnet').textContent = 'actif net ' + eur(s.actifNet(monde.multiple));
   $('#fortune').textContent = eur(s.cours(monde.multiple) * s.actions * P.partFondateur);
-  $('#climat').textContent = { normal: 'Normal', euphorie: 'Euphorie', crise: 'Crise' }[monde.climat];
-
   const cl = monde.classement();
   const rang = cl.findIndex(x => x.societe === s) + 1;
-  $('#rang').textContent = `${rang === 1 ? '1er' : rang + 'e'} sur ${cl.length}`
-    + ` — multiple du marché ×${monde.multiple}`;
+  $('#rang').textContent = `${rang === 1 ? '1er' : rang + 'e'} sur ${cl.length}`;
 }
 
-function rafraichirPanneau() {
-  const v = rendu.ville;
-  const p = $('#panneau');
-  const haut = p.scrollTop;
-  p.innerHTML =
-      ongletPanneau === 'ville' ? panneauVille(monde, v)
-    : ongletPanneau === 'marche' ? panneauMarche(monde, v)
-    : ongletPanneau === 'comptes' ? panneauComptes(monde)
-    : panneauRail(monde);
-  p.scrollTop = haut;
+// --- Volet ------------------------------------------------------------------
 
-  p.querySelectorAll('.ligneBat').forEach(tr => tr.onclick = () => {
+const TITRES = { filtres: 'Filtres', villes: 'Les villes', marche: 'Le marché',
+                 societe: 'Ma société', rail: 'Le chemin de fer' };
+
+function ouvrirVolet(vue) {
+  vueVolet = vue;
+  $('#volet').classList.remove('cachee');
+  $('#voletTitre').textContent = TITRES[vue];
+  document.querySelectorAll('.ico').forEach(b =>
+    b.classList.toggle('actif',
+      b.dataset.vue === vue || (vue === 'filtres' && b.id === 'btnFiltres')));
+  rafraichirVolet();
+}
+
+function fermerVolet() {
+  vueVolet = null;
+  $('#volet').classList.add('cachee');
+  document.querySelectorAll('.ico').forEach(b => b.classList.remove('actif'));
+}
+
+function rafraichirVolet() {
+  if (!vueVolet) return;
+  const corps = $('#voletCorps');
+  const haut = corps.scrollTop;
+  corps.innerHTML =
+      vueVolet === 'filtres' ? voletFiltres(monde, rendu)
+    : vueVolet === 'villes'  ? voletVilles(monde)
+    : vueVolet === 'marche'  ? voletMarche(monde, rendu)
+    : vueVolet === 'societe' ? voletSociete(monde)
+    : voletRail(monde);
+  corps.scrollTop = haut;
+  brancherVolet(corps);
+}
+
+function brancherVolet(corps) {
+  corps.querySelectorAll('[data-filtre]').forEach(b => b.onclick = () => {
+    appliquerFiltre(b.dataset.filtre || null, null);
+    rafraichirVolet();
+  });
+  corps.querySelectorAll('[data-prix]').forEach(b => b.onclick = () => {
+    appliquerFiltre(null, b.dataset.prix);
+    rafraichirVolet();
+  });
+  corps.querySelectorAll('[data-ville]').forEach(b => b.onclick = () => {
+    const v = monde.villes[+b.dataset.ville];
+    monde.villeChoisie = v;
+    rendu.cadrerVille(v);
+    rafraichirVolet();
+  });
+  corps.querySelectorAll('.ligneBat').forEach(tr => tr.onclick = () => {
     const b = monde.joueur.batiments.find(x => x.id === +tr.dataset.bat);
     if (!b) return;
-    rendu.iVille = monde.villes.indexOf(b.ville);
     rendu.selection = b.cases[0];
-    rafraichirTout();
-    ouvrirFeuille();
+    rendu.cadrerVille(b.ville);
+    fermerVolet();
+    ouvrirFeuille(); rafraichirFeuille();
   });
-
-  p.querySelectorAll('.miniInvest').forEach(btn => btn.onclick = () => {
+  corps.querySelectorAll('.miniInvest').forEach(btn => btn.onclick = () => {
     monde.investirRail(monde.liaisons[+btn.dataset.liaison], monde.joueur, 800);
     rafraichirTout();
   });
 }
 
-function rafraichirOngletsVilles() {
-  const n = $('#ongletsVilles');
-  if (n.children.length !== monde.villes.length) {
-    n.innerHTML = monde.villes.map((v, i) =>
-      `<button data-ville="${i}" class="${i === rendu.iVille ? 'actif' : ''}"></button>`).join('');
-    n.querySelectorAll('button').forEach(b => b.onclick = () => {
-      rendu.iVille = +b.dataset.ville;
-      rendu.selection = null;
-      fermerFeuille();
-      rafraichirTout();
-    });
-  }
-  monde.villes.forEach((v, i) => {
-    const b = n.children[i];
-    const alerte = v.enCrise ? ' <span style="color:#c2544b">⚠</span>' : '';
-    b.innerHTML = `${v.nom} <span class="faible">${Math.round(v.menages)}</span>${alerte}`;
-    b.className = i === rendu.iVille ? 'actif' : '';
-  });
+// Le bandeau rappelle en permanence qu'on regarde une donnée et non la carte :
+// sans lui, on oublie le filtre actif et on lit des couleurs qui ne sont pas
+// celles des bâtiments.
+function appliquerFiltre(nom, prix) {
+  rendu.choisirFiltre(nom, prix);
+  const b = $('#bandeauFiltre');
+  if (!nom && !prix) { b.classList.add('cachee'); return; }
+  b.classList.remove('cachee');
+  $('#bandeauNom').textContent =
+      prix ? `Prix — ${RES[prix].nom}`
+    : nom === 'proprio' ? 'Mes possessions'
+    : (FILTRES_CASE[nom] || FILTRES_VILLE[nom]).nom;
+  $('#bandeauEchelle').style.display = nom === 'proprio' ? 'none' : '';
 }
 
 // --- Feuille ----------------------------------------------------------------
@@ -2986,28 +3446,25 @@ function fermerFeuille() { $('#feuille').classList.add('fermee'); rendu.selectio
 
 function rafraichirFeuille() {
   if ($('#feuille').classList.contains('fermee')) return;
-  const v = rendu.ville, c = rendu.selection;
-  const corps = $('#feuilleCorps');
-  corps.innerHTML = contenuFeuille(monde, v, c);
-  brancherFeuille(v, c);
+  const c = rendu.selection;
+  $('#feuilleCorps').innerHTML = contenuFeuille(monde, c);
+  brancherFeuille(c);
 }
 
-function brancherFeuille(v, c) {
+function brancherFeuille(c) {
+  if (!c) return;
   const joueur = monde.joueur;
 
   const acheter = $('#btnAcheter');
   if (acheter) acheter.onclick = () => {
-    if (monde.acheterTerrain(v, c, joueur)) rafraichirTout();
+    if (monde.acheterTerrain(c.ville, c, joueur)) rafraichirTout();
   };
 
   document.querySelectorAll('.btnBatir').forEach(btn => btn.onclick = () => {
-    const type = btn.dataset.type;
-    const cases = empriseDepuis(monde, v, c, type);
+    const cases = empriseDepuis(monde, c, btn.dataset.type);
     if (!cases) return;
-    const ch = monde.ouvrirChantier(type, v, cases, joueur);
-    if (ch) {
-      // On paie les matériaux au fil des livraisons, mais le terrain part tout
-      // de suite. Le chantier entre au carnet.
+    if (monde.ouvrirChantier(btn.dataset.type, c.ville, cases, joueur)) {
+      rendu.rafraichirIndex();
       rafraichirTout();
     }
   });
@@ -3022,19 +3479,23 @@ function brancherFeuille(v, c) {
   });
 
   const ent = $('#btnEntrepot');
-  if (ent && c.bat) ent.onclick = () => { c.bat.versEntrepot = !c.bat.versEntrepot; rafraichirTout(); };
+  if (ent && c.bat) ent.onclick = () => {
+    c.bat.versEntrepot = !c.bat.versEntrepot; rafraichirTout();
+  };
 
   const dem = $('#btnDemolir');
-  if (dem && c.bat) dem.onclick = () => { monde.demolir(c.bat); fermerFeuille(); rafraichirTout(); };
+  if (dem && c.bat) dem.onclick = () => {
+    monde.demolir(c.bat); rendu.rafraichirIndex(); fermerFeuille(); rafraichirTout();
+  };
 }
 
-// --- Entrées ----------------------------------------------------------------
+// --- La carte au doigt ------------------------------------------------------
+// Un toucher sélectionne, un glissement déplace, deux doigts zooment. Il faut
+// distinguer les trois, sans quoi le moindre tremblement de la main ouvrirait
+// une fiche au mauvais endroit.
 
-// La carte se manipule au doigt : un toucher sélectionne, un glissement
-// déplace, deux doigts zooment. Il faut distinguer les trois, sans quoi le
-// moindre tremblement de la main ouvrirait une fiche au mauvais endroit.
 const doigts = new Map();
-let depart = null, aGlisse = false, ecartInitial = 0, zoomInitial = 1;
+let depart = null, aGlisse = false, ecartInitial = 0, zoomInitial = 1, dernierToucher = 0;
 
 cv.addEventListener('pointerdown', (e) => {
   cv.setPointerCapture(e.pointerId);
@@ -3046,7 +3507,7 @@ cv.addEventListener('pointerdown', (e) => {
     const [a, b] = [...doigts.values()];
     ecartInitial = Math.hypot(a.x - b.x, a.y - b.y);
     zoomInitial = rendu.zoom;
-    aGlisse = true;                       // un pincement n'est jamais une sélection
+    aGlisse = true;                     // un pincement n'est jamais une sélection
   }
 });
 
@@ -3059,7 +3520,7 @@ cv.addEventListener('pointermove', (e) => {
     const ecart = Math.hypot(a.x - b.x, a.y - b.y);
     if (ecartInitial > 8) {
       const r = cv.getBoundingClientRect();
-      const cible = Math.max(1, Math.min(6, zoomInitial * ecart / ecartInitial));
+      const cible = Math.max(1, Math.min(28, zoomInitial * ecart / ecartInitial));
       rendu.zoomerVers((a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top, cible / rendu.zoom);
     }
     return;
@@ -3068,117 +3529,72 @@ cv.addEventListener('pointermove', (e) => {
   if (!depart) return;
   const dx = e.clientX - depart.x, dy = e.clientY - depart.y;
   if (!aGlisse && Math.hypot(dx, dy) > 9) aGlisse = true;
-  if (aGlisse) {
-    rendu.cx = depart.cx + dx;
-    rendu.cy = depart.cy + dy;
-    rendu.recadrer();
-  }
+  if (aGlisse) { rendu.cx = depart.cx + dx; rendu.cy = depart.cy + dy; rendu.recadrer(); }
 });
 
-function relacher(e) {
+cv.addEventListener('pointerup', (e) => {
   doigts.delete(e.pointerId);
+  const t = Date.now();
+
   if (doigts.size === 0 && depart && !aGlisse) {
     const r = cv.getBoundingClientRect();
-    const c = rendu.caseSous(e.clientX - r.left, e.clientY - r.top);
-    if (c) { rendu.selection = c; ouvrirFeuille(); rafraichirFeuille(); }
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+
+    // Deux touchers rapprochés : on approche, plutôt que d'ouvrir une fiche.
+    if (t - dernierToucher < 320) {
+      rendu.zoomerVers(px, py, 2.0);
+    } else {
+      const c = rendu.caseSous(px, py);
+      if (c) {
+        rendu.selection = c;
+        if (c.ville) monde.villeChoisie = c.ville;
+        ouvrirFeuille(); rafraichirFeuille();
+      }
+    }
   }
+  dernierToucher = t;
   if (doigts.size === 0) depart = null;
-}
-cv.addEventListener('pointerup', relacher);
+});
+
 cv.addEventListener('pointercancel', (e) => { doigts.delete(e.pointerId); depart = null; });
 
-// À la molette sur ordinateur, au double-toucher sur mobile.
 cv.addEventListener('wheel', (e) => {
   e.preventDefault();
   const r = cv.getBoundingClientRect();
-  rendu.zoomerVers(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.15 : 1 / 1.15);
+  rendu.zoomerVers(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.18 : 1 / 1.18);
 }, { passive: false });
 
-let dernierToucher = 0;
-cv.addEventListener('pointerup', (e) => {
-  const t = Date.now();
-  if (t - dernierToucher < 300 && !aGlisse) {
-    const r = cv.getBoundingClientRect();
-    rendu.zoomerVers(e.clientX - r.left, e.clientY - r.top, rendu.zoom < 2.5 ? 2.2 : 1 / rendu.zoom);
-  }
-  dernierToucher = t;
-});
+// --- Commandes --------------------------------------------------------------
 
-$('#btnRecentrer').onclick = () => {
-  rendu.zoom = 1; rendu.cx = 0; rendu.cy = 0;
-};
-
-$('#btnLegende').onclick = () => $('#legende').classList.toggle('montre');
-
-$('#feuillePoignee').onclick = fermerFeuille;
-
-$('#btnPause').onclick = () => {
-  enMarche = !enMarche;
+function majPause() {
   $('#btnPause').querySelector('.signe').textContent = enMarche ? '❚❚' : '▶';
-  $('#btnPause').querySelector('.mot').textContent = enMarche ? ' Pause' : ' Reprendre';
-};
-
-const VITESSES = [1, 4, 20];
-
-function reglerVitesse(v) {
-  vitesse = v;
-  document.querySelectorAll('.vit').forEach(x =>
-    x.classList.toggle('actif', +x.dataset.vitesse === v));
-  $('#btnVitesseCycle').textContent = '×' + v;
 }
 
-document.querySelectorAll('.vit').forEach(b =>
-  b.onclick = () => reglerVitesse(+b.dataset.vitesse));
+$('#btnPause').onclick = () => { enMarche = !enMarche; majPause(); };
 
-// Sur téléphone, un seul bouton qui tourne : ×1 → ×4 → ×20 → ×1.
-$('#btnVitesseCycle').onclick = () =>
-  reglerVitesse(VITESSES[(VITESSES.indexOf(vitesse) + 1) % VITESSES.length]);
+const VITESSES = [1, 4, 20];
+$('#btnVitesse').onclick = () => {
+  vitesse = VITESSES[(VITESSES.indexOf(vitesse) + 1) % VITESSES.length];
+  $('#btnVitesse').textContent = '×' + vitesse;
+};
 
-document.querySelectorAll('#modesCarte button').forEach(b => b.onclick = () => {
-  rendu.mode = b.dataset.mode;
-  document.querySelectorAll('#modesCarte button').forEach(x => x.classList.toggle('actif', x === b));
-  legende();
+document.querySelectorAll('.ico[data-vue]').forEach(b => b.onclick = () => {
+  vueVolet === b.dataset.vue ? fermerVolet() : ouvrirVolet(b.dataset.vue);
 });
+$('#btnFiltres').onclick = () => vueVolet === 'filtres' ? fermerVolet() : ouvrirVolet('filtres');
+$('#btnFermerVolet').onclick = fermerVolet;
+$('#feuillePoignee').onclick = fermerFeuille;
+$('#btnQuitterFiltre').onclick = () => { appliquerFiltre(null, null); rafraichirVolet(); };
 
-document.querySelectorAll('#ongletsPanneau button').forEach(b => b.onclick = () => {
-  ongletPanneau = b.dataset.onglet;
-  document.querySelectorAll('#ongletsPanneau button')
-    .forEach(x => x.classList.toggle('actif', x === b));
-  rafraichirPanneau();
-});
+$('#btnRecentrer').onclick = () => { rendu.zoom = 1; rendu.cx = 0; rendu.cy = 0; };
+$('#btnZoomPlus').onclick  = () => rendu.zoomerVers(rendu.w / 2, rendu.h / 2, 1.6);
+$('#btnZoomMoins').onclick = () => rendu.zoomerVers(rendu.w / 2, rendu.h / 2, 1 / 1.6);
 
 addEventListener('keydown', (e) => {
   if (e.code === 'Space') { e.preventDefault(); $('#btnPause').click(); }
-  if (e.key === 'Escape') fermerFeuille();
+  if (e.key === 'Escape') { fermerFeuille(); fermerVolet(); }
 });
-
-addEventListener('resize', () => { rendu.dimensionner(); legende(); });
-
-// --- Légende ----------------------------------------------------------------
-
-function legende() {
-  const el = $('#legende');
-  const m = rendu.mode;
-  if (m === 'fonction') {
-    el.innerHTML = `<b>Fonction</b> — pastilles d'alerte :<br>
-      <div class="ligne"><i style="background:#c9863f"></i>manque de matières</div>
-      <div class="ligne"><i style="background:#6f9fc9"></i>manque de bras</div>
-      <div class="ligne"><i style="background:#9a6fb0"></i>locaux vacants</div>
-      <div class="ligne"><i style="background:#c2544b"></i>perte financière</div>`;
-  } else if (m === 'proprio') {
-    el.innerHTML = '<b>Propriétaire</b><br>' + monde.societes.map(s =>
-      `<div class="ligne"><i style="background:${s.couleur}"></i>${s.nom}</div>`).join('')
-      + `<div class="ligne"><i style="background:#4a463a"></i>indépendants</div>
-         <div class="ligne"><i style="background:#1e1c17"></i>vierge</div>
-         <div style="margin-top:4px">Liseré doré : la frontière achetable.</div>`;
-  } else if (m === 'terrain') {
-    el.innerHTML = `<b>Prix du sol</b><br>Plus c'est doré, plus c'est cher.<br>
-      Le foncier monte avec le niveau de la ville, et baisse avec la distance à la gare.`;
-  } else {
-    el.innerHTML = `<b>${m}</b> — qualité de 1 à 5.<br>Plus c'est vert, plus la case rend.<br>
-      Un handicap de terrain ne se guérit jamais.`;
-  }
-}
+addEventListener('resize', () => rendu.dimensionner());
 
 // --- Fin de partie ----------------------------------------------------------
 
@@ -3187,8 +3603,8 @@ function finDePartie() {
   const moi = cl.findIndex(x => x.societe === monde.joueur) + 1;
   $('#finPartie').innerHTML = `<div class="boite">
     <h1>Fin de partie</h1>
-    <div class="soustitre" style="color:var(--doux);margin-bottom:16px">
-      Dix ans. Le cours retenu est la moyenne des douze derniers mois.</div>
+    <div class="note" style="margin-bottom:14px">Dix ans. Le cours retenu est la moyenne
+      des douze derniers mois.</div>
     <table>${cl.map((x, i) => `<tr>
       <td>${i + 1}. <span class="puce" style="background:${x.societe.couleur}"></span>${x.societe.nom}</td>
       <td class="n ${x.societe === monde.joueur ? 'or' : ''}">${eur(x.fortune)}</td></tr>`).join('')}
@@ -3203,7 +3619,11 @@ function finDePartie() {
 // --- Départ -----------------------------------------------------------------
 
 rendu.dimensionner();
-legende();
+rendu.rafraichirIndex();
+// On ouvre sur une ville plutôt que sur la carte entière : le joueur doit voir
+// des bâtiments à la première seconde, pas une mosaïque de taches.
+rendu.cadrerVille(monde.villes[0]);
+monde.villeChoisie = monde.villes[0];
 rafraichirTout();
 requestAnimationFrame(boucle);
 </script>

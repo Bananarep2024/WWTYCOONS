@@ -2,79 +2,87 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <title>WWTycoons — démo économique</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<!-- La carte occupe tout l'écran. Tout le reste flotte au-dessus. -->
+<canvas id="carte"></canvas>
+
 <header id="barre">
-  <div class="bloc">
-    <div class="etiq">Date</div>
-    <div class="val" id="date">An 1 · janvier</div>
-    <div class="sous" id="restant">60 mois restants</div>
+  <div class="jauges">
+    <div class="jauge">
+      <div class="etiq">Date</div>
+      <div class="val" id="date">An 1 · janv.</div>
+      <div class="sous" id="restant">60 mois</div>
+    </div>
+    <div class="jauge">
+      <div class="etiq">Trésorerie</div>
+      <div class="val" id="tresorerie">15 000 $</div>
+      <div class="sous" id="resultat">—</div>
+    </div>
+    <div class="jauge masquable">
+      <div class="etiq">Fortune</div>
+      <div class="val or" id="fortune">1 500 $</div>
+      <div class="sous" id="rang">—</div>
+    </div>
   </div>
-  <div class="bloc">
-    <div class="etiq">Trésorerie</div>
-    <div class="val argent" id="tresorerie">15 000 $</div>
-    <div class="sous" id="resultat">—</div>
-  </div>
-  <div class="bloc masquable">
-    <div class="etiq">Cours de l'action</div>
-    <div class="val" id="cours">1,00 $</div>
-    <div class="sous" id="actifnet">actif net 15 000 $</div>
-  </div>
-  <div class="bloc masquable">
-    <div class="etiq">Votre fortune</div>
-    <div class="val or" id="fortune">1 500 $</div>
-    <div class="sous">10 % du capital</div>
-  </div>
-  <div class="bloc croissant masquable">
-    <div class="etiq">Climat</div>
-    <div class="val" id="climat">Normal</div>
-    <div class="sous" id="rang">—</div>
-  </div>
-  <div class="commandes">
-    <button id="btnPause" class="cmd majeur"><span class="signe">▶</span><span class="mot"> Démarrer</span></button>
-    <button data-vitesse="1" class="cmd vit actif">×1</button>
-    <button data-vitesse="4" class="cmd vit">×4</button>
-    <button data-vitesse="20" class="cmd vit">×20</button>
-    <button id="btnVitesseCycle" class="cmd">×1</button>
+
+  <nav class="icones">
+    <button class="ico" data-vue="villes" title="Les villes" aria-label="Les villes">
+      <svg viewBox="0 0 24 24"><path d="M3 21V9l5-3v4l6-4v5l6-3v13z"/></svg>
+      <span>Villes</span>
+    </button>
+    <button class="ico" data-vue="marche" title="Le marché" aria-label="Le marché">
+      <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 4 4-7 5 6v3H3z" opacity=".55"/><path d="M3 13l5-6 4 4 4-7 5 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      <span>Marché</span>
+    </button>
+    <button class="ico" data-vue="societe" title="Ma société" aria-label="Ma société">
+      <svg viewBox="0 0 24 24"><path d="M4 21V6l8-3 8 3v15zM9 21v-5h6v5z" opacity=".55"/><path d="M4 21V6l8-3 8 3v15H4z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      <span>Société</span>
+    </button>
+    <button class="ico" data-vue="rail" title="Le chemin de fer" aria-label="Le chemin de fer">
+      <svg viewBox="0 0 24 24"><path d="M6 3h12v12H6z" opacity=".5"/><path d="M6 3h12v12H6zM4 19h16M8 15l-2 5M16 15l2 5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      <span>Rail</span>
+    </button>
+    <button class="ico" id="btnFiltres" title="Filtres" aria-label="Filtres">
+      <svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      <span>Filtres</span>
+    </button>
+  </nav>
+
+  <div class="horloge">
+    <button id="btnPause" class="cmd majeur" aria-label="Démarrer"><span class="signe">▶</span></button>
+    <button id="btnVitesse" class="cmd">×1</button>
   </div>
 </header>
 
-<main>
-  <section id="colGauche">
-    <nav id="ongletsVilles"></nav>
-    <div id="zoneCarte">
-      <canvas id="carte"></canvas>
-      <div id="legende"></div>
-      <button id="btnRecentrer" title="Vue d'ensemble">⤢</button>
-      <button id="btnLegende" title="Légende">i</button>
-    </div>
-    <nav id="modesCarte">
-      <button data-mode="fonction" class="actif">Fonction</button>
-      <button data-mode="proprio">Propriétaire</button>
-      <button data-mode="fertilite">Fertilité</button>
-      <button data-mode="bois">Bois</button>
-      <button data-mode="argile">Argile</button>
-      <button data-mode="charbon">Charbon</button>
-      <button data-mode="minerai">Minerai</button>
-      <button data-mode="terrain">Prix du sol</button>
-    </nav>
-  </section>
+<!-- Le filtre actif, rappelé sous la barre : sans ce bandeau, on oublie qu'on
+     regarde une donnée et non la carte. -->
+<div id="bandeauFiltre" class="cachee">
+  <span id="bandeauNom"></span>
+  <span id="bandeauEchelle"></span>
+  <button id="btnQuitterFiltre">Voir les bâtiments</button>
+</div>
 
-  <aside id="colDroite">
-    <nav id="ongletsPanneau">
-      <button data-onglet="ville" class="actif">Ville</button>
-      <button data-onglet="marche">Marché</button>
-      <button data-onglet="comptes">Comptes</button>
-      <button data-onglet="rail">Rail</button>
-    </nav>
-    <div id="panneau"></div>
-  </aside>
-</main>
+<div id="outils">
+  <button id="btnRecentrer" title="Vue d'ensemble" aria-label="Vue d'ensemble">⤢</button>
+  <button id="btnZoomPlus" title="Zoomer" aria-label="Zoomer">+</button>
+  <button id="btnZoomMoins" title="Dézoomer" aria-label="Dézoomer">−</button>
+</div>
 
+<!-- Panneau des filtres -->
+<div id="volet" class="cachee">
+  <div class="voletTete">
+    <b id="voletTitre">Filtres</b>
+    <button id="btnFermerVolet" aria-label="Fermer">✕</button>
+  </div>
+  <div id="voletCorps"></div>
+</div>
+
+<!-- Feuille d'inspection, remontée du bas -->
 <div id="feuille" class="fermee">
   <div id="feuillePoignee"></div>
   <div id="feuilleCorps"></div>

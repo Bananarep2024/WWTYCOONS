@@ -15,6 +15,11 @@ import { eur, pct } from './panneaux.js';
 const NOMS_QUALITE = { fertilite: 'Fertilité', argile: 'Argile', bois: 'Bois',
                        charbon: 'Charbon', minerai: 'Minerai' };
 
+// Les quartiers ne sont pas décoratifs : ils décident de ce qu'on peut y bâtir
+// à bon compte, et empêchent les ateliers de cerner les maisons.
+const NOMS_QUARTIER = { residentiel: 'd\'habitation', industriel: 'industriel',
+                        negoce: 'de négoce', agricole: 'agricole' };
+
 // Ce qu'on peut bâtir, groupé comme le joueur y pense.
 const MENU = [
   ['Logement', ['maison', 'immeuble']],
@@ -24,9 +29,9 @@ const MENU = [
   ['Rapport et négoce', ['bureaux', 'entrepot']],
 ];
 
-export function contenuFeuille(monde, v, c) {
+export function contenuFeuille(monde, c) {
   if (!c) return '';
-  const joueur = monde.joueur;
+  const v = c.ville;
 
   if (c.rue) return entete('Rue', 'Voirie — non constructible')
     + `<div class="note">Une rue toutes les cinq cases au centre, des parcelles isolées en
@@ -39,6 +44,7 @@ export function contenuFeuille(monde, v, c) {
 
   if (c.chantier) return ficheChantier(monde, c.chantier);
   if (c.bat) return ficheBatiment(monde, c.bat, c);
+  if (!v) return ficheCampagne(c);
   return ficheTerrain(monde, v, c);
 }
 
@@ -68,7 +74,7 @@ function ficheTerrain(monde, v, c) {
     proprio = s ? s.nom : 'Inconnu';
   }
 
-  const achetable = estAchetable(v, c) || c.proprio === 'ind';
+  const achetable = estAchetable(monde, c) || c.proprio === 'ind';
   let actions = '';
   if (aMoi) {
     actions = menuConstruire(monde, v, c);
@@ -88,7 +94,7 @@ function ficheTerrain(monde, v, c) {
   }
 
   return entete(`${RELIEFS[c.relief].nom} · ${c.x},${c.y}`,
-                `${proprio} — à ${c.distanceGare} cases de la gare`)
+                `${proprio} · ${c.quartier ? 'quartier ' + NOMS_QUARTIER[c.quartier] : ''} — à ${c.distanceGare} cases de la gare`)
     + `<div class="grille">${qualites}</div>`
     + `<div class="grille">
         <div class="fiche"><div class="etiq">Prix du sol</div><div class="v">${eur(prix)}</div></div>
@@ -134,22 +140,37 @@ function menuConstruire(monde, v, c) {
 
 // Cherche une emprise de la bonne forme, ancrée sur la case cliquée, dont le
 // joueur possède toutes les cases.
-export function empriseDepuis(monde, v, c, type) {
+export function empriseDepuis(monde, c, type) {
   const def = BAT[type];
   const joueur = monde.joueur;
   for (let dy = 0; dy < def.h; dy++) for (let dx = 0; dx < def.w; dx++) {
-    const x0 = c.x - dx, y0 = c.y - dy;
     const cases = [];
     let ok = true;
     for (let j = 0; j < def.h && ok; j++) for (let i = 0; i < def.w && ok; i++) {
-      const k = v.cases[(y0 + j) * v.N + (x0 + i)];
-      if (!k || x0 + i < 0 || y0 + j < 0 || x0 + i >= v.N || y0 + j >= v.N) { ok = false; break; }
-      if (k.voie || k.rue || k.bat || k.chantier || k.proprio !== joueur.id) { ok = false; break; }
+      const k = monde.caseAt(c.x - dx + i, c.y - dy + j);
+      if (!k || k.voie || k.rue || k.bat || k.chantier || k.proprio !== joueur.id) {
+        ok = false; break;
+      }
       cases.push(k);
     }
     if (ok && cases.length === def.cases) return cases;
   }
   return null;
+}
+
+// Hors des territoires : on ne bâtit pas en rase campagne. C'est ce qui donne
+// leur valeur aux cases de la frontière urbaine.
+function ficheCampagne(c) {
+  const qualites = QUALITES.map(q => {
+    const n = c.q[q];
+    return `<div class="fiche"><div class="etiq">${NOMS_QUALITE[q]}</div>
+      <div class="v ${n >= 4 ? 'vert' : n <= 2 ? 'rouge' : 'doux'}">${n}
+      <span class="faible" style="font-size:11px"> / 5</span></div></div>`;
+  }).join('');
+  return entete(RELIEFS[c.relief].nom, 'Rase campagne — hors de tout territoire')
+    + `<div class="grille">${qualites}</div>`
+    + `<div class="note">Aucune ville ne s'étend jusqu'ici. On ne bâtit que dans le
+       territoire d'une ville, et il s'étend en anneaux depuis sa gare.</div>`;
 }
 
 // --- Un chantier ------------------------------------------------------------

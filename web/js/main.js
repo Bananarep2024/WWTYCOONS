@@ -5,25 +5,22 @@
 // pour saisir une opportunité, puis a sept secondes pour réfléchir.
 // ---------------------------------------------------------------------------
 
-import { P, BAT, materiaux } from './sim/params.js';
+import { P, RES, BAT } from './sim/params.js';
 import { Monde } from './sim/world.js';
-import { Rendu } from './ui/render.js';
-import { $, eur, pct, panneauVille, panneauMarche, panneauComptes, panneauRail }
+import { Rendu, FILTRES_CASE, FILTRES_VILLE } from './ui/render.js';
+import { $, eur, pct, voletFiltres, voletVilles, voletMarche, voletSociete, voletRail }
   from './ui/panneaux.js';
 import { contenuFeuille, empriseDepuis } from './ui/feuille.js';
 
-const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-              'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+const MOIS = ['janv.', 'févr.', 'mars', 'avril', 'mai', 'juin',
+              'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
-const monde = new Monde({ nbVilles: 3, duree: 60, graine: (Math.random() * 1e9) | 0 });
+const monde = new Monde({ nbVilles: 5, duree: 60, graine: (Math.random() * 1e9) | 0 });
 const cv = $('#carte');
 const rendu = new Rendu(cv, monde);
-rendu.iVille = 0;
 
-let enMarche = false;
-let vitesse = 1;
-let horloge = 0;
-let ongletPanneau = 'ville';
+let enMarche = false, vitesse = 1, horloge = 0;
+let vueVolet = null;                 // 'filtres' | 'villes' | 'marche' | 'societe' | 'rail'
 
 // --- Boucle -----------------------------------------------------------------
 
@@ -37,7 +34,8 @@ function boucle(t) {
     const duree = P.moisParSeconde * 1000;
     while (horloge >= duree) {
       horloge -= duree;
-      if (!monde.tick()) { enMarche = false; finDePartie(); break; }
+      if (!monde.tick()) { enMarche = false; majPause(); finDePartie(); break; }
+      rendu.rafraichirIndex();
       rafraichirTout();
     }
   }
@@ -48,80 +46,102 @@ function boucle(t) {
 
 // --- Affichage --------------------------------------------------------------
 
-function rafraichirTout() {
-  rafraichirBarre();
-  rafraichirPanneau();
-  rafraichirFeuille();
-  rafraichirOngletsVilles();
-}
+function rafraichirTout() { rafraichirBarre(); rafraichirVolet(); rafraichirFeuille(); }
 
 function rafraichirBarre() {
   const s = monde.joueur;
-  const an = Math.floor(monde.mois / 12) + 1;
-  $('#date').textContent = `An ${an} · ${MOIS[monde.mois % 12]}`;
-  $('#restant').textContent = `${monde.duree - monde.mois} mois restants`;
+  $('#date').textContent = `An ${Math.floor(monde.mois / 12) + 1} · ${MOIS[monde.mois % 12]}`;
+  $('#restant').textContent = `${monde.duree - monde.mois} mois`;
   $('#tresorerie').textContent = eur(s.tresorerie);
 
   const r = s.resultatMensuel;
   const el = $('#resultat');
-  el.textContent = (r >= 0 ? '+' : '') + eur(r) + ' / mois';
+  el.textContent = (r >= 0 ? '+' : '') + eur(r);
   el.className = 'sous ' + (r > 0 ? 'vert' : r < 0 ? 'rouge' : 'doux');
 
-  $('#cours').textContent = s.cours(monde.multiple).toFixed(3).replace('.', ',') + ' $';
-  $('#actifnet').textContent = 'actif net ' + eur(s.actifNet(monde.multiple));
   $('#fortune').textContent = eur(s.cours(monde.multiple) * s.actions * P.partFondateur);
-  $('#climat').textContent = { normal: 'Normal', euphorie: 'Euphorie', crise: 'Crise' }[monde.climat];
-
   const cl = monde.classement();
   const rang = cl.findIndex(x => x.societe === s) + 1;
-  $('#rang').textContent = `${rang === 1 ? '1er' : rang + 'e'} sur ${cl.length}`
-    + ` — multiple du marché ×${monde.multiple}`;
+  $('#rang').textContent = `${rang === 1 ? '1er' : rang + 'e'} sur ${cl.length}`;
 }
 
-function rafraichirPanneau() {
-  const v = rendu.ville;
-  const p = $('#panneau');
-  const haut = p.scrollTop;
-  p.innerHTML =
-      ongletPanneau === 'ville' ? panneauVille(monde, v)
-    : ongletPanneau === 'marche' ? panneauMarche(monde, v)
-    : ongletPanneau === 'comptes' ? panneauComptes(monde)
-    : panneauRail(monde);
-  p.scrollTop = haut;
+// --- Volet ------------------------------------------------------------------
 
-  p.querySelectorAll('.ligneBat').forEach(tr => tr.onclick = () => {
+const TITRES = { filtres: 'Filtres', villes: 'Les villes', marche: 'Le marché',
+                 societe: 'Ma société', rail: 'Le chemin de fer' };
+
+function ouvrirVolet(vue) {
+  vueVolet = vue;
+  $('#volet').classList.remove('cachee');
+  $('#voletTitre').textContent = TITRES[vue];
+  document.querySelectorAll('.ico').forEach(b =>
+    b.classList.toggle('actif',
+      b.dataset.vue === vue || (vue === 'filtres' && b.id === 'btnFiltres')));
+  rafraichirVolet();
+}
+
+function fermerVolet() {
+  vueVolet = null;
+  $('#volet').classList.add('cachee');
+  document.querySelectorAll('.ico').forEach(b => b.classList.remove('actif'));
+}
+
+function rafraichirVolet() {
+  if (!vueVolet) return;
+  const corps = $('#voletCorps');
+  const haut = corps.scrollTop;
+  corps.innerHTML =
+      vueVolet === 'filtres' ? voletFiltres(monde, rendu)
+    : vueVolet === 'villes'  ? voletVilles(monde)
+    : vueVolet === 'marche'  ? voletMarche(monde, rendu)
+    : vueVolet === 'societe' ? voletSociete(monde)
+    : voletRail(monde);
+  corps.scrollTop = haut;
+  brancherVolet(corps);
+}
+
+function brancherVolet(corps) {
+  corps.querySelectorAll('[data-filtre]').forEach(b => b.onclick = () => {
+    appliquerFiltre(b.dataset.filtre || null, null);
+    rafraichirVolet();
+  });
+  corps.querySelectorAll('[data-prix]').forEach(b => b.onclick = () => {
+    appliquerFiltre(null, b.dataset.prix);
+    rafraichirVolet();
+  });
+  corps.querySelectorAll('[data-ville]').forEach(b => b.onclick = () => {
+    const v = monde.villes[+b.dataset.ville];
+    monde.villeChoisie = v;
+    rendu.cadrerVille(v);
+    rafraichirVolet();
+  });
+  corps.querySelectorAll('.ligneBat').forEach(tr => tr.onclick = () => {
     const b = monde.joueur.batiments.find(x => x.id === +tr.dataset.bat);
     if (!b) return;
-    rendu.iVille = monde.villes.indexOf(b.ville);
     rendu.selection = b.cases[0];
-    rafraichirTout();
-    ouvrirFeuille();
+    rendu.cadrerVille(b.ville);
+    fermerVolet();
+    ouvrirFeuille(); rafraichirFeuille();
   });
-
-  p.querySelectorAll('.miniInvest').forEach(btn => btn.onclick = () => {
+  corps.querySelectorAll('.miniInvest').forEach(btn => btn.onclick = () => {
     monde.investirRail(monde.liaisons[+btn.dataset.liaison], monde.joueur, 800);
     rafraichirTout();
   });
 }
 
-function rafraichirOngletsVilles() {
-  const n = $('#ongletsVilles');
-  if (n.children.length !== monde.villes.length) {
-    n.innerHTML = monde.villes.map((v, i) =>
-      `<button data-ville="${i}" class="${i === rendu.iVille ? 'actif' : ''}"></button>`).join('');
-    n.querySelectorAll('button').forEach(b => b.onclick = () => {
-      rendu.iVille = +b.dataset.ville;
-      rendu.selection = null;
-      fermerFeuille();
-      rafraichirTout();
-    });
-  }
-  monde.villes.forEach((v, i) => {
-    const b = n.children[i];
-    const alerte = v.enCrise ? ' <span style="color:#c2544b">⚠</span>' : '';
-    b.innerHTML = `${v.nom} <span class="faible">${Math.round(v.menages)}</span>${alerte}`;
-    b.className = i === rendu.iVille ? 'actif' : '';
-  });
+// Le bandeau rappelle en permanence qu'on regarde une donnée et non la carte :
+// sans lui, on oublie le filtre actif et on lit des couleurs qui ne sont pas
+// celles des bâtiments.
+function appliquerFiltre(nom, prix) {
+  rendu.choisirFiltre(nom, prix);
+  const b = $('#bandeauFiltre');
+  if (!nom && !prix) { b.classList.add('cachee'); return; }
+  b.classList.remove('cachee');
+  $('#bandeauNom').textContent =
+      prix ? `Prix — ${RES[prix].nom}`
+    : nom === 'proprio' ? 'Mes possessions'
+    : (FILTRES_CASE[nom] || FILTRES_VILLE[nom]).nom;
+  $('#bandeauEchelle').style.display = nom === 'proprio' ? 'none' : '';
 }
 
 // --- Feuille ----------------------------------------------------------------
@@ -131,28 +151,25 @@ function fermerFeuille() { $('#feuille').classList.add('fermee'); rendu.selectio
 
 function rafraichirFeuille() {
   if ($('#feuille').classList.contains('fermee')) return;
-  const v = rendu.ville, c = rendu.selection;
-  const corps = $('#feuilleCorps');
-  corps.innerHTML = contenuFeuille(monde, v, c);
-  brancherFeuille(v, c);
+  const c = rendu.selection;
+  $('#feuilleCorps').innerHTML = contenuFeuille(monde, c);
+  brancherFeuille(c);
 }
 
-function brancherFeuille(v, c) {
+function brancherFeuille(c) {
+  if (!c) return;
   const joueur = monde.joueur;
 
   const acheter = $('#btnAcheter');
   if (acheter) acheter.onclick = () => {
-    if (monde.acheterTerrain(v, c, joueur)) rafraichirTout();
+    if (monde.acheterTerrain(c.ville, c, joueur)) rafraichirTout();
   };
 
   document.querySelectorAll('.btnBatir').forEach(btn => btn.onclick = () => {
-    const type = btn.dataset.type;
-    const cases = empriseDepuis(monde, v, c, type);
+    const cases = empriseDepuis(monde, c, btn.dataset.type);
     if (!cases) return;
-    const ch = monde.ouvrirChantier(type, v, cases, joueur);
-    if (ch) {
-      // On paie les matériaux au fil des livraisons, mais le terrain part tout
-      // de suite. Le chantier entre au carnet.
+    if (monde.ouvrirChantier(btn.dataset.type, c.ville, cases, joueur)) {
+      rendu.rafraichirIndex();
       rafraichirTout();
     }
   });
@@ -167,19 +184,23 @@ function brancherFeuille(v, c) {
   });
 
   const ent = $('#btnEntrepot');
-  if (ent && c.bat) ent.onclick = () => { c.bat.versEntrepot = !c.bat.versEntrepot; rafraichirTout(); };
+  if (ent && c.bat) ent.onclick = () => {
+    c.bat.versEntrepot = !c.bat.versEntrepot; rafraichirTout();
+  };
 
   const dem = $('#btnDemolir');
-  if (dem && c.bat) dem.onclick = () => { monde.demolir(c.bat); fermerFeuille(); rafraichirTout(); };
+  if (dem && c.bat) dem.onclick = () => {
+    monde.demolir(c.bat); rendu.rafraichirIndex(); fermerFeuille(); rafraichirTout();
+  };
 }
 
-// --- Entrées ----------------------------------------------------------------
+// --- La carte au doigt ------------------------------------------------------
+// Un toucher sélectionne, un glissement déplace, deux doigts zooment. Il faut
+// distinguer les trois, sans quoi le moindre tremblement de la main ouvrirait
+// une fiche au mauvais endroit.
 
-// La carte se manipule au doigt : un toucher sélectionne, un glissement
-// déplace, deux doigts zooment. Il faut distinguer les trois, sans quoi le
-// moindre tremblement de la main ouvrirait une fiche au mauvais endroit.
 const doigts = new Map();
-let depart = null, aGlisse = false, ecartInitial = 0, zoomInitial = 1;
+let depart = null, aGlisse = false, ecartInitial = 0, zoomInitial = 1, dernierToucher = 0;
 
 cv.addEventListener('pointerdown', (e) => {
   cv.setPointerCapture(e.pointerId);
@@ -191,7 +212,7 @@ cv.addEventListener('pointerdown', (e) => {
     const [a, b] = [...doigts.values()];
     ecartInitial = Math.hypot(a.x - b.x, a.y - b.y);
     zoomInitial = rendu.zoom;
-    aGlisse = true;                       // un pincement n'est jamais une sélection
+    aGlisse = true;                     // un pincement n'est jamais une sélection
   }
 });
 
@@ -204,7 +225,7 @@ cv.addEventListener('pointermove', (e) => {
     const ecart = Math.hypot(a.x - b.x, a.y - b.y);
     if (ecartInitial > 8) {
       const r = cv.getBoundingClientRect();
-      const cible = Math.max(1, Math.min(6, zoomInitial * ecart / ecartInitial));
+      const cible = Math.max(1, Math.min(28, zoomInitial * ecart / ecartInitial));
       rendu.zoomerVers((a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top, cible / rendu.zoom);
     }
     return;
@@ -213,117 +234,72 @@ cv.addEventListener('pointermove', (e) => {
   if (!depart) return;
   const dx = e.clientX - depart.x, dy = e.clientY - depart.y;
   if (!aGlisse && Math.hypot(dx, dy) > 9) aGlisse = true;
-  if (aGlisse) {
-    rendu.cx = depart.cx + dx;
-    rendu.cy = depart.cy + dy;
-    rendu.recadrer();
-  }
+  if (aGlisse) { rendu.cx = depart.cx + dx; rendu.cy = depart.cy + dy; rendu.recadrer(); }
 });
 
-function relacher(e) {
+cv.addEventListener('pointerup', (e) => {
   doigts.delete(e.pointerId);
+  const t = Date.now();
+
   if (doigts.size === 0 && depart && !aGlisse) {
     const r = cv.getBoundingClientRect();
-    const c = rendu.caseSous(e.clientX - r.left, e.clientY - r.top);
-    if (c) { rendu.selection = c; ouvrirFeuille(); rafraichirFeuille(); }
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+
+    // Deux touchers rapprochés : on approche, plutôt que d'ouvrir une fiche.
+    if (t - dernierToucher < 320) {
+      rendu.zoomerVers(px, py, 2.0);
+    } else {
+      const c = rendu.caseSous(px, py);
+      if (c) {
+        rendu.selection = c;
+        if (c.ville) monde.villeChoisie = c.ville;
+        ouvrirFeuille(); rafraichirFeuille();
+      }
+    }
   }
+  dernierToucher = t;
   if (doigts.size === 0) depart = null;
-}
-cv.addEventListener('pointerup', relacher);
+});
+
 cv.addEventListener('pointercancel', (e) => { doigts.delete(e.pointerId); depart = null; });
 
-// À la molette sur ordinateur, au double-toucher sur mobile.
 cv.addEventListener('wheel', (e) => {
   e.preventDefault();
   const r = cv.getBoundingClientRect();
-  rendu.zoomerVers(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.15 : 1 / 1.15);
+  rendu.zoomerVers(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.18 : 1 / 1.18);
 }, { passive: false });
 
-let dernierToucher = 0;
-cv.addEventListener('pointerup', (e) => {
-  const t = Date.now();
-  if (t - dernierToucher < 300 && !aGlisse) {
-    const r = cv.getBoundingClientRect();
-    rendu.zoomerVers(e.clientX - r.left, e.clientY - r.top, rendu.zoom < 2.5 ? 2.2 : 1 / rendu.zoom);
-  }
-  dernierToucher = t;
-});
+// --- Commandes --------------------------------------------------------------
 
-$('#btnRecentrer').onclick = () => {
-  rendu.zoom = 1; rendu.cx = 0; rendu.cy = 0;
-};
-
-$('#btnLegende').onclick = () => $('#legende').classList.toggle('montre');
-
-$('#feuillePoignee').onclick = fermerFeuille;
-
-$('#btnPause').onclick = () => {
-  enMarche = !enMarche;
+function majPause() {
   $('#btnPause').querySelector('.signe').textContent = enMarche ? '❚❚' : '▶';
-  $('#btnPause').querySelector('.mot').textContent = enMarche ? ' Pause' : ' Reprendre';
-};
-
-const VITESSES = [1, 4, 20];
-
-function reglerVitesse(v) {
-  vitesse = v;
-  document.querySelectorAll('.vit').forEach(x =>
-    x.classList.toggle('actif', +x.dataset.vitesse === v));
-  $('#btnVitesseCycle').textContent = '×' + v;
 }
 
-document.querySelectorAll('.vit').forEach(b =>
-  b.onclick = () => reglerVitesse(+b.dataset.vitesse));
+$('#btnPause').onclick = () => { enMarche = !enMarche; majPause(); };
 
-// Sur téléphone, un seul bouton qui tourne : ×1 → ×4 → ×20 → ×1.
-$('#btnVitesseCycle').onclick = () =>
-  reglerVitesse(VITESSES[(VITESSES.indexOf(vitesse) + 1) % VITESSES.length]);
+const VITESSES = [1, 4, 20];
+$('#btnVitesse').onclick = () => {
+  vitesse = VITESSES[(VITESSES.indexOf(vitesse) + 1) % VITESSES.length];
+  $('#btnVitesse').textContent = '×' + vitesse;
+};
 
-document.querySelectorAll('#modesCarte button').forEach(b => b.onclick = () => {
-  rendu.mode = b.dataset.mode;
-  document.querySelectorAll('#modesCarte button').forEach(x => x.classList.toggle('actif', x === b));
-  legende();
+document.querySelectorAll('.ico[data-vue]').forEach(b => b.onclick = () => {
+  vueVolet === b.dataset.vue ? fermerVolet() : ouvrirVolet(b.dataset.vue);
 });
+$('#btnFiltres').onclick = () => vueVolet === 'filtres' ? fermerVolet() : ouvrirVolet('filtres');
+$('#btnFermerVolet').onclick = fermerVolet;
+$('#feuillePoignee').onclick = fermerFeuille;
+$('#btnQuitterFiltre').onclick = () => { appliquerFiltre(null, null); rafraichirVolet(); };
 
-document.querySelectorAll('#ongletsPanneau button').forEach(b => b.onclick = () => {
-  ongletPanneau = b.dataset.onglet;
-  document.querySelectorAll('#ongletsPanneau button')
-    .forEach(x => x.classList.toggle('actif', x === b));
-  rafraichirPanneau();
-});
+$('#btnRecentrer').onclick = () => { rendu.zoom = 1; rendu.cx = 0; rendu.cy = 0; };
+$('#btnZoomPlus').onclick  = () => rendu.zoomerVers(rendu.w / 2, rendu.h / 2, 1.6);
+$('#btnZoomMoins').onclick = () => rendu.zoomerVers(rendu.w / 2, rendu.h / 2, 1 / 1.6);
 
 addEventListener('keydown', (e) => {
   if (e.code === 'Space') { e.preventDefault(); $('#btnPause').click(); }
-  if (e.key === 'Escape') fermerFeuille();
+  if (e.key === 'Escape') { fermerFeuille(); fermerVolet(); }
 });
-
-addEventListener('resize', () => { rendu.dimensionner(); legende(); });
-
-// --- Légende ----------------------------------------------------------------
-
-function legende() {
-  const el = $('#legende');
-  const m = rendu.mode;
-  if (m === 'fonction') {
-    el.innerHTML = `<b>Fonction</b> — pastilles d'alerte :<br>
-      <div class="ligne"><i style="background:#c9863f"></i>manque de matières</div>
-      <div class="ligne"><i style="background:#6f9fc9"></i>manque de bras</div>
-      <div class="ligne"><i style="background:#9a6fb0"></i>locaux vacants</div>
-      <div class="ligne"><i style="background:#c2544b"></i>perte financière</div>`;
-  } else if (m === 'proprio') {
-    el.innerHTML = '<b>Propriétaire</b><br>' + monde.societes.map(s =>
-      `<div class="ligne"><i style="background:${s.couleur}"></i>${s.nom}</div>`).join('')
-      + `<div class="ligne"><i style="background:#4a463a"></i>indépendants</div>
-         <div class="ligne"><i style="background:#1e1c17"></i>vierge</div>
-         <div style="margin-top:4px">Liseré doré : la frontière achetable.</div>`;
-  } else if (m === 'terrain') {
-    el.innerHTML = `<b>Prix du sol</b><br>Plus c'est doré, plus c'est cher.<br>
-      Le foncier monte avec le niveau de la ville, et baisse avec la distance à la gare.`;
-  } else {
-    el.innerHTML = `<b>${m}</b> — qualité de 1 à 5.<br>Plus c'est vert, plus la case rend.<br>
-      Un handicap de terrain ne se guérit jamais.`;
-  }
-}
+addEventListener('resize', () => rendu.dimensionner());
 
 // --- Fin de partie ----------------------------------------------------------
 
@@ -332,8 +308,8 @@ function finDePartie() {
   const moi = cl.findIndex(x => x.societe === monde.joueur) + 1;
   $('#finPartie').innerHTML = `<div class="boite">
     <h1>Fin de partie</h1>
-    <div class="soustitre" style="color:var(--doux);margin-bottom:16px">
-      Dix ans. Le cours retenu est la moyenne des douze derniers mois.</div>
+    <div class="note" style="margin-bottom:14px">Dix ans. Le cours retenu est la moyenne
+      des douze derniers mois.</div>
     <table>${cl.map((x, i) => `<tr>
       <td>${i + 1}. <span class="puce" style="background:${x.societe.couleur}"></span>${x.societe.nom}</td>
       <td class="n ${x.societe === monde.joueur ? 'or' : ''}">${eur(x.fortune)}</td></tr>`).join('')}
@@ -348,6 +324,10 @@ function finDePartie() {
 // --- Départ -----------------------------------------------------------------
 
 rendu.dimensionner();
-legende();
+rendu.rafraichirIndex();
+// On ouvre sur une ville plutôt que sur la carte entière : le joueur doit voir
+// des bâtiments à la première seconde, pas une mosaïque de taches.
+rendu.cadrerVille(monde.villes[0]);
+monde.villeChoisie = monde.villes[0];
 rafraichirTout();
 requestAnimationFrame(boucle);

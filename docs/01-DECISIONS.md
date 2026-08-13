@@ -58,3 +58,22 @@ chacun. Les décisions marquées **[déléguée]** ont été prises par calcul e
 | 29 | Moteur de la démo | **Web pur** — JavaScript ES modules + canvas 2D, sans build ni dépendance. La simulation est isolée dans `web/js/sim/`, sans une ligne de rendu, pour être portée telle quelle en C# dans Unity. Unity plus tard. |
 | 30 | Solo ou multijoueur | Démo **solo** : 1 joueur + 3 sociétés pilotées par l'ordinateur. |
 | 31 | Premier livrable | L'économie qui tourne et se lit, avant tout graphisme : baromètres, prix, marges, carnet de chantiers, livre de comptes. |
+
+
+---
+
+## Refonte de la carte et de l'interface
+
+| Point | Décision |
+|---|---|
+| Carte | **Une seule carte du monde** de 190 × 130 cases, où les cinq villes sont posées. Plus de carte par ville. |
+| Placement des villes | Tiré au sort, avec une **distance minimale de 46 cases** de centre à centre, et un site choisi pour la ressource de la vocation de la ville. |
+| Géométrie des villes | Ellipse orientée au hasard, aplatissement et rayon propres à chacune, lisière brouillée par du bruit. Aucune ville n'a le plan d'une autre. |
+| Quartiers | Chaque territoire est découpé en taches de Voronoï de quatre vocations — habitation, industrie, négoce, agriculture. Une usine dans un quartier d'habitation est le seul placement vraiment banni ; le reste est découragé, jamais interdit. |
+| Relief | Carte d'altitude fractale, ombrée par une lumière rasante du nord-ouest. **Le minerai et le charbon sont dans la roche**, la fertilité dans les plaines : c'est le relief qui décide des ressources, donc de ce qu'il faudra relier. |
+| Réseau ferroviaire | Arbre couvrant minimal sur les distances, plus une boucle. **Les liaisons se chaînent** : A–B et B–C valent A–C, sans troisième ligne. La durée d'une ligne est proportionnelle à sa longueur. |
+| Niveau de départ | Les cinq villes démarrent à **80 ménages**, donc au niveau 1 (Comptoir), conformément aux seuils retenus (100 / 250 / 500 / 1 000 / 2 000). |
+| Bâtiments | **Dessinés**, plus des cases de couleur : toits à deux pentes, dents de scie, silos, chevalements, cheminées. Vu de haut, le toit est la seule surface entièrement visible : c'est là que vit l'identité. Pré-rendus une fois par palier de zoom. |
+| Carte plein écran | La carte occupe tout l'écran ; tout le reste flotte au-dessus. Menus en icônes — sur téléphone ils descendent en bas, à portée du pouce. |
+| Filtres | Par défaut **on voit les bâtiments**. Les filtres sont un mode qu'on demande. Une seule échelle pour tous : rouge → jaune → vert. Trois familles : par case (fertilité, bois, argile, charbon, minerai, prix du sol), par ville (emploi, salaire, nourriture, produits, logement), et **le prix de chacune des douze marchandises**, ville par ville. |
+| Lisibilité du sol | Le sol est peint une fois à un pixel par case dans un canevas hors-écran, puis étiré. Repeindre vingt-cinq mille cases à chaque image mettrait un téléphone à genoux. |

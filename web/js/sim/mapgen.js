@@ -1,15 +1,15 @@
 // ---------------------------------------------------------------------------
-// Génération de carte. Une carte neuve à chaque partie.
+// La carte du monde. Une seule grille, cinq villes posées dessus.
 //
-// Principe (§CQ14) : toutes les ressources sont présentes dans toutes les
-// villes, mais chacune a une prédominance et deux ou trois ressources
-// nettement plus rares. Aucune ville ne peut se suffire à elle-même, aucune
-// n'est privée de quoi que ce soit.
+// Le relief vient d'abord : c'est lui qui décide où sont les montagnes, donc où
+// sont le minerai et le charbon, donc où passeront les voies. Les villes
+// s'installent ensuite dans les creux, à bonne distance les unes des autres, et
+// se découpent en quartiers de vocations différentes.
 // ---------------------------------------------------------------------------
 
 import { P, RELIEFS, QUALITES } from './params.js';
 
-// PRNG déterministe (mulberry32) : même graine, même carte.
+// PRNG déterministe (mulberry32) : même graine, même monde.
 export function rng(graine) {
   let a = graine >>> 0;
   return function () {
@@ -20,135 +20,285 @@ export function rng(graine) {
   };
 }
 
-// Bruit de valeur lissé : des taches cohérentes plutôt qu'un poivre aléatoire.
-function bruit(rnd, taille, echelle) {
-  const g = Math.ceil(taille / echelle) + 2;
+// Bruit de valeur lissé, sommé sur plusieurs octaves : des reliefs cohérents
+// plutôt qu'un poivre aléatoire.
+function bruit(rnd, echelle) {
+  const g = 96;
   const pts = Array.from({ length: g * g }, () => rnd());
   const lisse = (t) => t * t * (3 - 2 * t);
   return (x, y) => {
     const fx = x / echelle, fy = y / echelle;
     const x0 = Math.floor(fx), y0 = Math.floor(fy);
     const tx = lisse(fx - x0), ty = lisse(fy - y0);
-    const at = (i, j) => pts[Math.min(j, g - 1) * g + Math.min(i, g - 1)];
+    const at = (i, j) => pts[((j % g) + g) % g * g + ((i % g) + g) % g];
     const a = at(x0, y0), b = at(x0 + 1, y0), c = at(x0, y0 + 1), d = at(x0 + 1, y0 + 1);
     return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
   };
 }
 
-const NOMS = ['Grands-Bois', 'Val-de-Fer', 'Plaine-Dorée', 'Terre-Rouge', 'Port-Neuf',
-              'Bois-Perdu', 'Roche-Noire', 'Champs-Longs', 'Argilières', 'Confluent'];
+function fractal(rnd, echelles, poids) {
+  const couches = echelles.map(e => bruit(rnd, e));
+  const total = poids.reduce((a, b) => a + b, 0);
+  return (x, y) => couches.reduce((s, f, i) => s + f(x, y) * poids[i], 0) / total;
+}
 
-// Chaque ville reçoit une prédominance et deux raretés. Ce sont des biais sur
-// la distribution des qualités, jamais une absence : le minerai existe partout,
-// il est simplement médiocre là où il n'est pas la vocation du lieu.
+const NOMS = ['Grands-Bois', 'Val-de-Fer', 'Plaine-Dorée', 'Terre-Rouge', 'Port-Neuf',
+              'Bois-Perdu', 'Roche-Noire', 'Champs-Longs', 'Argilières', 'Confluent',
+              'Fort-Union', 'Sainte-Agathe'];
+
+// Chaque ville a une prédominance et deux raretés. Ce sont des biais sur la
+// distribution des qualités, jamais une absence : le minerai existe partout, il
+// est simplement médiocre là où il n'est pas la vocation du lieu.
 const PROFILS = [
-  { pred: 'bois',      rares: ['minerai', 'charbon'],  relief: 'foret'    },
-  { pred: 'minerai',   rares: ['fertilite', 'bois'],   relief: 'montagne' },
-  { pred: 'fertilite', rares: ['charbon', 'minerai'],  relief: 'plaine'   },
-  { pred: 'argile',    rares: ['bois', 'minerai'],     relief: 'plaine'   },
-  { pred: 'charbon',   rares: ['fertilite', 'argile'], relief: 'colline'  },
+  { pred: 'bois',      rares: ['minerai', 'charbon'],  penteVoulue: 0.35 },
+  { pred: 'minerai',   rares: ['fertilite', 'bois'],   penteVoulue: 0.80 },
+  { pred: 'charbon',   rares: ['fertilite', 'argile'], penteVoulue: 0.65 },
+  { pred: 'fertilite', rares: ['charbon', 'minerai'],  penteVoulue: 0.12 },
+  { pred: 'argile',    rares: ['bois', 'minerai'],     penteVoulue: 0.20 },
 ];
 
-export function genererCarte(nbVilles, graine) {
+// Les vocations de quartier. Un quartier est une tache de Voronoï à l'intérieur
+// du territoire d'une ville : c'est ce qui empêche les ateliers de cerner les
+// maisons, et ce qui donne à chaque ville un plan différent.
+export const VOCATIONS = ['residentiel', 'industriel', 'negoce', 'agricole'];
+
+export function genererMonde(nbVilles, graine) {
   const rnd = rng(graine);
-  const N = P.tailleVille;
+  const L = P.largeurMonde, H = P.hauteurMonde;
+
+  // --- 1. Le relief -------------------------------------------------------
+  const fAlt = fractal(rnd, [38, 17, 7], [1, 0.5, 0.22]);
+  const fHum = fractal(rnd, [29, 11], [1, 0.4]);
+  const bQ = {}; for (const q of QUALITES) bQ[q] = fractal(rnd, [21, 9], [1, 0.45]);
+
+  const cases = new Array(L * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < L; x++) {
+    // On abaisse les bords pour que le continent ne soit pas coupé net.
+    const bordX = Math.min(1, Math.min(x, L - 1 - x) / 14);
+    const bordY = Math.min(1, Math.min(y, H - 1 - y) / 12);
+    const alt = Math.max(0, Math.min(1, fAlt(x, y) * (0.35 + 0.65 * bordX * bordY)));
+    const hum = fHum(x, y);
+
+    let relief;
+    if (alt > 0.70) relief = 'montagne';
+    else if (alt > 0.56) relief = 'colline';
+    else if (hum > 0.58 && alt > 0.30) relief = 'foret';
+    else relief = 'plaine';
+
+    cases[y * L + x] = {
+      x, y, alt, relief,
+      q: null,                  // rempli juste après
+      ville: null, distanceGare: 0, quartier: null,
+      rue: false, voie: false,
+      proprio: null, bat: null, chantier: null, vendue: false,
+    };
+  }
+
+  // Pente locale : elle sert à l'ombrage du relief et au choix des sites.
+  for (const c of cases) {
+    const e = (x, y) => (cases[Math.max(0, Math.min(H - 1, y)) * L
+                             + Math.max(0, Math.min(L - 1, x))]).alt;
+    c.pente = (e(c.x + 1, c.y) - e(c.x - 1, c.y)) * 0.5;
+    c.penteY = (e(c.x, c.y + 1) - e(c.x, c.y - 1)) * 0.5;
+  }
+
+  // --- 2. Les qualités, gouvernées par le relief --------------------------
+  // Le minerai et le charbon sont dans la roche, la fertilité dans les
+  // plaines : ce n'est pas décoratif, c'est ce qui oblige à relier les villes.
+  for (const c of cases) {
+    const biais = RELIEFS[c.relief].biais;
+    const q = {};
+    for (const nom of QUALITES) {
+      let v = bQ[nom](c.x, c.y) * 4.2 + 0.9;
+      v *= biais[nom];
+      q[nom] = Math.max(1, Math.min(5, Math.round(v)));
+    }
+    c.q = q;
+  }
+
+  // --- 3. Les sites de ville ----------------------------------------------
+  // On tire des candidats et on ne garde que ceux qui respectent la distance
+  // minimale : sans elle, deux villes se recouvrent et le rail n'a plus de sens.
   const profils = melanger(PROFILS.slice(), rnd).slice(0, nbVilles);
   const noms = melanger(NOMS.slice(), rnd);
+  const sites = [];
 
-  const villes = profils.map((profil, i) => {
-    const bReliefA = bruit(rnd, N, 11), bReliefB = bruit(rnd, N, 5);
-    const bQ = {}; for (const q of QUALITES) bQ[q] = bruit(rnd, N, 8);
-
-    const gare = { x: N >> 1, y: N >> 1 };
-    const cases = new Array(N * N);
-
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      const h = bReliefA(x, y) * 0.7 + bReliefB(x, y) * 0.3;
-      // Le relief dominant du profil est sur-représenté sans être exclusif.
-      let relief;
-      if (h > 0.72) relief = 'montagne';
-      else if (h > 0.56) relief = 'colline';
-      else if (h > 0.40) relief = 'foret';
-      else relief = 'plaine';
-      if (rnd() < 0.28) relief = profil.relief;
-
-      const biais = RELIEFS[relief].biais;
-      const q = {};
-      for (const nom of QUALITES) {
-        // base 1-5 tirée du bruit, modulée par le relief puis par le profil
-        let v = bQ[nom](x, y) * 4 + 1;
-        v *= biais[nom];
-        if (nom === profil.pred) v *= 1.45;
-        if (profil.rares.includes(nom)) v *= 0.55;
-        q[nom] = Math.max(1, Math.min(5, Math.round(v)));
+  for (const profil of profils) {
+    let meilleur = null, meilleurScore = -Infinity;
+    for (let essai = 0; essai < 900; essai++) {
+      const x = P.margeMonde + Math.floor(rnd() * (L - 2 * P.margeMonde));
+      const y = P.margeMonde + Math.floor(rnd() * (H - 2 * P.margeMonde));
+      const c = cases[y * L + x];
+      if (c.alt > 0.66) continue;                       // on ne fonde pas sur un sommet
+      let tropPres = false;
+      for (const s of sites) {
+        if (Math.hypot(s.x - x, s.y - y) < P.distanceMinVilles) { tropPres = true; break; }
       }
+      if (tropPres) continue;
 
-      const d = Math.abs(x - gare.x) + Math.abs(y - gare.y);
-      cases[y * N + x] = {
-        x, y, relief, q, distanceGare: d,
-        rue: false,
-        proprio: null,      // null = vierge ; 'ind' = indépendant ; sinon id de société
-        bat: null,          // référence vers le bâtiment posé
-        chantier: null,
-        voie: false,
-        vendue: false,
-      };
+      // On note le voisinage : la ville veut la ressource de sa vocation à
+      // portée, et un terrain à peu près plat pour s'étendre.
+      let score = 0, n = 0;
+      for (let dy = -9; dy <= 9; dy += 3) for (let dx = -9; dx <= 9; dx += 3) {
+        const v = cases[Math.max(0, Math.min(H - 1, y + dy)) * L
+                      + Math.max(0, Math.min(L - 1, x + dx))];
+        score += v.q[profil.pred]; n++;
+      }
+      score = score / n - Math.abs(c.alt - profil.penteVoulue) * 4;
+      if (score > meilleurScore) { meilleurScore = score; meilleur = { x, y }; }
     }
+    if (meilleur) sites.push(meilleur);
+  }
 
-    // La gare, et les emprises de voie qui en partent — réservées, non
-    // constructibles, visibles dès la première seconde.
-    cases[gare.y * N + gare.x].voie = true;
-    for (let x = 0; x < N; x++) cases[gare.y * N + x].voie = true;
+  // --- 4. Les territoires, les quartiers ----------------------------------
+  const villes = sites.map((site, i) => {
+    const profil = profils[i];
+    // Un rayon propre à chaque ville et une déformation directionnelle : sans
+    // cela, les cinq villes auraient exactement le même plan.
+    const rayon = P.rayonVille * (0.85 + rnd() * 0.35);
+    const orientation = rnd() * Math.PI;
+    const aplatissement = 0.62 + rnd() * 0.5;
+    const fLisiere = fractal(rnd, [7, 3], [1, 0.5]);
 
-    // La trame des rues. « La densité des rues fait la hiérarchie urbaine. Un
-    // bâtiment seul dans sa parcelle, entouré de rue sur quatre côtés, met la
-    // moitié de la surface en gris : parfait pour un bourg, désastreux pour une
-    // métropole qui doit paraître dense. Une rue toutes les trois ou quatre
-    // cases avec des îlots mitoyens au centre, des parcelles isolées en
-    // périphérie. » (§21)
-    const RAYON_URBAIN = Math.round(N * 0.38);
-    for (const c of cases) {
-      const dx = c.x - gare.x, dy = c.y - gare.y;
-      if (Math.abs(dx) + Math.abs(dy) > RAYON_URBAIN) continue;   // la campagne n'a pas de rues
-      if (dx % 5 === 0 || dy % 5 === 0) c.rue = true;
-    }
-
-    // 30 % des cases exploitables appartiennent à des indépendants. Ils vendent
-    // au prix du marché majoré de 20 % : le raccourci payant.
-    for (const c of cases) if (!c.voie && !c.rue && rnd() < P.partIndependants) c.proprio = 'ind';
-
-    // Les cases autour de la gare sont ouvertes d'emblée, sans quoi la règle de
-    // contiguïté n'aurait aucun point de départ.
-    for (const c of cases) if (c.distanceGare <= 4 && !c.voie && !c.rue) c.vendue = true;
-
-    return {
-      id: i, nom: noms[i], profil, N, gare, cases,
-      menages: 200,               // 200 ménages = 400 employés au départ
-      occupation: 0.85,
-      salaire: P.salaireCase,
-      niveau: 1,
+    const v = {
+      id: i, nom: noms[i], profil, gare: { x: site.x, y: site.y },
+      rayon, cases: [],
+      menages: P.menagesInitiaux,
+      occupation: 0.85, salaire: P.salaireCase, niveau: 1,
       barometres: { nourriture: 1, emploi: 0.78, produits: 0.6 },
-      epargne: 0,
-      marche: null,               // affecté par world.js
-      histo: [],
+      epargne: 0, marche: null, histo: [],
     };
+
+    // Les germes de quartiers. La vocation résidentielle est la plus fréquente
+    // et occupe le centre ; l'industrie et le négoce se posent en couronne.
+    const germes = [];
+    const nbGermes = 6 + Math.floor(rnd() * 4);
+    germes.push({ x: site.x, y: site.y, vocation: 'residentiel' });
+    for (let k = 1; k < nbGermes; k++) {
+      const a = rnd() * Math.PI * 2, d = rayon * (0.30 + rnd() * 0.72);
+      const vocation = k <= 2 ? 'residentiel'
+                     : k <= 4 ? 'industriel'
+                     : k === 5 ? 'negoce' : 'agricole';
+      germes.push({ x: site.x + Math.cos(a) * d, y: site.y + Math.sin(a) * d, vocation });
+    }
+    v.germes = germes;
+
+    const port = Math.ceil(rayon * 2);
+    for (let dy = -port; dy <= port; dy++) {
+      for (let dx = -port; dx <= port; dx++) {
+        const x = site.x + dx, y = site.y + dy;
+        if (x < 0 || y < 0 || x >= L || y >= H) continue;
+        const c = cases[y * L + x];
+        if (c.ville) continue;                     // premier arrivé, premier servi
+
+        // Une ellipse orientée, dont la lisière est brouillée par du bruit :
+        // les villes cessent d'être des losanges identiques.
+        const ca = Math.cos(orientation), sa = Math.sin(orientation);
+        const u = (dx * ca + dy * sa), w = (-dx * sa + dy * ca) / aplatissement;
+        const d = Math.hypot(u, w) / rayon;
+        if (d > 0.55 + fLisiere(x, y) * 0.62) continue;
+
+        c.ville = v;
+        c.distanceGare = Math.round(Math.hypot(dx, dy));
+        // Le quartier le plus proche donne sa vocation à la case.
+        let meilleur = germes[0], best = Infinity;
+        for (const g of germes) {
+          const dd = Math.hypot(g.x - x, g.y - y);
+          if (dd < best) { best = dd; meilleur = g; }
+        }
+        c.quartier = meilleur.vocation;
+        v.cases.push(c);
+      }
+    }
+
+    // La trame des rues, au cœur seulement : « une rue toutes les trois ou
+    // quatre cases avec des îlots mitoyens au centre, des parcelles isolées en
+    // périphérie » (§21). Son orientation suit celle de la ville.
+    for (const c of v.cases) {
+      if (c.distanceGare > rayon * 0.72) continue;
+      const dx = c.x - site.x, dy = c.y - site.y;
+      const ca = Math.cos(orientation), sa = Math.sin(orientation);
+      const u = Math.round(dx * ca + dy * sa), w = Math.round(-dx * sa + dy * ca);
+      if (u % 5 === 0 || w % 5 === 0) c.rue = true;
+    }
+
+    cases[site.y * L + site.x].voie = true;
+    cases[site.y * L + site.x].rue = false;
+
+    // 30 % des cases exploitables appartiennent d'emblée à des indépendants.
+    for (const c of v.cases) {
+      if (!c.voie && !c.rue && rnd() < P.partIndependants) c.proprio = 'ind';
+      if (c.distanceGare <= 4 && !c.voie && !c.rue) c.vendue = true;
+    }
+
+    return v;
   });
 
-  // Les liaisons : toutes les paires de villes, dates d'achèvement échelonnées
-  // et annoncées dès le début de la partie.
-  const liaisons = [];
-  for (let a = 0; a < nbVilles; a++) for (let b = a + 1; b < nbVilles; b++) {
-    liaisons.push({
-      a, b,
-      nom: `${villes[a].nom} — ${villes[b].nom}`,
-      dateInitiale: 14 + Math.floor(rnd() * 22),   // mois
-      date: 0, capital: 0, achevee: false, cotee: false,
-      actions: 0, tresorerie: 0, parts: {},
-    });
-  }
-  for (const l of liaisons) l.date = l.dateInitiale;
+  // --- 5. Le réseau ferroviaire -------------------------------------------
+  // On relie les villes en arbre couvrant minimal, plus une boucle si la carte
+  // s'y prête. Deux villes reliées par une chaîne d'autres villes sont reliées :
+  // A–B et B–C valent A–C, sans troisième ligne à construire.
+  const liaisons = construireReseau(villes, rnd);
+  for (const l of liaisons) tracerVoie(cases, L, H, villes[l.a].gare, villes[l.b].gare);
 
-  return { villes, liaisons, graine };
+  return { L, H, cases, villes, liaisons, graine };
+}
+
+// Arbre couvrant minimal sur les distances, puis une arête supplémentaire prise
+// parmi les plus courtes restantes : le réseau n'est ni une simple ligne ni un
+// graphe complet.
+function construireReseau(villes, rnd) {
+  const aretes = [];
+  for (let a = 0; a < villes.length; a++) for (let b = a + 1; b < villes.length; b++) {
+    aretes.push({ a, b, d: Math.hypot(villes[a].gare.x - villes[b].gare.x,
+                                      villes[a].gare.y - villes[b].gare.y) });
+  }
+  aretes.sort((p, q) => p.d - q.d);
+
+  const parent = villes.map((_, i) => i);
+  const find = (i) => parent[i] === i ? i : (parent[i] = find(parent[i]));
+  const retenues = [], rejetees = [];
+  for (const e of aretes) {
+    if (find(e.a) !== find(e.b)) { parent[find(e.a)] = find(e.b); retenues.push(e); }
+    else rejetees.push(e);
+  }
+  if (rejetees.length && villes.length >= 4) retenues.push(rejetees[0]);
+
+  return retenues.map(e => {
+    // La date d'achèvement est proportionnelle à la longueur : une ligne longue
+    // demande plus de travail, et le joueur le voit dès la première seconde.
+    const mois = Math.round(8 + e.d * P.moisParCaseDeVoie + rnd() * 6);
+    return {
+      a: e.a, b: e.b, longueur: Math.round(e.d),
+      nom: `${villes[e.a].nom} — ${villes[e.b].nom}`,
+      dateInitiale: mois, date: mois,
+      capital: 0, achevee: false, cotee: false, parts: {},
+    };
+  });
+}
+
+// Trace l'emprise de la voie, en escalier doux entre deux gares. Elle est
+// réservée et visible dès la première seconde : le joueur sait où la ligne
+// aboutira, et peut acheter autour.
+function tracerVoie(cases, L, H, d, f) {
+  let x = d.x, y = d.y;
+  const poser = () => {
+    for (let k = -0; k <= 0; k++) {
+      const c = cases[Math.max(0, Math.min(H - 1, y + k)) * L + Math.max(0, Math.min(L - 1, x))];
+      if (c.bat) continue;
+      c.voie = true; c.rue = false;
+    }
+  };
+  poser();
+  let garde = 0;
+  while ((x !== f.x || y !== f.y) && garde++ < 4000) {
+    const dx = Math.sign(f.x - x), dy = Math.sign(f.y - y);
+    // On avance en diagonale douce : deux pas horizontaux pour un pas vertical
+    // quand l'écart horizontal domine, et l'inverse sinon.
+    if (Math.abs(f.x - x) > Math.abs(f.y - y)) x += dx;
+    else y += dy;
+    poser();
+  }
 }
 
 function melanger(a, rnd) {
@@ -159,18 +309,13 @@ function melanger(a, rnd) {
   return a;
 }
 
-export function caseAt(ville, x, y) {
-  if (x < 0 || y < 0 || x >= ville.N || y >= ville.N) return null;
-  return ville.cases[y * ville.N + x];
-}
-
 // Règle de contiguïté : on ne peut acheter une terre vierge que si elle touche
 // une terre déjà vendue ou bâtie. La ville s'étend en anneaux depuis sa gare, et
 // il existe à chaque instant une frontière étroite et disputée.
-export function estAchetable(ville, c) {
-  if (!c || c.voie || c.rue || c.vendue) return false;
+export function estAchetable(monde, c) {
+  if (!c || c.voie || c.rue || c.vendue || !c.ville) return false;
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    const v = caseAt(ville, c.x + dx, c.y + dy);
+    const v = monde.caseAt(c.x + dx, c.y + dy);
     if (v && (v.vendue || v.voie)) return true;
   }
   return false;

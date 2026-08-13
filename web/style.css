@@ -1,242 +1,266 @@
-/* WWTycoons — démo. Sobre, dense, lisible sur téléphone comme sur écran large. */
+/* WWTycoons — la carte occupe tout l'écran, tout le reste flotte au-dessus.
+   Palette sépia et or : celle des papiers et des lampes de 1900, pas celle d'un
+   tableau de bord moderne. */
 
 :root {
-  --fond:       #14130f;
-  --fond2:      #1c1a15;
-  --fond3:      #24211a;
-  --bord:       #38332a;
-  --texte:      #e6e0d2;
-  --doux:       #a39a86;
-  --faible:     #6d6555;
-  --or:         #d9a441;
-  --vert:       #6faa72;
-  --rouge:      #c2544b;
-  --bleu:       #6f9fc9;
-  --joueur:     #d9a441;
+  --fond:    #14130f;
+  --fond2:   #1b1915;   /* les panneaux */
+  --fond3:   #262219;
+  --bord:    #3b352b;
+  --texte:   #ece6d6;
+  --doux:    #a89e88;
+  --faible:  #6f6656;
+  --or:      #e0b155;
+  --vert:    #5da560;
+  --rouge:   #c25a4e;
+  --voile:   rgba(20, 19, 15, .93);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-button:focus-visible, [tabindex]:focus-visible {
-  outline: 2px solid var(--or); outline-offset: 1px;
-}
-
+button:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
-  * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+  * { transition-duration: .01ms !important; }
 }
 
 body {
   background: var(--fond);
   color: var(--texte);
   font: 13px/1.45 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
-  height: 100vh;
-  height: 100dvh;
-  display: flex;
-  overscroll-behavior: none;
-  flex-direction: column;
+  height: 100vh; height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
 }
+
+#carte { position: fixed; inset: 0; display: block; touch-action: none; }
+
+.etiq   { font-size: 9px; text-transform: uppercase; letter-spacing: .09em; color: var(--faible); }
+.val    { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.sous   { font-size: 10px; color: var(--doux); font-variant-numeric: tabular-nums; }
+.or { color: var(--or); } .vert { color: var(--vert); } .rouge { color: var(--rouge); }
+.doux { color: var(--doux); } .faible { color: var(--faible); }
 
 /* ---------- Barre du haut ---------- */
 
 #barre {
-  display: flex;
-  align-items: stretch;
-  gap: 1px;
-  background: var(--bord);
-  border-bottom: 1px solid var(--bord);
-  flex: 0 0 auto;
-  overflow-x: auto;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+  display: flex; align-items: stretch; gap: 8px;
+  padding: calc(6px + env(safe-area-inset-top)) 8px 6px;
+  background: linear-gradient(180deg, rgba(16,15,12,.95) 60%, rgba(16,15,12,0));
+  pointer-events: none;
 }
-#barre .bloc {
-  background: var(--fond2);
-  padding: 7px 14px;
-  min-width: 120px;
-  flex: 0 0 auto;
-}
-#barre .bloc.croissant { flex: 1 1 auto; }
-.etiq { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--faible); }
-.val  { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.25; }
-.val.argent { color: var(--texte); }
-.val.or { color: var(--or); }
-.sous { font-size: 11px; color: var(--doux); font-variant-numeric: tabular-nums; }
+#barre > * { pointer-events: auto; }
 
-.commandes { background: var(--fond2); display: flex; align-items: center; gap: 5px; padding: 0 12px; }
+.jauges { display: flex; gap: 1px; background: var(--bord); border-radius: 4px; overflow: hidden; }
+.jauge  { background: var(--fond2); padding: 5px 10px; min-width: 78px; }
+
+.icones { display: flex; gap: 4px; flex: 1 1 auto; justify-content: center; }
+.ico {
+  background: var(--fond2); border: 1px solid var(--bord); border-radius: 4px;
+  color: var(--doux); cursor: pointer; font-family: inherit;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; padding: 4px 9px; min-width: 50px;
+}
+.ico svg { width: 19px; height: 19px; fill: currentColor; }
+.ico span { font-size: 9px; letter-spacing: .03em; }
+.ico:hover, .ico.actif { color: var(--or); border-color: var(--or); }
+
+.horloge { display: flex; gap: 4px; }
 .cmd {
+  background: var(--fond2); color: var(--texte); border: 1px solid var(--bord);
+  border-radius: 4px; padding: 6px 11px; cursor: pointer; font: inherit; font-size: 13px;
+  min-width: 44px;
+}
+.cmd.majeur { background: var(--or); color: #1a1710; border-color: var(--or); font-weight: 700; }
+
+/* ---------- Bandeau du filtre actif ---------- */
+
+#bandeauFiltre {
+  position: fixed; z-index: 9; left: 50%; transform: translateX(-50%);
+  top: calc(64px + env(safe-area-inset-top));
+  display: flex; align-items: center; gap: 10px;
+  background: var(--voile); border: 1px solid var(--bord); border-radius: 20px;
+  padding: 5px 6px 5px 14px; font-size: 12px; max-width: calc(100vw - 24px);
+}
+#bandeauFiltre.cachee { display: none; }
+#bandeauEchelle {
+  width: 96px; height: 8px; border-radius: 4px; flex: 0 0 auto;
+  background: linear-gradient(90deg, #b0362d, #c97a2e, #ceb23a, #5da560);
+}
+#btnQuitterFiltre {
+  background: var(--fond3); color: var(--doux); border: 1px solid var(--bord);
+  border-radius: 14px; padding: 5px 11px; cursor: pointer; font: inherit; font-size: 11px;
+}
+#btnQuitterFiltre:hover { color: var(--or); border-color: var(--or); }
+
+/* ---------- Outils de navigation ---------- */
+
+#outils {
+  position: fixed; right: 10px; z-index: 8;
+  top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 6px;
+}
+#outils button {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--voile); color: var(--doux);
+  border: 1px solid var(--bord); cursor: pointer; font: inherit; font-size: 17px;
+}
+#outils button:active { color: var(--or); border-color: var(--or); }
+
+/* ---------- Volet latéral (filtres, villes, marché, société, rail) ---------- */
+
+#volet {
+  position: fixed; z-index: 20; top: 0; right: 0; bottom: 0; width: 340px; max-width: 88vw;
+  background: var(--fond2); border-left: 1px solid var(--bord);
+  display: flex; flex-direction: column;
+  transition: transform .2s ease;
+  padding-top: env(safe-area-inset-top);
+}
+#volet.cachee { transform: translateX(101%); }
+.voletTete {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px; border-bottom: 1px solid var(--bord); flex: 0 0 auto;
+}
+.voletTete b { font-size: 14px; }
+#btnFermerVolet {
+  background: none; border: 0; color: var(--doux); font-size: 17px; cursor: pointer;
+  padding: 4px 8px; font-family: inherit;
+}
+#voletCorps { flex: 1 1 auto; overflow-y: auto; padding: 12px 14px calc(16px + env(safe-area-inset-bottom)); }
+
+h3 {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--faible); margin: 15px 0 7px; font-weight: 600;
+}
+h3:first-child { margin-top: 0; }
+
+/* Les filtres, en pastilles : on en voit beaucoup d'un coup et on vise au pouce. */
+.pastilles { display: flex; flex-wrap: wrap; gap: 5px; }
+.pastilles button {
   background: var(--fond3); color: var(--texte); border: 1px solid var(--bord);
-  padding: 6px 11px; border-radius: 3px; cursor: pointer; font-size: 12px; font-family: inherit;
+  border-radius: 15px; padding: 7px 12px; cursor: pointer; font: inherit; font-size: 12px;
+  display: flex; align-items: center; gap: 6px;
 }
-.cmd:hover { background: #2e2a21; }
-.cmd.majeur { background: var(--or); color: #191710; border-color: var(--or); font-weight: 600; }
-.cmd.vit.actif { border-color: var(--or); color: var(--or); }
+.pastilles button:hover { border-color: var(--or); }
+.pastilles button.actif { background: var(--or); color: #1a1710; border-color: var(--or); font-weight: 600; }
+.pastilles .nuance { width: 9px; height: 9px; border-radius: 2px; flex: 0 0 auto; }
 
-/* ---------- Corps ---------- */
-
-main { flex: 1 1 auto; display: flex; min-height: 0; }
-
-#colGauche { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
-#colDroite {
-  flex: 0 0 370px; border-left: 1px solid var(--bord);
-  display: flex; flex-direction: column; min-height: 0; background: var(--fond2);
+.listeVilles { display: flex; flex-direction: column; gap: 6px; }
+.listeVilles button {
+  background: var(--fond3); border: 1px solid var(--bord); border-radius: 5px;
+  padding: 9px 11px; cursor: pointer; font: inherit; color: var(--texte);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
 }
+.listeVilles button:hover { border-color: var(--or); }
+.listeVilles .cv { font-size: 11px; color: var(--doux); font-variant-numeric: tabular-nums; }
 
-nav#ongletsVilles, nav#modesCarte, nav#ongletsPanneau {
-  display: flex; gap: 1px; background: var(--bord); flex: 0 0 auto; overflow-x: auto;
-}
-nav button {
-  background: var(--fond2); color: var(--doux); border: 0; padding: 8px 13px;
-  cursor: pointer; font-size: 12px; font-family: inherit; white-space: nowrap; flex: 0 0 auto;
-}
-nav button:hover { color: var(--texte); background: var(--fond3); }
-nav button.actif { background: var(--fond3); color: var(--or); box-shadow: inset 0 -2px 0 var(--or); }
-nav#ongletsPanneau button { flex: 1 1 0; }
-nav#modesCarte button { font-size: 11px; padding: 6px 10px; }
-
-#zoneCarte { flex: 1 1 auto; position: relative; overflow: hidden; background: #0e0d0a; }
-#carte { display: block; cursor: crosshair; touch-action: none; }
-#legende {
-  position: absolute; left: 10px; bottom: 10px; background: rgba(20,19,15,.9);
-  border: 1px solid var(--bord); border-radius: 3px; padding: 7px 9px;
-  font-size: 11px; color: var(--doux); pointer-events: none; max-width: 260px;
-}
-#legende .ligne { display: flex; align-items: center; gap: 6px; }
-#legende i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
-
-/* ---------- Panneau ---------- */
-
-#panneau { flex: 1 1 auto; overflow-y: auto; padding: 12px; }
-#panneau h3 {
-  font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
-  color: var(--faible); margin: 16px 0 7px; font-weight: 600;
-}
-#panneau h3:first-child { margin-top: 0; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 500; color: var(--faible); font-size: 9px;
+     text-transform: uppercase; letter-spacing: .07em; padding: 4px 6px 4px 0; }
+td { padding: 5px 6px 5px 0; border-top: 1px solid #241f18; }
+td.n, th.n { text-align: right; }
+.puce { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+.ligneBat { cursor: pointer; }
+.ligneBat:hover td { background: var(--fond3); }
 
 .barometre { margin-bottom: 9px; }
 .barometre .tete { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
 .barometre .piste { height: 7px; background: var(--fond); border-radius: 4px; overflow: hidden; }
-.barometre .jauge { height: 100%; border-radius: 4px; transition: width .3s; }
-.barometre.critique .jauge { background: var(--rouge) !important; }
+.barometre .jauge2 { height: 100%; border-radius: 4px; }
 
-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
-th { text-align: left; font-weight: 500; color: var(--faible); font-size: 10px;
-     text-transform: uppercase; letter-spacing: .06em; padding: 4px 6px 4px 0; }
-td { padding: 3px 6px 3px 0; border-top: 1px solid #221f19; }
-td.n, th.n { text-align: right; }
-.vert { color: var(--vert); } .rouge { color: var(--rouge); } .or { color: var(--or); }
-.doux { color: var(--doux); } .faible { color: var(--faible); }
-
-.puce { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
-.ligneBat { cursor: pointer; }
-.ligneBat:hover td { background: var(--fond3); }
-
-/* ---------- Feuille du bas ---------- */
-/* Sur mobile, une feuille qui remonte du bas, la carte restant visible
-   au-dessus : à cette inclinaison, un panneau flottant masquerait plusieurs
-   bâtiments et le joueur perdrait le contexte de ce qu'il inspecte. */
-
-#feuille {
-  position: fixed; left: 0; right: 370px; bottom: 0;
-  background: var(--fond2); border-top: 1px solid var(--bord);
-  box-shadow: 0 -8px 24px rgba(0,0,0,.5);
-  transition: transform .22s ease; z-index: 20; max-height: 58vh; overflow-y: auto;
-}
-#feuille.fermee { transform: translateY(101%); }
-#feuillePoignee {
-  height: 3px; width: 44px; background: var(--bord); border-radius: 2px;
-  margin: 7px auto 0; cursor: pointer;
-}
-#feuilleCorps { padding: 10px 16px 16px; }
-#feuilleCorps h2 { font-size: 15px; margin-bottom: 2px; }
-#feuilleCorps .soustitre { color: var(--doux); font-size: 12px; margin-bottom: 10px; }
-.grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 8px; margin-bottom: 10px; }
-.fiche { background: var(--fond3); border: 1px solid var(--bord); border-radius: 3px; padding: 6px 9px; }
-.fiche .etiq { margin-bottom: 1px; }
+.grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 7px; margin-bottom: 10px; }
+.fiche { background: var(--fond3); border: 1px solid var(--bord); border-radius: 4px; padding: 6px 9px; }
 .fiche .v { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .actions button {
   background: var(--fond3); color: var(--texte); border: 1px solid var(--bord);
-  padding: 7px 12px; border-radius: 3px; cursor: pointer; font-size: 12px; font-family: inherit;
+  border-radius: 4px; padding: 9px 13px; cursor: pointer; font: inherit; font-size: 12px;
 }
 .actions button:hover:not(:disabled) { border-color: var(--or); color: var(--or); }
-.actions button:disabled { opacity: .38; cursor: not-allowed; }
-.actions button.primaire { background: var(--or); color: #191710; border-color: var(--or); font-weight: 600; }
+.actions button:disabled { opacity: .35; cursor: not-allowed; }
+.actions button.primaire { background: var(--or); color: #1a1710; border-color: var(--or); font-weight: 600; }
 
 input[type=range] { width: 100%; accent-color: var(--or); }
-
+.note  { color: var(--doux); font-size: 11px; margin-top: 7px; line-height: 1.55; }
 .avert { color: var(--rouge); font-size: 11px; margin-top: 6px; }
-.note { color: var(--doux); font-size: 11px; margin-top: 6px; line-height: 1.5; }
+
+/* ---------- Feuille d'inspection ---------- */
+
+#feuille {
+  position: fixed; z-index: 15; left: 0; right: 0; bottom: 0;
+  background: var(--fond2); border-top: 1px solid var(--bord);
+  box-shadow: 0 -10px 30px rgba(0,0,0,.55);
+  transition: transform .2s ease; max-height: 64vh; overflow-y: auto;
+  border-radius: 10px 10px 0 0;
+}
+#feuille.fermee { transform: translateY(101%); }
+#feuillePoignee {
+  height: 4px; width: 56px; background: var(--bord); border-radius: 2px;
+  margin: 9px auto 0; cursor: pointer;
+}
+#feuilleCorps { padding: 10px 15px calc(18px + env(safe-area-inset-bottom)); }
+#feuilleCorps h2 { font-size: 16px; margin-bottom: 2px; }
+#feuilleCorps .soustitre { color: var(--doux); font-size: 12px; margin-bottom: 11px; }
 
 /* ---------- Fin de partie ---------- */
 
 #finPartie {
-  position: fixed; inset: 0; background: rgba(10,9,7,.94); z-index: 60;
-  display: flex; align-items: center; justify-content: center; padding: 24px;
+  position: fixed; inset: 0; background: rgba(10,9,7,.95); z-index: 60;
+  display: flex; align-items: center; justify-content: center; padding: 22px;
 }
 #finPartie.cachee { display: none; }
-#finPartie .boite { background: var(--fond2); border: 1px solid var(--bord); border-radius: 5px;
-  padding: 26px 30px; max-width: 480px; width: 100%; }
-#finPartie h1 { font-size: 21px; margin-bottom: 4px; }
-
-/* ---------- Boutons flottants sur la carte ---------- */
-
-#btnRecentrer, #btnLegende {
-  position: absolute; right: 10px;
-  width: 40px; height: 40px; border-radius: 50%;
-  background: rgba(28,26,21,.92); color: var(--doux);
-  border: 1px solid var(--bord); cursor: pointer;
-  font-size: 16px; line-height: 1; font-family: inherit;
-  display: flex; align-items: center; justify-content: center;
+#finPartie .boite {
+  background: var(--fond2); border: 1px solid var(--bord); border-radius: 6px;
+  padding: 24px 26px; max-width: 460px; width: 100%;
 }
-#btnRecentrer { top: 10px; }
-#btnLegende   { top: 58px; }
-#btnRecentrer:active, #btnLegende:active { background: var(--fond3); color: var(--or); }
+#finPartie h1 { font-size: 20px; margin-bottom: 4px; }
 
-/* ---------- Tablette et téléphone ---------- */
-/* La carte doit rester la pièce maîtresse : c'est elle qu'on lit, et une
-   feuille qui remonte du bas laisse le contexte visible au-dessus. */
+/* ---------- Téléphone ---------- */
 
-@media (max-width: 860px) {
-  main { flex-direction: column; }
-  #colGauche { flex: 1 1 auto; min-height: 42vh; }
-  #colDroite { flex: 0 0 40vh; border-left: 0; border-top: 1px solid var(--bord); }
-  #feuille { right: 0; max-height: 72vh; }
+/* ---------- Téléphone et tablette étroite ---------- */
+/* Les menus descendent en bas de l'écran : c'est là que se trouve le pouce, et
+   c'est ce qui libère le haut pour les seuls chiffres qui commandent une
+   décision. La carte, elle, ne perd pas un pixel. */
 
-  /* Des cibles qu'on vise au pouce, pas à la souris. */
-  nav button { padding: 11px 15px; font-size: 13px; }
-  nav#modesCarte button { padding: 10px 13px; font-size: 12px; }
-  .actions button { padding: 11px 15px; font-size: 13px; }
-  .cmd { padding: 10px 14px; }
-  #feuillePoignee { height: 4px; width: 60px; margin-top: 10px; }
-  #feuilleCorps { padding: 10px 14px calc(20px + env(safe-area-inset-bottom)); }
+@media (max-width: 760px) {
+  #barre { gap: 6px; }
+  .jauges { flex: 1 1 auto; }
+  .jauge { flex: 1 1 0; min-width: 0; padding: 5px 7px; }
+  .val { font-size: 13px; }
+  .etiq { font-size: 8px; }
 
-  #barre { padding-top: env(safe-area-inset-top); }
-  #barre .bloc { min-width: 88px; padding: 6px 11px; }
-  .val { font-size: 15px; }
-  .sous { font-size: 10px; }
-  .commandes { padding: 0 8px; gap: 4px; }
+  .icones {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 12;
+    flex: 0 0 auto; gap: 0;
+    background: var(--voile); border-top: 1px solid var(--bord);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .ico {
+    flex: 1 1 0; min-width: 0; border: 0; border-radius: 0;
+    background: none; padding: 5px 2px;
+  }
+  .ico svg { width: 21px; height: 21px; }
+  .ico span { display: block; font-size: 9px; }
+  .ico.actif { color: var(--or); background: none; }
 
-  #legende { display: none; }
-  #legende.montre { display: block; }
-  table { font-size: 13px; }
-  td { padding: 5px 6px 5px 0; }
+  #outils { top: auto; bottom: calc(72px + env(safe-area-inset-bottom)); transform: none; }
+  #outils button { width: 38px; height: 38px; font-size: 15px; }
+
+  #volet { width: 100%; max-width: none; top: auto;
+           height: calc(76vh - env(safe-area-inset-bottom));
+           bottom: calc(58px + env(safe-area-inset-bottom));
+           border-left: 0; border: 1px solid var(--bord); border-radius: 10px 10px 0 0; }
+  #volet.cachee { transform: translateY(140%); }
+  #feuille { max-height: 68vh; bottom: calc(58px + env(safe-area-inset-bottom));
+             border-radius: 10px 10px 0 0; }
+  /* Décalée de la barre du bas, il lui faut plus d'un tour complet pour sortir
+     entièrement de l'écran. */
+  #feuille.fermee { transform: translateY(calc(101% + 60px + env(safe-area-inset-bottom))); }
+  #feuilleCorps { padding-bottom: 18px; }
 }
 
-#btnVitesseCycle { display: none; }
-
-/* Sur un téléphone, la barre n'a pas la largeur de tout montrer. On garde ce
-   qui commande une décision — la date, l'argent — et on replie les trois
-   boutons de vitesse en un seul, qui tourne. Le reste vit dans les onglets. */
-@media (max-width: 620px) {
-  #barre .bloc.masquable { display: none; }
-  #barre .bloc { min-width: 0; padding: 6px 9px; }
-  .val { font-size: 14px; }
-  .etiq { font-size: 9px; letter-spacing: .05em; }
-  .cmd.vit { display: none; }
-  #btnVitesseCycle { display: block; min-width: 44px; }
-  #btnPause .mot { display: none; }
-  #btnPause { min-width: 46px; font-size: 15px; }
-  .commandes { padding: 0 7px; }
-  #colDroite { flex: 0 0 38vh; }
+@media (max-width: 400px) {
+  .jauge:nth-child(3) { display: none; }   /* la fortune vit dans « Société » */
 }
