@@ -41,6 +41,19 @@ node build.mjs                            # régénère la page autonome
 `wwtycoons.hebergee.html`, sans squelette de document, pour les hébergeurs qui fournissent
 le leur.
 
+**Avant de publier**, toujours :
+
+```sh
+node verifier-page.mjs        # nécessite un serveur sur web/, port 8123
+```
+
+Ce contrôle charge la page autonome réelle, dans une enveloppe d'hôte hostile, et vérifie
+que la carte est effectivement dessinée. Il existe parce que la page a déjà été livrée
+morte : le bundle a ses propres façons de casser — un module absent de la liste, un
+ré-export qui ne survit pas à la concaténation — et **aucune ne se voit en servant les
+modules séparés**. `build.mjs` refuse par ailleurs de produire une page où subsisterait une
+déclaration de module, ou dans laquelle manquerait un fichier présent sur le disque.
+
 La simulation vit dans `web/js/sim/`, sans une seule ligne de rendu. C'est délibéré : elle se
 porte telle quelle en C# dans Unity, seul le rendu change.
 

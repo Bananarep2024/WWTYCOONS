@@ -1774,6 +1774,54 @@ class Monde {
       // ville n'a rien à manger le premier mois.
       this.parcDeDepart(v);
     }
+    this.calibrerPrixInitiaux();
+  }
+
+  // Une partie ne commence pas à l'équilibre parfait. Chaque ville a hérité
+  // d'un sol, donc d'un parc et de rendements qui lui sont propres : le blé
+  // d'une plaine grasse ne vaut pas celui d'une terre ingrate, et le charbon
+  // d'un pays de collines ne vaut pas celui d'une plaine.
+  //
+  // On établit donc les prix de départ comme le fera la simulation ensuite —
+  // sur le rapport entre ce que la ville peut produire et ce qu'elle réclame.
+  // Sinon les cinq villes s'ouvrent avec exactement les mêmes cours, et le
+  // premier écart n'apparaît qu'après plusieurs années.
+  calibrerPrixInitiaux() {
+    for (const m of this.marches) {
+      const offre = {}, besoin = {};
+      for (const r of RESSOURCES) { offre[r] = 0; besoin[r] = 0; }
+
+      for (const v of m.villes) {
+        for (const b of this.tousBatiments(v)) {
+          if (b.def.sort) offre[b.def.sort] += b.capacite;
+          for (const [r, q] of Object.entries(b.def.intrants || {})) besoin[r] += q * b.n;
+          // L'entretien du bâti est une demande permanente de matériaux.
+          for (const [r, q] of Object.entries(materiaux(b.type))) {
+            besoin[r] += q * P.entretienAnnuel / 12;
+          }
+        }
+        // Ce que mangent et achètent les ménages. Pain et viande étant
+        // substituables, la ration se répartit au prorata de ce que chaque
+        // filière peut livrer — un ménage mange ce qu'il y a.
+        v.__ration = v.menages;
+        besoin.produits += v.menages;
+      }
+
+      const rations = m.villes.reduce((s, v) => s + (v.__ration || 0), 0);
+      const nourr = offre.pain + offre.viande;
+      for (const r of NOURRITURES) {
+        besoin[r] += nourr > 0.001 ? rations * offre[r] / nourr : rations / 2;
+      }
+
+      for (const r of RESSOURCES) {
+        const ref = RES[r].prix;
+        let tension = offre[r] > 0.001 ? besoin[r] / offre[r]
+                    : (besoin[r] > 0 ? P.tensionMax : 1);
+        tension = Math.max(P.tensionMin, Math.min(P.tensionMax, tension));
+        const prix = ref * Math.pow(tension, P.exposantPrix);
+        m.prix[r] = Math.max(ref * P.prixPlancher, Math.min(ref * P.prixPlafond, prix));
+      }
+    }
   }
 
   // Le parc de départ n'est pas posé au hasard : il est dimensionné sur les
@@ -1785,37 +1833,61 @@ class Monde {
   //   en plus les matériaux des chantiers et de l'entretien. Une ville dotée du
   //   strict nécessaire à la consommation ne peut employer que 45 % de ses bras
   //   et s'effondre. » (§20)
+  // Ce qu'une ville sait faire au premier jour. Une ville forestière ouvre avec
+  // un excédent de bois et un manque de minerai ; une ville minière l'inverse.
+  //
+  // « Chaque ville peut donc tout produire un peu, mais aucune ne peut se
+  //   suffire à elle-même. C'est ce qui rend le chemin de fer indispensable
+  //   plutôt que confortable. » (§5)
+  //
+  // La filière alimentaire fait exception : le générateur doit garantir
+  // qu'aucune ville ne démarre sous son seuil de survie, sinon elle meurt avant
+  // que quiconque ait eu le temps de lui poser une voie.
+  dotation(v, ressource, plancher = 0) {
+    const r = v.__tirage || (v.__tirage = rng(this.graine + v.id * 7919));
+    let k;
+    if (v.profil.pred === ressource) k = 1.35 + r() * 0.30;
+    else if (v.profil.rares.includes(ressource)) k = 0.32 + r() * 0.28;
+    else k = 0.82 + r() * 0.26;
+    return Math.max(plancher, k);
+  }
+
   parcDeDepart(v) {
     const M = v.menages;
+    const dBois = this.dotation(v, 'bois');
+    const dArgile = this.dotation(v, 'argile');
+    const dCharbon = this.dotation(v, 'charbon');
+    const dFer = this.dotation(v, 'minerai');
+    const dTerre = this.dotation(v, 'fertilite', 0.90);   // on ne laisse pas une ville affamée
 
     // Logement : un peu plus que la population, pour que l'occupation démarre
     // sous 100 % et laisse à la ville la place de croître.
     this.poserJusqua(v, 'maison', M / 0.85, b => b.def.menages);
 
     // Filière alimentaire : 1 ration par ménage et par mois.
-    this.poserJusqua(v, 'minoterie', M, b => b.capacite);
-    this.poserJusqua(v, 'ferme', M * 2, b => b.capacite);      // 2 céréales par pain
+    this.poserJusqua(v, 'minoterie', M * dTerre, b => b.capacite);
+    this.poserJusqua(v, 'ferme', M * 2 * dTerre, b => b.capacite);   // 2 céréales par pain
 
     // Filière manufacturée, remontée jusqu'aux mines.
     this.poserJusqua(v, 'manufacture', M * 1.08, b => b.capacite);
     const planchesManu = M * 1.08 * 1;                          // 6 planches pour 6 produits
     const acierManu = M * 1.08 / 3;                             // 2 aciers pour 6 produits
-    this.poserJusqua(v, 'acierie', acierManu, b => b.capacite);
-    this.poserJusqua(v, 'mineCharbon', acierManu * 4, b => b.capacite);
-    this.poserJusqua(v, 'mineFer', acierManu * 4, b => b.capacite);
+    this.poserJusqua(v, 'acierie', acierManu * Math.min(dCharbon, dFer), b => b.capacite);
+    this.poserJusqua(v, 'mineCharbon', acierManu * 4 * dCharbon, b => b.capacite);
+    this.poserJusqua(v, 'mineFer', acierManu * 4 * dFer, b => b.capacite);
 
     // Matériaux : ce que réclament les manufactures, plus l'entretien du parc
     // et les chantiers à venir — c'est le facteur 1,45.
     const planches = planchesManu + M * 0.45;
-    this.poserJusqua(v, 'scierie', planches, b => b.capacite);
-    this.poserJusqua(v, 'coupe', planches * 2, b => b.capacite);
-    this.poserJusqua(v, 'briqueterie', M * 0.40, b => b.capacite);
-    this.poserJusqua(v, 'carriere', M * 0.80, b => b.capacite);
+    this.poserJusqua(v, 'scierie', planches * dBois, b => b.capacite);
+    this.poserJusqua(v, 'coupe', planches * 2 * dBois, b => b.capacite);
+    this.poserJusqua(v, 'briqueterie', M * 0.40 * dArgile, b => b.capacite);
+    this.poserJusqua(v, 'carriere', M * 0.80 * dArgile, b => b.capacite);
 
     // Filière élevage : pour l'instant un doublon de la filière céréalière,
     // pain et viande étant substituables 1 pour 1. Modeste au départ.
-    this.poserJusqua(v, 'abattoir', M * 0.12, b => b.capacite);
-    this.poserJusqua(v, 'ranch', M * 0.24, b => b.capacite);
+    this.poserJusqua(v, 'abattoir', M * 0.12 * dTerre, b => b.capacite);
+    this.poserJusqua(v, 'ranch', M * 0.24 * dTerre, b => b.capacite);
 
     // Les bureaux sont le seul argent qui vienne du dehors : le nombre de
     // départ décide de la trajectoire d'une ville plus sûrement que la qualité
@@ -2356,6 +2428,287 @@ function totalMenages(marche) {
   return Math.max(1, marche.villes.reduce((s, v) => s + v.menages, 0));
 }
 
+// ===== js/ui/sprites.js ==============================================
+
+// ---------------------------------------------------------------------------
+// Les bâtiments, dessinés.
+//
+// Vus de très haut, on ne voit d'un bâtiment que son toit. C'est donc là que
+// doit vivre son identité : une cheminée fumante pour l'aciérie, des piles de
+// grumes pour la scierie, des silos pour la minoterie. La teinte dit la
+// famille, le toit dit le métier.
+//
+// Chaque type est pré-rendu une fois par palier de zoom dans un petit canvas,
+// puis recopié : dessiner cinq cents toits au trait à chaque image mettrait un
+// téléphone à genoux.
+// ---------------------------------------------------------------------------
+
+
+// La teinte porte la famille industrielle. On ne la dépense jamais pour
+// distinguer deux bâtiments du même métier — cette information-là passe par la
+// forme du toit.
+const COULEURS = {
+  coupe: '#5d7f45', carriere: '#a8724a', mineCharbon: '#43434b', mineFer: '#6e5f78',
+  ferme: '#c2a340', ranch: '#a8804f',
+  scierie: '#a87c46', briqueterie: '#9c4a35', minoterie: '#cfae47',
+  abattoir: '#a04040', acierie: '#54798a', manufacture: '#4a8763',
+  maison: '#9b8f78', immeuble: '#bcae93', bureaux: '#6f96ba', entrepot: '#6d675a',
+};
+
+const cache = new Map();
+
+// Éclaircit ou assombrit une couleur — le seul usage autorisé de la valeur.
+function ton(hex, k) {
+  const p = (i) => Math.max(0, Math.min(255, Math.round(parseInt(hex.substr(i, 2), 16) * k)));
+  const h = (v) => v.toString(16).padStart(2, '0');
+  return `#${h(p(1))}${h(p(3))}${h(p(5))}`;
+}
+
+function videCache() { cache.clear(); }
+
+// Renvoie le canvas du bâtiment à la taille de case demandée.
+function sprite(type, pas) {
+  const cle = type + '@' + pas;
+  if (cache.has(cle)) return cache.get(cle);
+
+  const def = BAT[type];
+  const w = Math.round(def.w * pas), h = Math.round(def.h * pas);
+  const cv = document.createElement('canvas');
+  cv.width = Math.max(1, w); cv.height = Math.max(1, h);
+  const ctx = cv.getContext('2d');
+  const base = COULEURS[type];
+
+  DESSINS[type](ctx, w, h, base, pas);
+
+  cache.set(cle, cv);
+  return cv;
+}
+
+// --- Briques de dessin ------------------------------------------------------
+
+// Un bâtiment posé : un corps, un liseré d'ombre à droite et en bas. C'est ce
+// liseré, et non un dégradé, qui détache le bâtiment du sol à toutes les
+// distances.
+function corps(ctx, x, y, w, h, couleur) {
+  ctx.fillStyle = couleur;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = 'rgba(0,0,0,.30)';
+  ctx.fillRect(x, y + h - Math.max(1, h * 0.13), w, Math.max(1, h * 0.13));
+  ctx.fillRect(x + w - Math.max(1, w * 0.11), y, Math.max(1, w * 0.11), h);
+}
+
+// Un toit à deux pentes vu de dessus : deux bandes, l'une éclairée, l'autre à
+// l'ombre, séparées par la ligne de faîte.
+function toitDeuxPentes(ctx, x, y, w, h, couleur) {
+  ctx.fillStyle = ton(couleur, 1.18);
+  ctx.fillRect(x, y, w, h / 2);
+  ctx.fillStyle = ton(couleur, 0.74);
+  ctx.fillRect(x, y + h / 2, w, h / 2);
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  ctx.fillRect(x, y + h / 2 - 0.5, w, 1);
+}
+
+// Le toit en dents de scie de l'atelier : des verrières orientées au nord.
+function dentsDeScie(ctx, x, y, w, h, couleur, n) {
+  const pas = w / n;
+  for (let i = 0; i < n; i++) {
+    ctx.fillStyle = ton(couleur, 1.10);
+    ctx.fillRect(x + i * pas, y, pas * 0.55, h);
+    ctx.fillStyle = ton(couleur, 0.70);
+    ctx.fillRect(x + i * pas + pas * 0.55, y, pas * 0.45, h);
+  }
+}
+
+function cheminee(ctx, cx, cy, r, sombre = '#2e2a26') {
+  ctx.fillStyle = sombre;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();
+}
+
+function pastille(ctx, cx, cy, r, couleur) {
+  ctx.fillStyle = couleur;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();
+}
+
+// --- Un dessin par bâtiment -------------------------------------------------
+
+const DESSINS = {
+  // Le logement : un toit, une cheminée. Rien de plus, et c'est voulu — il y en
+  // aura des centaines.
+  maison(ctx, w, h, c) {
+    const m = w * 0.10;
+    toitDeuxPentes(ctx, m, m, w - 2 * m, h - 2 * m, c);
+    if (w >= 11) cheminee(ctx, w * 0.72, h * 0.30, Math.max(1, w * 0.07));
+  },
+
+  // L'immeuble : toit plat, édicule d'escalier, et une emprise qui va jusqu'aux
+  // bords — c'est la densité qui doit se lire.
+  immeuble(ctx, w, h, c) {
+    corps(ctx, 1, 1, w - 2, h - 2, c);
+    ctx.fillStyle = ton(c, 0.62);
+    ctx.fillRect(w * 0.36, h * 0.36, w * 0.26, h * 0.26);
+    if (w >= 16) {
+      ctx.fillStyle = 'rgba(0,0,0,.20)';
+      for (let i = 1; i < 4; i++) ctx.fillRect(1, h * i / 4, w - 2, 1);
+    }
+  },
+
+  // Les bureaux : une grande verrière au centre, qui les distingue au premier
+  // coup d'œil de l'immeuble d'habitation.
+  bureaux(ctx, w, h, c) {
+    corps(ctx, 1, 1, w - 2, h - 2, c);
+    ctx.fillStyle = ton(c, 1.42);
+    ctx.fillRect(w * 0.22, h * 0.22, w * 0.56, h * 0.56);
+    ctx.strokeStyle = 'rgba(0,0,0,.30)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.50, h * 0.22); ctx.lineTo(w * 0.50, h * 0.78);
+    ctx.moveTo(w * 0.22, h * 0.50); ctx.lineTo(w * 0.78, h * 0.50);
+    ctx.stroke();
+  },
+
+  // L'entrepôt : un hangar tout en longueur, ses portes sur la façade.
+  entrepot(ctx, w, h, c) {
+    corps(ctx, 1, h * 0.16, w - 2, h * 0.68, c);
+    ctx.fillStyle = ton(c, 0.55);
+    const n = Math.max(2, Math.round(w / 9));
+    for (let i = 0; i < n; i++) {
+      ctx.fillRect(2 + (w - 4) * (i + 0.25) / n, h * 0.64, (w - 4) * 0.4 / n, h * 0.18);
+    }
+  },
+
+  // La ferme : d'abord des sillons, et une grange dans un coin. Ce sont les
+  // sillons qu'on reconnaît de loin.
+  ferme(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.82);
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = ton(c, 1.15);
+    const n = Math.max(3, Math.round(h / 4));
+    for (let i = 0; i < n; i++) ctx.fillRect(0, h * (i + 0.15) / n, w, h * 0.4 / n);
+    if (w >= 14) {
+      ctx.fillStyle = '#8a5a3a';
+      ctx.fillRect(w * 0.06, h * 0.58, w * 0.24, h * 0.34);
+    }
+  },
+
+  // Le ranch : un enclos, et le bétail dedans.
+  ranch(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.86);
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = ton(c, 0.5); ctx.lineWidth = 1;
+    ctx.strokeRect(1.5, 1.5, w - 3, h - 3);
+    if (w >= 12) {
+      ctx.fillStyle = '#6b4a33';
+      for (let i = 0; i < 3; i++) {
+        pastille(ctx, w * (0.25 + i * 0.24), h * (0.35 + (i % 2) * 0.3), Math.max(1, w * 0.045), '#6b4a33');
+      }
+    }
+  },
+
+  // La coupe forestière : des arbres, et une trouée déjà exploitée.
+  coupe(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.72);
+    ctx.fillRect(0, 0, w, h);
+    const r = Math.max(1, w * 0.15);
+    for (const [px, py] of [[0.28, 0.30], [0.68, 0.26], [0.30, 0.70], [0.72, 0.68]]) {
+      pastille(ctx, w * px, h * py, r, ton(c, 1.25));
+    }
+    ctx.fillStyle = 'rgba(0,0,0,.22)';
+    ctx.fillRect(w * 0.44, h * 0.44, w * 0.16, h * 0.16);
+  },
+
+  // La carrière : une entaille en gradins dans le sol.
+  carriere(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.80);
+    ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 3; i++) {
+      ctx.fillStyle = ton(c, 1.05 + i * 0.14);
+      const k = 0.12 + i * 0.12;
+      ctx.fillRect(w * k, h * k, w * (1 - 2 * k), h * (1 - 2 * k));
+    }
+  },
+
+  mineCharbon(ctx, w, h, c) { mine(ctx, w, h, c, '#26262b'); },
+  mineFer(ctx, w, h, c) { mine(ctx, w, h, c, '#7a6a86'); },
+
+  // La scierie : dents de scie, et les grumes empilées à côté.
+  scierie(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.62); ctx.fillRect(0, 0, w, h);
+    dentsDeScie(ctx, 1, h * 0.12, w * 0.62, h * 0.74, c, Math.max(2, Math.round(w / 12)));
+    ctx.fillStyle = '#7d5b3a';
+    const n = 3;
+    for (let i = 0; i < n; i++) {
+      ctx.fillRect(w * 0.68, h * (0.18 + i * 0.24), w * 0.26, h * 0.14);
+    }
+  },
+
+  // La briqueterie : le four, sa cheminée, et les briques qui sèchent.
+  briqueterie(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.58); ctx.fillRect(0, 0, w, h);
+    corps(ctx, w * 0.06, h * 0.16, w * 0.52, h * 0.68, c);
+    cheminee(ctx, w * 0.32, h * 0.50, Math.max(1.2, w * 0.09), '#3a2420');
+    ctx.fillStyle = ton(c, 1.30);
+    for (let i = 0; i < 3; i++) ctx.fillRect(w * 0.66, h * (0.20 + i * 0.24), w * 0.28, h * 0.14);
+  },
+
+  // La minoterie : les silos, en enfilade. C'est la silhouette la plus
+  // reconnaissable de toute la carte.
+  minoterie(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.58); ctx.fillRect(0, 0, w, h);
+    corps(ctx, w * 0.04, h * 0.24, w * 0.42, h * 0.56, c);
+    const r = Math.max(1.4, h * 0.15);
+    for (let i = 0; i < 3; i++) {
+      pastille(ctx, w * (0.58 + i * 0.16), h * 0.5, r, ton(c, 1.22));
+      ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(w * (0.58 + i * 0.16), h * 0.5, r, 0, 7); ctx.stroke();
+    }
+  },
+
+  // L'abattoir : le hangar et la cour de manœuvre.
+  abattoir(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.56); ctx.fillRect(0, 0, w, h);
+    corps(ctx, w * 0.06, h * 0.14, w * 0.56, h * 0.72, c);
+    ctx.fillStyle = ton(c, 0.80);
+    ctx.fillRect(w * 0.68, h * 0.20, w * 0.26, h * 0.60);
+  },
+
+  // L'aciérie : deux hauts fourneaux et la halle. Le seul bâtiment à deux
+  // intrants du jeu, et le plus cher du palier — il doit se voir.
+  acierie(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.50); ctx.fillRect(0, 0, w, h);
+    corps(ctx, w * 0.05, h * 0.30, w * 0.56, h * 0.60, c);
+    dentsDeScie(ctx, w * 0.05, h * 0.30, w * 0.56, h * 0.60, c, 3);
+    const r = Math.max(1.6, w * 0.09);
+    cheminee(ctx, w * 0.74, h * 0.28, r, '#33302e');
+    cheminee(ctx, w * 0.88, h * 0.42, r * 0.82, '#33302e');
+    ctx.fillStyle = '#d98a3a';
+    ctx.beginPath(); ctx.arc(w * 0.74, h * 0.28, r * 0.42, 0, 7); ctx.fill();
+  },
+
+  // La manufacture : la plus grande halle vitrée de la carte.
+  manufacture(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.50); ctx.fillRect(0, 0, w, h);
+    dentsDeScie(ctx, w * 0.06, h * 0.14, w * 0.88, h * 0.62, c, Math.max(3, Math.round(w / 10)));
+    ctx.fillStyle = ton(c, 0.72);
+    ctx.fillRect(w * 0.06, h * 0.80, w * 0.88, h * 0.12);
+    if (w >= 18) cheminee(ctx, w * 0.14, h * 0.86, Math.max(1.2, w * 0.05), '#33302e');
+  },
+};
+
+// Le chevalement d'une mine et son terril : la même silhouette pour le charbon
+// et le fer, seule la couleur du tas change.
+function mine(ctx, w, h, c, tas) {
+  ctx.fillStyle = ton(c, 0.70);
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = tas;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.52, h * 0.88); ctx.lineTo(w * 0.96, h * 0.88);
+  ctx.lineTo(w * 0.74, h * 0.46); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = ton(c, 1.5); ctx.lineWidth = Math.max(1, w * 0.06);
+  ctx.beginPath();
+  ctx.moveTo(w * 0.14, h * 0.18); ctx.lineTo(w * 0.44, h * 0.62);
+  ctx.moveTo(w * 0.44, h * 0.18); ctx.lineTo(w * 0.14, h * 0.62);
+  ctx.stroke();
+}
+
 // ===== js/ui/render.js ===============================================
 
 // ---------------------------------------------------------------------------
@@ -2374,7 +2727,6 @@ function totalMenages(marche) {
 
 
 
-export { COULEURS };
 
 const ALERTES = { matieres: '#e0993f', bras: '#6f9fc9', invendus: '#a97fc0', perte: '#e05a4e' };
 
@@ -2439,10 +2791,13 @@ class Rendu {
     this.solPerime = true;
   }
 
+  // Le canvas est en `position: fixed` sur toute la fenetre : c'est donc la
+  // fenetre qu'il faut mesurer, jamais son parent. Un hote qui enveloppe la
+  // page dans un conteneur sans hauteur donnerait sinon un canvas de 300 x 150,
+  // et la carte disparaitrait sans la moindre erreur.
   dimensionner() {
-    const z = this.cv.parentElement;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    this.w = z.clientWidth; this.h = z.clientHeight;
+    this.w = window.innerWidth; this.h = window.innerHeight;
     this.cv.width = Math.round(this.w * dpr); this.cv.height = Math.round(this.h * dpr);
     this.cv.style.width = this.w + 'px'; this.cv.style.height = this.h + 'px';
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2600,6 +2955,10 @@ class Rendu {
   // --- L'image ------------------------------------------------------------
 
   dessiner() {
+    // Les barres du navigateur mobile apparaissent et disparaissent sans
+    // declencher d'evenement fiable : on verifie a chaque image.
+    if (this.w !== window.innerWidth || this.h !== window.innerHeight) this.dimensionner();
+
     const { ctx } = this, m = this.monde, p = this.pas, ox = this.ox, oy = this.oy;
     if (this.solPerime || !this.sol) this.peindreSol();
     if (p !== this._dernierPas) { videCache(); this._dernierPas = p; }

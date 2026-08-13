@@ -14,7 +14,7 @@
 
 import { P, RES, RESSOURCES, BAT, NOURRITURES, materiaux, coutRef,
          niveauVille, prixTerrain } from './params.js';
-import { genererMonde, estAchetable } from './mapgen.js';
+import { genererMonde, estAchetable, rng } from './mapgen.js';
 import { Marche } from './market.js';
 import { Batiment } from './building.js';
 import { Societe, Chantier } from './company.js';
@@ -109,6 +109,54 @@ export class Monde {
       // ville n'a rien à manger le premier mois.
       this.parcDeDepart(v);
     }
+    this.calibrerPrixInitiaux();
+  }
+
+  // Une partie ne commence pas à l'équilibre parfait. Chaque ville a hérité
+  // d'un sol, donc d'un parc et de rendements qui lui sont propres : le blé
+  // d'une plaine grasse ne vaut pas celui d'une terre ingrate, et le charbon
+  // d'un pays de collines ne vaut pas celui d'une plaine.
+  //
+  // On établit donc les prix de départ comme le fera la simulation ensuite —
+  // sur le rapport entre ce que la ville peut produire et ce qu'elle réclame.
+  // Sinon les cinq villes s'ouvrent avec exactement les mêmes cours, et le
+  // premier écart n'apparaît qu'après plusieurs années.
+  calibrerPrixInitiaux() {
+    for (const m of this.marches) {
+      const offre = {}, besoin = {};
+      for (const r of RESSOURCES) { offre[r] = 0; besoin[r] = 0; }
+
+      for (const v of m.villes) {
+        for (const b of this.tousBatiments(v)) {
+          if (b.def.sort) offre[b.def.sort] += b.capacite;
+          for (const [r, q] of Object.entries(b.def.intrants || {})) besoin[r] += q * b.n;
+          // L'entretien du bâti est une demande permanente de matériaux.
+          for (const [r, q] of Object.entries(materiaux(b.type))) {
+            besoin[r] += q * P.entretienAnnuel / 12;
+          }
+        }
+        // Ce que mangent et achètent les ménages. Pain et viande étant
+        // substituables, la ration se répartit au prorata de ce que chaque
+        // filière peut livrer — un ménage mange ce qu'il y a.
+        v.__ration = v.menages;
+        besoin.produits += v.menages;
+      }
+
+      const rations = m.villes.reduce((s, v) => s + (v.__ration || 0), 0);
+      const nourr = offre.pain + offre.viande;
+      for (const r of NOURRITURES) {
+        besoin[r] += nourr > 0.001 ? rations * offre[r] / nourr : rations / 2;
+      }
+
+      for (const r of RESSOURCES) {
+        const ref = RES[r].prix;
+        let tension = offre[r] > 0.001 ? besoin[r] / offre[r]
+                    : (besoin[r] > 0 ? P.tensionMax : 1);
+        tension = Math.max(P.tensionMin, Math.min(P.tensionMax, tension));
+        const prix = ref * Math.pow(tension, P.exposantPrix);
+        m.prix[r] = Math.max(ref * P.prixPlancher, Math.min(ref * P.prixPlafond, prix));
+      }
+    }
   }
 
   // Le parc de départ n'est pas posé au hasard : il est dimensionné sur les
@@ -120,37 +168,61 @@ export class Monde {
   //   en plus les matériaux des chantiers et de l'entretien. Une ville dotée du
   //   strict nécessaire à la consommation ne peut employer que 45 % de ses bras
   //   et s'effondre. » (§20)
+  // Ce qu'une ville sait faire au premier jour. Une ville forestière ouvre avec
+  // un excédent de bois et un manque de minerai ; une ville minière l'inverse.
+  //
+  // « Chaque ville peut donc tout produire un peu, mais aucune ne peut se
+  //   suffire à elle-même. C'est ce qui rend le chemin de fer indispensable
+  //   plutôt que confortable. » (§5)
+  //
+  // La filière alimentaire fait exception : le générateur doit garantir
+  // qu'aucune ville ne démarre sous son seuil de survie, sinon elle meurt avant
+  // que quiconque ait eu le temps de lui poser une voie.
+  dotation(v, ressource, plancher = 0) {
+    const r = v.__tirage || (v.__tirage = rng(this.graine + v.id * 7919));
+    let k;
+    if (v.profil.pred === ressource) k = 1.35 + r() * 0.30;
+    else if (v.profil.rares.includes(ressource)) k = 0.32 + r() * 0.28;
+    else k = 0.82 + r() * 0.26;
+    return Math.max(plancher, k);
+  }
+
   parcDeDepart(v) {
     const M = v.menages;
+    const dBois = this.dotation(v, 'bois');
+    const dArgile = this.dotation(v, 'argile');
+    const dCharbon = this.dotation(v, 'charbon');
+    const dFer = this.dotation(v, 'minerai');
+    const dTerre = this.dotation(v, 'fertilite', 0.90);   // on ne laisse pas une ville affamée
 
     // Logement : un peu plus que la population, pour que l'occupation démarre
     // sous 100 % et laisse à la ville la place de croître.
     this.poserJusqua(v, 'maison', M / 0.85, b => b.def.menages);
 
     // Filière alimentaire : 1 ration par ménage et par mois.
-    this.poserJusqua(v, 'minoterie', M, b => b.capacite);
-    this.poserJusqua(v, 'ferme', M * 2, b => b.capacite);      // 2 céréales par pain
+    this.poserJusqua(v, 'minoterie', M * dTerre, b => b.capacite);
+    this.poserJusqua(v, 'ferme', M * 2 * dTerre, b => b.capacite);   // 2 céréales par pain
 
     // Filière manufacturée, remontée jusqu'aux mines.
     this.poserJusqua(v, 'manufacture', M * 1.08, b => b.capacite);
     const planchesManu = M * 1.08 * 1;                          // 6 planches pour 6 produits
     const acierManu = M * 1.08 / 3;                             // 2 aciers pour 6 produits
-    this.poserJusqua(v, 'acierie', acierManu, b => b.capacite);
-    this.poserJusqua(v, 'mineCharbon', acierManu * 4, b => b.capacite);
-    this.poserJusqua(v, 'mineFer', acierManu * 4, b => b.capacite);
+    this.poserJusqua(v, 'acierie', acierManu * Math.min(dCharbon, dFer), b => b.capacite);
+    this.poserJusqua(v, 'mineCharbon', acierManu * 4 * dCharbon, b => b.capacite);
+    this.poserJusqua(v, 'mineFer', acierManu * 4 * dFer, b => b.capacite);
 
     // Matériaux : ce que réclament les manufactures, plus l'entretien du parc
     // et les chantiers à venir — c'est le facteur 1,45.
     const planches = planchesManu + M * 0.45;
-    this.poserJusqua(v, 'scierie', planches, b => b.capacite);
-    this.poserJusqua(v, 'coupe', planches * 2, b => b.capacite);
-    this.poserJusqua(v, 'briqueterie', M * 0.40, b => b.capacite);
-    this.poserJusqua(v, 'carriere', M * 0.80, b => b.capacite);
+    this.poserJusqua(v, 'scierie', planches * dBois, b => b.capacite);
+    this.poserJusqua(v, 'coupe', planches * 2 * dBois, b => b.capacite);
+    this.poserJusqua(v, 'briqueterie', M * 0.40 * dArgile, b => b.capacite);
+    this.poserJusqua(v, 'carriere', M * 0.80 * dArgile, b => b.capacite);
 
     // Filière élevage : pour l'instant un doublon de la filière céréalière,
     // pain et viande étant substituables 1 pour 1. Modeste au départ.
-    this.poserJusqua(v, 'abattoir', M * 0.12, b => b.capacite);
-    this.poserJusqua(v, 'ranch', M * 0.24, b => b.capacite);
+    this.poserJusqua(v, 'abattoir', M * 0.12 * dTerre, b => b.capacite);
+    this.poserJusqua(v, 'ranch', M * 0.24 * dTerre, b => b.capacite);
 
     // Les bureaux sont le seul argent qui vienne du dehors : le nombre de
     // départ décide de la trajectoire d'une ville plus sûrement que la qualité

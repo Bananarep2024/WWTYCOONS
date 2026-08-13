@@ -80,10 +80,13 @@ export class Rendu {
     this.solPerime = true;
   }
 
+  // Le canvas est en `position: fixed` sur toute la fenetre : c'est donc la
+  // fenetre qu'il faut mesurer, jamais son parent. Un hote qui enveloppe la
+  // page dans un conteneur sans hauteur donnerait sinon un canvas de 300 x 150,
+  // et la carte disparaitrait sans la moindre erreur.
   dimensionner() {
-    const z = this.cv.parentElement;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    this.w = z.clientWidth; this.h = z.clientHeight;
+    this.w = window.innerWidth; this.h = window.innerHeight;
     this.cv.width = Math.round(this.w * dpr); this.cv.height = Math.round(this.h * dpr);
     this.cv.style.width = this.w + 'px'; this.cv.style.height = this.h + 'px';
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -241,6 +244,10 @@ export class Rendu {
   // --- L'image ------------------------------------------------------------
 
   dessiner() {
+    // Les barres du navigateur mobile apparaissent et disparaissent sans
+    // declencher d'evenement fiable : on verifie a chaque image.
+    if (this.w !== window.innerWidth || this.h !== window.innerHeight) this.dimensionner();
+
     const { ctx } = this, m = this.monde, p = this.pas, ox = this.ox, oy = this.oy;
     if (this.solPerime || !this.sol) this.peindreSol();
     if (p !== this._dernierPas) { videCache(); this._dernierPas = p; }

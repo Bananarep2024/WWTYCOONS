@@ -8,7 +8,7 @@
 //   node build.mjs
 // ---------------------------------------------------------------------------
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 
 const RACINE = new URL('./web/', import.meta.url);
 const lire = (p) => readFileSync(new URL(p, RACINE), 'utf8');
@@ -23,6 +23,7 @@ const MODULES = [
   'js/sim/company.js',
   'js/sim/ai.js',
   'js/sim/world.js',
+  'js/ui/sprites.js',
   'js/ui/render.js',
   'js/ui/panneaux.js',
   'js/ui/feuille.js',
@@ -33,9 +34,32 @@ const MODULES = [
 // se voient déjà les uns les autres.
 function deshabiller(src) {
   return src
+    // les imports
     .replace(/^import\s[\s\S]*?from\s*'[^']*';\s*$/gm, '')
+    // les re-exports isoles - `export { X };` - qui, sans portee de module,
+    // referencent un binding qui n'existe plus et font echouer TOUT le script
+    .replace(/^export\s*\{[^}]*\}\s*;?\s*$/gm, '')
+    // le mot-cle devant une declaration
     .replace(/^export\s+(?=(const|let|var|function|class|async))/gm, '')
     .trimEnd();
+}
+
+// Garde-fou : aucun module ne doit manquer a l'appel. Un fichier oublie ne
+// provoque aucune erreur de construction - seulement une page morte, et un
+// « X is not defined » que personne ne verra avant l'ouverture de la page.
+{
+  const surDisque = [];
+  for (const d of ['js/sim', 'js/ui']) {
+    for (const f of readdirSync(new URL(d + '/', RACINE))) {
+      if (f.endsWith('.js') && f !== 'selftest.js') surDisque.push(d + '/' + f);
+    }
+  }
+  surDisque.push('js/main.js');
+  const oublies = surDisque.filter(f => !MODULES.includes(f));
+  if (oublies.length) {
+    console.error('ECHEC - modules absents de la liste : ' + oublies.join(', '));
+    process.exit(1);
+  }
 }
 
 const js = MODULES.map(f =>
@@ -90,4 +114,15 @@ ${js}
 </script>
 `;
 writeFileSync(new URL('./wwtycoons.hebergee.html', RACINE), pageHebergee);
-console.log(`wwtycoons.hebergee.html — ${(pageHebergee.length / 1024).toFixed(0)} Ko`);
+console.log(`wwtycoons.hebergee.html - ${(pageHebergee.length / 1024).toFixed(0)} Ko`);
+
+// Garde-fou : plus aucune declaration de module ne doit subsister. Un seul
+// `export` oublie fait echouer le script entier, et la page s'ouvre sur du vide
+// sans la moindre erreur visible.
+for (const [nom, texte] of [['complete', page], ['hebergee', pageHebergee]]) {
+  const restes = texte.match(/^\s*(import\s|export[\s{])/gm);
+  if (restes) {
+    console.error(`ECHEC - ${restes.length} declaration(s) de module dans la page ${nom}`);
+    process.exit(1);
+  }
+}
