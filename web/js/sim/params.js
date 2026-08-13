@@ -10,6 +10,7 @@ export const P = {
   elasticiteSalaire: 0.50,     // le salaire suit la tension du marché du travail
   salairePlancher: 0.80,       // sans jamais tomber sous 16 $
   salairePlafond: 1.50,        // ni monter au-dessus de 30 $
+  epargneVisee: 0.06,          // ce que le ménage doit pouvoir mettre de côté
   terrainRef: 100,             // $ la case, avant facteurs
   entretienAnnuel: 0.10,       // 10 % / an de la valeur bâtie, foncier exclu
   loyerBase: 5,                // $ / mois pour une maison au niveau 1
@@ -24,9 +25,10 @@ export const P = {
 
   // Ville
   cibleProduits: 0.90,         // au-dessus, la ville cesse d'ajouter des manufactures
-  emploiPourLoger: 0.80,       // on cesse de loger quand on ne peut plus employer
+  menagesParBureaux: 40,       // un immeuble de bureaux pour tant de ménages
+  emploiPourLoger: 0.90,       // on ne loge que dans une ville qui a du travail
   pivot: 0.80,                 // moyenne des baromètres au-dessus de laquelle on croît
-  cadenceDemo: 0.002,          // 0,2 % de la population par mois et par point d'écart
+  cadenceDemo: 0.0035,          // 0,2 % de la population par mois et par point d'écart
   cadenceMax: 0.05,            // plafond ±5 % / mois
   exodeCritique: 0.05,         // seuil critique franchi -> -5 % / mois
   seuilsCritiques: { nourriture: 0.80, emploi: 0.50, produits: 0.20 },

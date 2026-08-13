@@ -229,7 +229,7 @@ export class Monde {
     // Les bureaux sont le seul argent qui vienne du dehors : le nombre de
     // départ décide de la trajectoire d'une ville plus sûrement que la qualité
     // de ses terres. Un immeuble pour 78 ménages tient l'emploi à 78 %.
-    const bureaux = Math.max(1, Math.round(M / 78) + (v.bonusBureaux || 0));
+    const bureaux = Math.max(1, Math.round(M / P.menagesParBureaux) + (v.bonusBureaux || 0));
     for (let k = 0; k < bureaux; k++) {
       const cases = this.trouverEmplacement(v, 'bureaux', null);
       if (cases) this.poser('bureaux', v, cases, null);
@@ -754,6 +754,22 @@ export class Monde {
     // Tension du marché du travail : postes demandés rapportés aux bras.
     const tension = v.bras > 0 ? v.postesDemandes / v.bras : 1;
     let cible = P.salaireCase * Math.pow(Math.max(0.2, tension), P.elasticiteSalaire);
+
+    // Le salaire de subsistance : celui qui permet au ménage de boucler son
+    // mois — panier compris — ET de mettre de côté de quoi bâtir.
+    //
+    // C'est le plancher qui manquait, et son absence était fatale. La règle de
+    // tension seule fait baisser le salaire quand il y a du chômage ; le ménage
+    // s'appauvrit, n'achète plus de produits manufacturés, les prix tombent, les
+    // ateliers ferment, le chômage augmente. La boucle est complète et rien n'en
+    // sort. Or l'épargne des ménages est le SEUL capital qui bâtisse la ville :
+    // un salaire trop bas ne fait pas des entreprises rentables, il fait une
+    // ville qui ne se construit jamais.
+    const panier = Math.min(m.prix.pain, m.prix.viande) + m.prix.produits + P.loyerBase;
+    const emploi = Math.max(0.4, v.barometres.emploi);
+    const subsistance = panier * (1 + P.epargneVisee) / (P.employesParMenage * emploi);
+    cible = Math.max(cible, subsistance);
+
     cible = Math.max(P.salaireCase * P.salairePlancher,
                      Math.min(P.salaireCase * P.salairePlafond, cible));
 
@@ -792,7 +808,11 @@ export class Monde {
       taux = -P.exodeCritique;
       v.enCrise = true;
     } else {
-      taux = 0.2 * (moyenne - P.pivot);
+      // La cadence était écrite en dur ici, et P.cadenceDemo ne servait à
+      // personne. Elle vaut « tant de pour-cent de la population par mois et
+      // par point d'écart au pivot » : c'est le seul cadran qui décide de la
+      // vitesse à laquelle une partie se déploie.
+      taux = P.cadenceDemo * 100 * (moyenne - P.pivot);
       taux = Math.max(-P.cadenceMax, Math.min(P.cadenceMax, taux));
       v.enCrise = false;
     }

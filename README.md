@@ -89,13 +89,13 @@ vingt ans de simulation sans joueur. Résultats attendus :
 | Marges par case | 4 / 16 / 22 $ | exactes |
 | Travail incorporé, un ménage | 0,900 case | 0,900 |
 | 30 % de production retenue, 5 mois | +19 % | +19,2 % |
-| Ville à 20 ans — ménages | 80 → 150 et plus | 165–205 |
-| Ville à 20 ans — emploi | 70–80 % | 75–79 % |
+| Ville à 20 ans — ménages | 80 → 150 et plus | 136–213 |
+| Ville à 20 ans — emploi | 85–92 % | 86–90 % |
 | Ville à 20 ans — nourriture | 100 % | 100 % |
-| Ville à 20 ans — produits | 60–85 % | 70–84 % |
-| Ville à 20 ans — moyenne | au-dessus du pivot | 82–87 % |
-| Ville à 20 ans — salaire | 16–20 $ | 17,4–17,7 |
-| Amplitude des prix | 0,67–1,30 × réf. | 0,75–1,10 |
+| Ville à 20 ans — produits | 90–100 % | 100 % |
+| Ville à 20 ans — moyenne | au-dessus du pivot | 95–97 % |
+| Ville à 20 ans — salaire | ~20 $, le barème | 19,1–20,0 |
+| Amplitude des prix | 0,67–1,30 × réf. | 0,83–1,17 |
 
 Les cinq dernières lignes ne sont pas des assertions : elles sont imprimées, pas vérifiées.
 Le carnet de chantiers tire au sort entre les occasions qui se valent, si bien que deux

@@ -155,3 +155,103 @@ rente foncière devrait se capitaliser **par usage** : une maison n'extrait rien
 | Ce qu'on y voit | Depuis une maison ou un immeuble, la fiche montre **la ville** : taux de chômage, jauge de nourriture, jauge de produits manufacturés, salaire de case rapporté aux 20 $ du barème, revenu du ménage et **taux d'épargne**. |
 | Pourquoi | Un immeuble ne vaut que par le pouvoir d'achat de ceux qui l'habitent : le loyer suit le foncier, l'occupation suit la population, et la population suit les trois baromètres. Ces chiffres ne sont pas du décor — ce sont les variables dont dépend directement le revenu du propriétaire. |
 | Forme | Trois jauges sur l'échelle commune rouge → vert, le chômage lu à l'envers. |
+
+---
+
+## Le chômage, le salaire, l'épargne : la boucle qui empêchait les villes de grandir
+
+Le joueur a posé le problème dans le bon ordre : les salaires ne permettaient pas de
+satisfaire 100 % des besoins, donc l'épargne était nulle sur toute la carte, donc rien ne
+s'investissait, donc les villes ne se développaient pas. Et il a écarté la sortie facile —
+on ne peut pas baisser le prix des produits manufacturés quand ce sont leurs intrants qui
+coûtent le plus cher du jeu.
+
+### L'arithmétique du ménage
+
+Aux prix de référence, le panier vaut **34 $** : 12 $ de ration, 17 $ de produit
+manufacturé, 5 $ de loyer. Le revenu vaut `2 employés × salaire × taux d'emploi`.
+
+- Au plein emploi il faut **17 $** de salaire de case. Avec les 20 $ du barème, il reste
+  6 $, soit **15 % d'épargne**.
+- Les 20 $ ne suffisent plus **en dessous de 85 % d'emploi** — et c'est le produit
+  manufacturé qui saute le premier, la nourriture et le loyer passant avant.
+- Le plafond, lui, vient de l'employeur : une exploitation n'encaisse que 24 $ de valeur
+  ajoutée par case et doit en garder 4 pour tenir ses 15 %. Elle ne peut donc pas payer
+  plus de **20 $**.
+
+Le jeu vit dans une bande de trois dollars, 17 à 20, et le barème est calé exactement sur la
+borne haute. **L'emploi est donc la seule variable qui reste.**
+
+### Quatre défauts, tous du côté de l'emploi
+
+| Défaut | Ce qui se passait | Correction |
+|---|---|---|
+| **Les bureaux n'étaient bâtis qu'à la création du monde** | Ils sont pourtant le seul argent qui vienne du dehors — 20 postes qu'aucune entreprise locale ne paie. Une ville qui doublait de population gardait son unique immeuble : la part de revenu extérieur était divisée par deux à mesure qu'elle grandissait. | Ils entrent au carnet de chantiers et y restent : un immeuble pour **40 ménages**. |
+| **Un bureau réclamait quatre bras au lieu de vingt** | Le contrôle de main-d'œuvre lisait `def.cases` et non `def.postes`. La ville ouvrait des bureaux qu'elle ne pouvait pas pourvoir. | On compte les postes. |
+| **La règle salariale était déflationniste** | Le salaire suivait la seule tension du marché du travail : du chômage le faisait baisser, le ménage s'appauvrissait, n'achetait plus de produits, les prix tombaient, les ateliers fermaient, le chômage augmentait. La boucle était complète et rien n'en sortait — le salaire s'installait à 17 $ pour un panier à 30 $. | Un **plancher de subsistance** : le salaire vise ce qui permet au ménage de boucler son mois et de mettre 6 % de côté, borné par ce que les employeurs peuvent réellement payer. |
+| **La densification était impossible** | On ne bâtissait un immeuble que si `stock.acier > 200`. Or sur un marché en juste-à-temps l'acier est consommé le mois même où il sort de l'aciérie : le stock y est structurellement **nul**, même filière à plein régime. La condition n'était jamais vraie. La ville couvrait son territoire de maisons à un ménage la case jusqu'au dernier pouce de terre, puis s'arrêtait avec **quatre millions de dollars d'épargne morte**. | La disponibilité se lit au **taux de service**, jamais au stock. Et quand il ne reste plus un carré de quatre cases libres, la ville **rase quatre maisons d'indépendants** pour dresser un immeuble : vingt ménages là où il y en avait quatre. |
+
+### La loi du chômage d'équilibre
+
+Le plus contre-intuitif est venu en dernier. Agrandir la carte de 190 × 130 à 300 × 210
+faisait passer la population de 440 à 1 824 ménages et débloquait les Métropoles — **et le
+chômage restait rivé à 30 %, exactement.** Ce n'était donc pas la terre.
+
+> **Le chômage d'équilibre d'une ville n'est pas fixé par ses usines. Il est fixé par le
+> seuil d'emploi au-dessous duquel elle cesse de loger.**
+
+Un ménage de plus, ce sont deux bras de plus. Tant que la ville continue de loger, elle
+continue d'ajouter des bras, et l'emploi retombe aussitôt sur le seuil qui a autorisé la
+construction. L'emploi ne peut jamais s'établir durablement au-dessus de ce nombre : il s'y
+colle.
+
+Le seuil était calculé comme le point de bouclage du ménage — `panier ÷ (2 × salaire)`. Le
+raisonnement se tenait, mais il était **circulaire** : le salaire de subsistance montait pour
+compenser le chômage, ce qui abaissait le seuil, ce qui autorisait plus de logements, ce qui
+aggravait le chômage. D'où les 70 % d'emploi imperturbables.
+
+C'est maintenant un objectif et non un point mort : `emploiPourLoger`, à **90 %**. On ne
+fait venir des gens que dans une ville qui a du travail à leur donner.
+
+| Seuil | Ménages | Chômage | Nourriture | Produits | Salaire | Épargne | Moyenne |
+|---|---|---|---|---|---|---|---|
+| 80 % | 381 | **30 %** | 95 % | 74 % | 28,1 $ | 21 % | 80 % |
+| 86 % | 264 | 23 % | 98 % | 90 % | 23,9 $ | 12 % | 88 % |
+| **90 %** | **202** | **19 %** | **99 %** | **89 %** | **22,7 $** | **12 %** | **90 %** |
+| 94 % | 194 | 16 % | 96 % | 97 % | 21,6 $ | 12 % | 92 % |
+| 97 % | 199 | 15 % | 100 % | 100 % | 21,3 $ | 7 % | 95 % |
+
+### Ce que ça donne
+
+| | Avant cet échange | Après |
+|---|---|---|
+| Chômage | 25 à 30 % | **10 à 14 %** |
+| Nourriture | 96 % | 100 % |
+| Produits manufacturés | 70 à 84 % | 100 % |
+| Salaire de case | 17,3 $ (panier à 30 $) | **19,1 à 20,0 $** — le barème |
+| Taux d'épargne | **0 %** | 10 % |
+| Moyenne des baromètres | 82 % | 95 à 97 % |
+| Ménages par ville, à 10 / 20 / 40 ans | 117 / 117 / 117 | **225 / 285 / 338** |
+| Exploitations | −11 à +88 % | 13 à 21 % (visé 15) |
+| Maison · immeuble · bureaux | 12 % · — · 12 % | 15 % · 20 % · 14 % |
+
+### Ce qui reste ouvert
+
+**La carte est trop petite pour ses propres seuils de niveau.** Les paliers vont jusqu'à
+2 000 ménages (Métropole), mais un territoire de rayon 19 — environ 1 100 cases — sature
+vers 400 à 600 ménages : au plein emploi chaque ménage réclame deux postes, un poste occupe
+une case (cinq pour un bureau), et le logement en prend une de plus. Mesuré :
+
+| Monde | Rayon | Cases par ville | Ménages | Niveaux atteints |
+|---|---|---|---|---|
+| 190 × 130 | 19 | 864 | 440 | Bourg, Ville |
+| 230 × 160 | 25 | 1 554 | 959 | Ville, Grandeville |
+| 260 × 180 | 30 | 1 727 | 1 114 | Ville, Grandeville |
+| 300 × 210 | 36 | 2 892 | 1 824 | Grandeville, **Métropole** |
+
+Le coût est de 4,6 à 18,6 ms par mois simulé — rien de rédhibitoire quand un mois dure dix
+secondes. C'est une décision de conception, pas un correctif : la carte est restée à
+190 × 130 en attendant l'arbitrage.
+
+**La scierie, la minoterie et la manufacture restent sous leur cible** (5 à 9 % contre 20 et
+25). C'est toujours l'équilibre de long terme d'un marché à entrée libre, décrit plus haut.

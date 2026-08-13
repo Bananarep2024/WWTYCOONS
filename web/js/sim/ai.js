@@ -103,6 +103,28 @@ function sature(monde, ville, type) {
   return true;
 }
 
+// Le taux d'emploi au-dessous duquel on cesse de loger.
+//
+// C'est LE cadran du chômage, et c'est contre-intuitif : le chômage d'équilibre
+// d'une ville n'est pas fixé par ses usines, il est fixé par ce seuil. Un ménage
+// de plus, ce sont deux BRAS de plus et un panier de plus ; tant que la ville
+// continue de loger, elle continue d'ajouter des bras, et l'emploi retombe
+// aussitôt sur le seuil qui a autorisé la construction. L'emploi ne peut donc
+// jamais s'établir durablement au-dessus de ce nombre — il s'y colle.
+//
+// La version précédente le calculait comme le point de bouclage du ménage —
+// panier ÷ (2 × salaire). Le raisonnement se tenait, mais il était circulaire :
+// le salaire de subsistance montait pour compenser le chômage, ce qui ABAISSAIT
+// le seuil, ce qui autorisait plus de logements, ce qui aggravait le chômage.
+// La ville s'installait à 70 % d'emploi et n'en bougeait plus, quelle que soit
+// la taille de la carte.
+//
+// Le bon seuil est un objectif, pas un point mort : on ne fait venir des gens
+// que dans une ville qui a du travail à leur donner.
+export function emploiDeBouclage(ville) {
+  return P.emploiPourLoger;
+}
+
 // Les besoins de la ville, dans l'ordre où elle les ressent.
 function besoinsClasses(monde, ville, penchant) {
   const b = ville.barometres;
@@ -131,11 +153,29 @@ function besoinsClasses(monde, ville, penchant) {
   //
   // La vraie borne, c'est la nourriture : on ne fait pas venir des gens qu'on
   // ne pourra pas nourrir.
-  if (ville.occupation > 0.86 && b.nourriture > 0.95 && b.emploi > P.emploiPourLoger) {
+  if (ville.occupation > 0.86 && b.nourriture > 0.95 && b.emploi > emploiDeBouclage(ville)) {
     candidats.push({ score: 2.2 + ville.occupation, res: null, type: 'logement' });
   }
 
   if (b.produits < P.cibleProduits) candidats.push({ score: 2 - b.produits, res: 'produits' });
+
+  // Les bureaux — le seul argent qui vienne du dehors.
+  //
+  // Ils n'étaient bâtis qu'à la création du monde. Une ville qui doublait de
+  // population gardait son unique immeuble : la part de revenu venue de
+  // l'extérieur était divisée par deux à mesure qu'elle grandissait, et avec
+  // elle le taux d'emploi. Or l'arithmétique du ménage est sans appel — panier
+  // 34 $, revenu 2 × salaire × emploi — et le salaire est plafonné à 20 $ par ce
+  // qu'une exploitation peut payer. Sous 85 % d'emploi, le ménage ne boucle
+  // plus, n'épargne rien, et la ville cesse de bâtir. L'emploi n'est pas un
+  // symptôme : c'est la seule variable qui reste.
+  const bureaux = monde.tousBatiments(ville)
+    .filter(x => x.def.cat === 'bur').reduce((s, x) => s + x.def.postes, 0);
+  const voulus = ville.menages / P.menagesParBureaux * BAT.bureaux.postes;
+  if (bureaux < voulus) {
+    candidats.push({ score: 2.4 + (voulus - bureaux) / Math.max(1, voulus),
+                     res: null, type: 'bureaux' });
+  }
 
   // Les matériaux : une ville à court de briques finit par se donner une
   // briqueterie, parce que ses chantiers en font monter le prix.
@@ -222,11 +262,26 @@ function unChantierDeVille(monde, ville) {
   const essayes = new Set();
   for (const besoin of ordre) {
     let type;
-    if (besoin.type === 'logement') {
+    if (besoin.type === 'bureaux') {
+      type = 'bureaux';
+    } else if (besoin.type === 'logement') {
       // La maison est un petit pas prudent, l'immeuble un pari sur l'avenir.
       // Une ville sans acier ne peut pas bâtir en hauteur.
-      const acierDispo = ville.marche.stock.acier > 200;
-      type = (acierDispo && ville.menages > 260 && budget > 4500) ? 'immeuble' : 'maison';
+      //
+      // La disponibilité se lit au TAUX DE SERVICE, jamais au stock. Sur un
+      // marché en juste-à-temps, l'acier est consommé le mois même où il sort
+      // de l'aciérie : le stock y est structurellement nul, même quand la
+      // filière tourne à plein. La condition « stock > 200 » n'était donc
+      // jamais vraie — la ville n'a jamais densifié, elle a couvert son
+      // territoire de maisons à un ménage la case jusqu'à ce qu'il n'y ait
+      // plus un pouce de terre, et s'est arrêtée là avec quatre millions de
+      // dollars d'épargne dont elle ne savait que faire.
+      const acierDispo = (ville.marche.service.acier ?? 1) > 0.75;
+      // Et l'on densifie d'autant plus volontiers que la place manque.
+      const serre = ville.cases.filter(c => !c.bat && !c.chantier && !c.voie).length
+                    < ville.cases.length * 0.12;
+      const grande = ville.menages > 260 || serre;
+      type = (acierDispo && grande && budget > 4500) ? 'immeuble' : 'maison';
     } else {
       type = remonter(monde, ville, besoin.res);
     }
@@ -234,12 +289,25 @@ function unChantierDeVille(monde, ville) {
     essayes.add(type);
 
     const def = BAT[type];
-    if (def.cat !== 'loge' && brasDisponibles(monde, ville) < def.cases) continue;
+    // Un immeuble de bureaux réclame vingt bras, pas quatre : c'est le nombre de
+    // POSTES qu'il faut pouvoir pourvoir, pas la surface qu'il couvre.
+    const brasRequis = def.cat === 'bur' ? def.postes : def.cases;
+    if (def.cat !== 'loge' && brasDisponibles(monde, ville) < brasRequis) continue;
 
     const cout = coutEstime(monde, ville, type);
     if (budget < cout) continue;
 
-    const cases = monde.trouverEmplacement(ville, type, null);
+    let cases = monde.trouverEmplacement(ville, type, null);
+
+    // Une ville pleine ne s'arrête pas de grandir : elle se reconstruit sur
+    // elle-même. Quand il ne reste plus un carré de quatre cases libres, on
+    // rase quatre maisons d'indépendants pour dresser un immeuble à leur place
+    // — vingt ménages là où il y en avait quatre. C'est le seul chemin vers la
+    // Grandeville et la Métropole, et c'est très exactement ce qu'a fait
+    // l'Amérique de 1900 : sans cela une ville se couvre de pavillons jusqu'au
+    // dernier pouce de terre et s'arrête là, avec des millions de dollars
+    // d'épargne dont elle ne sait que faire.
+    if (!cases && type === 'immeuble') cases = raserPourDensifier(monde, ville);
     if (!cases) continue;
 
     if (def.cat !== 'loge'
@@ -296,6 +364,33 @@ export function rendementAttendu(monde, ville, type, cases) {
   if (revient <= 0) return 0;
 
   return (mensuel * 12 - bati * P.entretienAnnuel) / revient;
+}
+
+// Cherche un carré de quatre maisons d'indépendants contiguës et le libère.
+// On ne touche jamais au bien d'un joueur : à lui de démolir s'il le veut.
+function raserPourDensifier(monde, ville) {
+  const def = BAT.immeuble;
+  for (const depart of ville.cases) {
+    if (depart.quartier !== 'residentiel') continue;
+    const lot = [];
+    let ok = true;
+    for (let dy = 0; dy < def.h && ok; dy++) for (let dx = 0; dx < def.w && ok; dx++) {
+      const c = monde.caseAt(depart.x + dx, depart.y + dy);
+      if (!c || c.ville !== ville || c.voie || c.chantier) { ok = false; break; }
+      // Case libre, ou maison appartenant à un indépendant : les deux conviennent.
+      if (c.bat && !(c.bat.type === 'maison' && !c.bat.societe)) { ok = false; break; }
+      if (!c.bat && c.proprio && c.proprio !== 'ind') { ok = false; break; }
+      lot.push(c);
+    }
+    if (!ok || lot.length !== def.cases) continue;
+    // On ne rase que si l'opération gagne réellement des ménages.
+    const perdus = lot.filter(c => c.bat).length;
+    if (perdus === 0) continue;                       // trouverEmplacement l'aurait vu
+    if (def.menages <= perdus) continue;
+    for (const c of lot) if (c.bat) monde.demolir(c.bat);
+    return lot;
+  }
+  return null;
 }
 
 function coutEstime(monde, ville, type) {
