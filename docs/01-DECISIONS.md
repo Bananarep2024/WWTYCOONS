@@ -361,3 +361,20 @@ l'attractivité. Le verrou tenait la population figée à 188 ménages dès le m
 
 Retenu : **86 %**. C'est le seul réglage où la population croît **encore** à quarante ans au
 lieu de se figer, tout en gardant une attractivité proche de 100 % et un chômage à 19 %.
+
+---
+
+## La contiguïté foncière s'apprécie sur la parcelle, pas sur la case
+
+La règle d'achat était déjà celle que voulait le joueur — `estAchetable` accepte toute case
+qui jouxte du sol **vendu**, bâti ou non — et j'ai vérifié qu'on peut enchaîner six achats en
+ligne droite sans qu'aucun bâtiment n'entre en jeu. Le blocage était ailleurs, et il était
+réel.
+
+| Point | Décision |
+|---|---|
+| **Le vrai obstacle** | `empriseConstructible` exigeait que **chaque** case d'un bâtiment satisfasse `estAchetable`. Sur un carré de 2×2 posé au bord de la frontière, le coin opposé ne touche rien — et tout le placement était refusé, alors que la parcelle, elle, touchait la ville. |
+| **La correction** | Une parcelle est contiguë dès qu'**une** de ses cases jouxte du sol vendu ou une emprise de voie. Le reste vient avec, comme quand on achète un terrain d'un seul tenant. Une case appartenant à un rival reste interdite. |
+| **Mesuré** | Une aciérie dont **trois des quatre cases ne touchent rien** se pose désormais. Emplacements possibles au premier mois : 1 191 pour un 1×1, 2 058 pour un 2×1, **2 646 pour un 2×2** — le carré en a davantage que la case seule, puisqu'il peut s'ancrer de quatre façons. |
+| **La frontière devient visible** | Le liseré doré des cases achetables ne s'affichait que sous les filtres « prix du sol » et « mes possessions ». Il apparaît maintenant aussi dès qu'on inspecte un terrain : sans le voir, le joueur croit la règle plus dure qu'elle n'est. |
+| **Le texte de la fiche** | « Hors de portée » disait « il faut toucher une terre déjà vendue **ou bâtie** », ce qui laissait entendre qu'un bâtiment comptait. Il dit maintenant explicitement qu'un bâtiment n'est pas nécessaire. |

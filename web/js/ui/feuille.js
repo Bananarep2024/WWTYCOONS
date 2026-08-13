@@ -83,9 +83,10 @@ function ficheTerrain(monde, v, c) {
       règle de contiguïté — payant, donc réservé aux cases qui comptent.</div>` : ''}
     ${peut ? '' : '<div class="avert">Trésorerie insuffisante.</div>'}`;
   } else {
-    actions = `<div class="note">Hors de portée. On ne peut acheter une terre vierge que si
-      elle touche une terre déjà vendue ou bâtie : la ville s'étend en anneaux depuis sa gare,
-      et il existe à chaque instant une frontière étroite et disputée.</div>`;
+    actions = `<div class="note">Hors de portée — cette case ne touche aucun terrain vendu.
+      <b>Un bâtiment n'est pas nécessaire</b> : il suffit qu'elle jouxte du sol déjà acheté,
+      le vôtre comme celui d'un autre, ou une emprise de voie ferrée. La ville s'étend ainsi
+      de proche en proche, et l'on avance en achetant case après case.</div>`;
   }
 
   return entete(`${RELIEFS[c.relief].nom} · ${c.x},${c.y}`,
@@ -147,24 +148,50 @@ export function empriseConstructible(monde, c, type) {
   let meilleur = null;
   for (let dy = 0; dy < def.h; dy++) for (let dx = 0; dx < def.w; dx++) {
     const cases = [];
-    let ok = true, terrain = 0;
+    let ok = true, terrain = 0, aVendre = 0;
     for (let j = 0; j < def.h && ok; j++) for (let i = 0; i < def.w && ok; i++) {
       const k = monde.caseAt(c.x - dx + i, c.y - dy + j);
       if (!k || !k.ville || k.voie || k.bat || k.chantier) { ok = false; break; }
       if (k.proprio !== joueur.id) {
-        // Une terre vierge doit toucher la frontière ; un indépendant vend
-        // toujours, plus cher. Le reste appartient à un rival : on ne prend pas.
+        // Le reste appartient à un rival : on ne prend pas.
         if (k.proprio && k.proprio !== 'ind') { ok = false; break; }
-        if (!k.proprio && !estAchetable(monde, k)) { ok = false; break; }
+        if (!k.proprio) aVendre++;                 // terre vierge à acquérir
         terrain += monde.prixCase(k.ville, k);
       }
       cases.push(k);
     }
     if (!ok || cases.length !== def.cases) continue;
+
+    // La contiguïté s'apprécie sur la PARCELLE, pas sur chaque case.
+    //
+    // On l'exigeait case par case, et c'était intenable : sur un carré de deux
+    // par deux posé au bord de la frontière, le coin opposé ne touche rien, si
+    // bien que tout le placement était refusé alors que la parcelle, elle,
+    // touchait la ville. Une parcelle est contiguë dès qu'UNE de ses cases
+    // jouxte du sol déjà vendu — le reste vient avec, comme quand on achète un
+    // terrain d'un seul tenant.
+    if (aVendre > 0 && !toucheLaVille(monde, cases, joueur)) continue;
+
     // À forme égale, on prend l'emprise la moins chère en foncier.
     if (!meilleur || terrain < meilleur.terrain) meilleur = { cases, terrain };
   }
   return meilleur;
+}
+
+// La parcelle touche-t-elle la ville déjà lotie ? On regarde autour du bloc
+// entier : du sol vendu — le sien, celui d'un indépendant, celui d'un rival —
+// ou une emprise de voie ferrée. Les cases du bloc lui-même ne comptent pas.
+function toucheLaVille(monde, cases, joueur) {
+  const dedans = new Set(cases.map(k => k.x + ',' + k.y));
+  for (const k of cases) {
+    if (k.vendue || k.proprio) return true;        // une case déjà lotie suffit
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const z = monde.caseAt(k.x + dx, k.y + dy);
+      if (!z || dedans.has(z.x + ',' + z.y)) continue;
+      if (z.vendue || z.voie) return true;
+    }
+  }
+  return false;
 }
 
 // Le devis complet d'un bâtiment posé ici : le foncier manquant plus les

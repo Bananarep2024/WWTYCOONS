@@ -308,8 +308,14 @@ export class Rendu {
     this.dessinerEtiquettes(ctx, p, ox, oy);
 
     // La frontière achetable : étroite et disputée, c'est là que se joue le
-    // foncier. On ne la montre que quand elle sert.
-    if (p >= 4 && (this.filtre === 'terrain' || this.filtre === 'proprio')) {
+    // foncier. On ne la montre que quand elle sert — sous un filtre foncier, ou
+    // dès qu'on a la fiche d'un terrain ouverte. Sans cela le joueur ne voit pas
+    // où sa ville peut s'étendre, et croit la règle plus dure qu'elle n'est :
+    // il suffit de toucher du sol VENDU, un bâtiment n'est pas nécessaire.
+    const inspecteUnTerrain = this.selection && !this.selection.bat
+                           && !this.selection.chantier && this.selection.ville;
+    if (p >= 4 && !this.pose
+        && (this.filtre === 'terrain' || this.filtre === 'proprio' || inspecteUnTerrain)) {
       ctx.strokeStyle = 'rgba(224,177,85,.75)'; ctx.lineWidth = 1;
       for (const v of m.villes) for (const c of v.cases) {
         if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
