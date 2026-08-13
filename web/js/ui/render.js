@@ -11,7 +11,7 @@
 // qu'on demande, jamais l'état de repos de la carte.
 // ---------------------------------------------------------------------------
 
-import { P, RES, RELIEFS, BAT, prixTerrain } from '../sim/params.js';
+import { P, RES, RELIEFS, BAT, prixTerrain, qualiteMax } from '../sim/params.js';
 import { estAchetable } from '../sim/mapgen.js';
 import { sprite, videCache, COULEURS } from './sprites.js';
 
@@ -50,7 +50,7 @@ export const FILTRES_CASE = {
   minerai:   { nom: 'Minerai',   lire: (c) => (c.q.minerai - 1) / 4 },
   terrain:   { nom: 'Prix du sol',
                lire: (c) => 1 - Math.min(1, (prixTerrain(c.ville ? c.ville.niveau : 1,
-                                                          c.distanceGare) - 60) / 340) },
+                                              c.distanceGare, qualiteMax(c)) - 40) / 500) },
 };
 
 // Les filtres par ville : l'emploi, le salaire et les baromètres ne se

@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import { P, RES, RESSOURCES, BAT, NOURRITURES, materiaux, coutRef,
-         niveauVille, prixTerrain } from './params.js';
+         niveauVille, prixTerrain, qualiteMax } from './params.js';
 import { genererMonde, estAchetable, rng } from './mapgen.js';
 import { Marche } from './market.js';
 import { Batiment } from './building.js';
@@ -257,7 +257,7 @@ export class Monde {
   // --- Foncier --------------------------------------------------------------
 
   prixCase(ville, c) {
-    const base = prixTerrain((c.ville || ville).niveau, c.distanceGare);
+    const base = prixTerrain((c.ville || ville).niveau, c.distanceGare, qualiteMax(c));
     return c.proprio === 'ind' ? base * P.surprixIndependants : base;
   }
 
@@ -662,6 +662,13 @@ export class Monde {
                         * Math.min(m.prix.pain, m.prix.viande)
                     + v.prodObtenue / Math.max(1, v.menages) * m.prix.produits + 5;
       v.epargne += Math.max(0, revenu - depense) * v.menages;
+
+      // Ce que le ménage gagne, ce qu'il dépense, ce qu'il met de côté. Trois
+      // chiffres que le joueur doit pouvoir lire depuis n'importe quel logement :
+      // un immeuble ne vaut que par le pouvoir d'achat de ceux qui l'habitent.
+      v.revenuMenage = revenu;
+      v.depenseMenage = depense;
+      v.tauxEpargne = revenu > 0 ? Math.max(0, revenu - depense) / revenu : 0;
     }
 
     // --- 7. Les prix du mois suivant ----------------------------------------
@@ -730,28 +737,40 @@ export class Monde {
     return true;
   }
 
-  // Chaque mois le salaire tend vers le plus petit de deux nombres : ce dont le
-  // ménage a besoin pour couvrir son panier au prix du jour, et ce que les
-  // employeurs peuvent payer sans passer sous leur seuil d'activité. Le
-  // rattrapage prend quelques mois, et c'est dans cette fenêtre que les
-  // baromètres plongent.
+  // Le salaire est ancré sur le barème — 20 $ la case — et ne s'en écarte que
+  // sous la tension du marché du travail : des bras rares le poussent en haut,
+  // du chômage le pousse en bas. Il reste borné des deux côtés, et c'est
+  // délibéré.
+  //
+  // La version précédente le tirait vers « le panier au prix du jour », plafonné
+  // par ce que les employeurs pouvaient payer. Cela fabriquait une trappe :
+  // moins d'emploi, moins de revenu, moins de demande, prix plus bas, salaire
+  // plus bas — et l'économie s'installait à 14 $ dans une déflation dont rien ne
+  // la sortait. Un salaire ancré casse la boucle, et laisse à la rareté des bras
+  // le soin de le faire vivre.
   ajusterSalaire(v) {
     const m = v.marche;
-    const panier = Math.min(m.prix.pain, m.prix.viande) + m.prix.produits + 5;
-    const besoin = panier / P.employesParMenage;
 
+    // Tension du marché du travail : postes demandés rapportés aux bras.
+    const tension = v.bras > 0 ? v.postesDemandes / v.bras : 1;
+    let cible = P.salaireCase * Math.pow(Math.max(0.2, tension), P.elasticiteSalaire);
+    cible = Math.max(P.salaireCase * P.salairePlancher,
+                     Math.min(P.salaireCase * P.salairePlafond, cible));
+
+    // Un employeur ne paie pas au-delà de ce qu'il encaisse : le salaire ne peut
+    // pas dépasser durablement la valeur ajoutée par case.
     let capaciteTotale = 0, cases = 0;
     for (const b of this.tousBatiments(v)) {
       if (!b.def.sort || b.tauxReel <= 0.01) continue;
       let recette = b.production * m.prix[b.def.sort];
       for (const [r, q] of Object.entries(b.recu || {})) recette -= q * m.prix[r];
       recette -= b.entretien;
-      capaciteTotale += Math.max(0, recette);
+      capaciteTotale += Math.max(0, recette + b.masseSalarialePleine * b.tauxReel);
       cases += b.n * b.tauxReel;
     }
-    const capacite = cases > 0 ? capaciteTotale / cases : P.salaireCase;
+    if (cases > 0) cible = Math.min(cible, capaciteTotale / cases);
 
-    const cible = Math.max(8, Math.min(besoin, capacite));
+    cible = Math.max(P.salaireCase * P.salairePlancher, cible);
     v.salaire += 0.25 * (cible - v.salaire);
   }
 

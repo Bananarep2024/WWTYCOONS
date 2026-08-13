@@ -7,7 +7,7 @@
 // pour un joueur — un joueur a simplement le droit de se tromper.
 // ---------------------------------------------------------------------------
 
-import { P, BAT, RES } from './params.js';
+import { P, BAT, RES, facteurQualite } from './params.js';
 
 // Qui produit quoi.
 const PRODUCTEUR = {
@@ -42,10 +42,32 @@ function remonter(monde, ville, res, profondeur = 0) {
   }
   const indiceSortie = m.prix[res] / RES[res].prix;
 
+  // Le prix ne dit pas tout. Sous la loi du minimum, un atelier rationné
+  // produit à la mesure de son intrant le plus rare tout en payant ses salaires
+  // en entier : à 50 % de régime, sa marge a disparu. Le manque se lit alors
+  // dans le taux de service, pas dans le prix — et c'est cet intrant-là qu'il
+  // faut aller chercher, même si son prix n'a pas bougé.
+  let rare = null, pireService = 1;
+  for (const r of intrants) {
+    const s = m.service[r] === undefined ? 1 : m.service[r];
+    if (s < pireService) { pireService = s; rare = r; }
+  }
+
   // Si l'intrant est nettement plus tendu que le produit, c'est lui qu'il faut
   // aller chercher en amont. Sinon, c'est bien cet atelier-ci qui manque.
-  if (pireIndice > 1.20 && pireIndice > indiceSortie * 0.95) {
+  //
+  // La comparaison est RELATIVE, et c'est tout l'intérêt. Un seuil absolu —
+  // « l'intrant dépasse 1,20 » — laissait passer le cas le plus courant : de
+  // l'acier à 1,18 en face de produits à 0,92. La manufacture était bâtie et
+  // rebâtie alors que le minerai criait à 1,81 et que les aciéries tournaient
+  // à un tiers de régime.
+  if (pireIndice > Math.max(1.05, indiceSortie * 1.10)) {
     return remonter(monde, ville, pire, profondeur + 1);
+  }
+  // Les ateliers de ce type tournent déjà au ralenti : un de plus ne produirait
+  // pas un gramme de mieux. On remonte à ce qui leur manque.
+  if (rare && sature(monde, ville, type)) {
+    return remonter(monde, ville, rare, profondeur + 1);
   }
   return type;
 }
@@ -81,8 +103,8 @@ function sature(monde, ville, type) {
   return true;
 }
 
-// Le besoin le plus criant de la ville, dans l'ordre où elle le ressent.
-function besoinLePlusCriant(monde, ville, penchant) {
+// Les besoins de la ville, dans l'ordre où elle les ressent.
+function besoinsClasses(monde, ville, penchant) {
   const b = ville.barometres;
   const m = ville.marche;
 
@@ -93,27 +115,42 @@ function besoinLePlusCriant(monde, ville, penchant) {
   // faut une ferme, puis une minoterie, puis des bras pour les deux.
   if (b.nourriture < 0.995) candidats.push({ score: 5 - b.nourriture * 2, res: 'pain' });
 
-  // Le logement ne compte pas dans le plafond de bras : une maison n'emploie
-  // personne, et la bloquer parce que la ville est pleine, c'est l'empêcher de
-  // grandir précisément au moment où elle le pourrait.
+  // DEUXIÈME RÈGLE — on loge tant qu'on peut nourrir.
   //
-  // Mais on ne loge pas des gens qu'on ne pourra pas nourrir. La ville garde
-  // toujours un peu de mou sur le marché du travail : « la main-d'œuvre
-  // disponible est l'amortisseur de la ville », et une ville au plein emploi ne
-  // peut plus bâtir la ferme qui la sauverait. Un plein-emploi durable n'est
-  // pas une réussite, c'est une fragilité.
-  const mou = brasDisponibles(monde, ville) / Math.max(1, ville.menages * P.employesParMenage);
-  if (ville.occupation > 0.86 && mou > 0.10) {
+  // Le logement ne compte pas dans le plafond de bras, et pour une raison qui
+  // change tout : un ménage de plus, ce sont deux BRAS de plus. Le logement est
+  // le seul bâtiment qui produise du travail au lieu d'en consommer.
+  //
+  // C'est pourquoi la condition portait à l'envers. On exigeait auparavant du
+  // mou sur le marché du travail — « une ville au plein emploi ne peut plus
+  // bâtir la ferme qui la sauverait » — mais l'effet était de geler net la
+  // croissance de toute ville qui réussissait : plein emploi, donc pas de mou,
+  // donc pas de maisons, donc pas de population, et une ville prospère restait
+  // à cent cinquante ménages pendant vingt ans. Le plein emploi est justement
+  // le moment où il faut loger davantage.
+  //
+  // La vraie borne, c'est la nourriture : on ne fait pas venir des gens qu'on
+  // ne pourra pas nourrir.
+  if (ville.occupation > 0.86 && b.nourriture > 0.95 && b.emploi > P.emploiPourLoger) {
     candidats.push({ score: 2.2 + ville.occupation, res: null, type: 'logement' });
   }
 
-  if (b.produits < 0.90) candidats.push({ score: 2 - b.produits, res: 'produits' });
+  if (b.produits < P.cibleProduits) candidats.push({ score: 2 - b.produits, res: 'produits' });
 
   // Les matériaux : une ville à court de briques finit par se donner une
   // briqueterie, parce que ses chantiers en font monter le prix.
-  for (const r of ['planches', 'briques']) {
+  //
+  // Et les matières premières avec eux. Les laisser hors de ce tableau était
+  // une erreur : le charbon et le minerai n'avaient aucun chemin direct vers
+  // le carnet de chantiers — on n'y arrivait qu'en remontant depuis les
+  // produits finis, à travers deux étages de filière. Une pénurie de minerai
+  // devait donc d'abord faire souffrir la manufacture pour être seulement
+  // remarquée, et les mines ont passé vingt ans à encaisser 80 % de rendement
+  // sans que personne n'en ouvre une de plus.
+  for (const r of ['planches', 'briques', 'bois', 'argile', 'charbon', 'minerai',
+                   'cereales', 'betail']) {
     const indice = m.prix[r] / RES[r].prix;
-    if (indice > 1.15) candidats.push({ score: indice, res: r });
+    if (indice > 1.10) candidats.push({ score: 0.9 + indice, res: r });
   }
 
   // Le penchant ne rend pas aveugle : il déclasse les occasions, il ne les
@@ -122,6 +159,12 @@ function besoinLePlusCriant(monde, ville, penchant) {
     if (c.type === penchant || c.res === penchant) c.score *= 1.5;
   }
   candidats.sort((a, b2) => b2.score - a.score);
+  return candidats;
+}
+
+// Le besoin le plus criant — un seul, pour qui n'en veut qu'un.
+function besoinLePlusCriant(monde, ville, penchant) {
+  const candidats = besoinsClasses(monde, ville, penchant);
   if (!candidats.length) return null;
   // Parmi les occasions qui se valent à peu près, on ne prend pas toujours la
   // première : deux sociétés qui lisent le même marché ne doivent pas fatalement
@@ -135,34 +178,124 @@ function besoinLePlusCriant(monde, ville, penchant) {
 // manque le plus, et ces bâtiments appartiennent aux propriétaires
 // indépendants — donc rachetables par les joueurs.
 export function piloterVille(monde, ville) {
-  const budget = ville.epargne;
-  if (budget < 200) return;
-
-  const besoin = besoinLePlusCriant(monde, ville);
-  if (!besoin) return;
-
-  let type;
-  if (besoin.type === 'logement') {
-    // La maison est un petit pas prudent, l'immeuble un pari sur l'avenir.
-    // Une ville sans acier ne peut pas bâtir en hauteur.
-    const acierDispo = ville.marche.stock.acier > 200;
-    type = (acierDispo && ville.menages > 260 && budget > 4500) ? 'immeuble' : 'maison';
-  } else {
-    type = remonter(monde, ville, besoin.res);
+  // CINQUIÈME RÈGLE — une affaire qui saigne deux ans ferme, et sa fermeture
+  // rend à la ville le terrain et surtout les BRAS. C'est la seule chose qui
+  // ramène le nombre d'aciéries au nombre de mines capables de les nourrir :
+  // sans sortie de marché, une filière mal proportionnée le reste pour
+  // toujours. On n'en ferme qu'une par mois — une ville ne se vide pas d'un
+  // coup, et le joueur doit avoir le temps de racheter.
+  for (const b of ville.batIndependants) {
+    if (b.def.cat === 'loge' || b.def.cat === 'bur') continue;
+    if (b.moisDeficit >= P.moisAvantFaillite) { monde.demolir(b); break; }
   }
-  if (!type) return;
 
+  // Une ville ne bâtit pas un chantier par mois par décret : elle bâtit tant
+  // qu'elle a de l'argent, des bras et un besoin. Le plafond d'un seul chantier
+  // mensuel laissait s'accumuler des centaines de milliers de dollars d'épargne
+  // inutilisée pendant que la population stagnait faute de logements.
+  for (let k = 0; k < P.chantiersVilleParMois; k++) {
+    if (!unChantierDeVille(monde, ville)) break;
+  }
+}
+
+// Renvoie vrai si la ville a effectivement bâti quelque chose.
+//
+// QUATRIÈME RÈGLE — on ne bâtit pas ce qui ne paiera pas. Le besoin dit quoi
+// bâtir ; le calcul dit si ça vaut la peine ICI, sur CE sol, à CES prix. Et si
+// le premier besoin mène à un chantier qui perdrait de l'argent, la ville passe
+// au suivant plutôt que de ne rien faire — c'est ainsi que le capital finit par
+// aller là où il manque, au lieu de s'entêter là où il ne sert à rien.
+function unChantierDeVille(monde, ville) {
+  const budget = ville.epargne;
+  if (budget < 200) return false;
+
+  const besoins = besoinsClasses(monde, ville);
+  if (!besoins.length) return false;
+
+  // On ne prend pas toujours le premier : deux villes qui lisent le même marché
+  // ne doivent pas fatalement ouvrir le même chantier le même mois.
+  const seuil = besoins[0].score * 0.75;
+  const tete = besoins.filter(c => c.score >= seuil);
+  const ordre = [tete[Math.floor(Math.random() * tete.length)],
+                 ...besoins].slice(0, 5);
+
+  const essayes = new Set();
+  for (const besoin of ordre) {
+    let type;
+    if (besoin.type === 'logement') {
+      // La maison est un petit pas prudent, l'immeuble un pari sur l'avenir.
+      // Une ville sans acier ne peut pas bâtir en hauteur.
+      const acierDispo = ville.marche.stock.acier > 200;
+      type = (acierDispo && ville.menages > 260 && budget > 4500) ? 'immeuble' : 'maison';
+    } else {
+      type = remonter(monde, ville, besoin.res);
+    }
+    if (!type || essayes.has(type)) continue;
+    essayes.add(type);
+
+    const def = BAT[type];
+    if (def.cat !== 'loge' && brasDisponibles(monde, ville) < def.cases) continue;
+
+    const cout = coutEstime(monde, ville, type);
+    if (budget < cout) continue;
+
+    const cases = monde.trouverEmplacement(ville, type, null);
+    if (!cases) continue;
+
+    if (def.cat !== 'loge'
+        && rendementAttendu(monde, ville, type, cases) < P.rendementMinimalPourBatir) continue;
+
+    ville.epargne -= cout;
+    monde.poser(type, ville, cases, null);
+    return true;
+  }
+  return false;
+}
+
+// Ce que rapporterait ce bâtiment, sur ces cases, aux prix d'aujourd'hui —
+// avant qu'il n'existe. C'est le calcul que ferait n'importe quel investisseur.
+export function rendementAttendu(monde, ville, type, cases) {
   const def = BAT[type];
-  if (def.cat !== 'loge' && brasDisponibles(monde, ville) < def.cases) return;
+  const m = ville.marche;
+  if (!def.sort) return Infinity;   // bureaux, entrepôt : hors de ce calcul
 
-  const cout = coutEstime(monde, ville, type);
-  if (budget < cout) return;
+  const q = def.qual
+    ? cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length
+    : 3;
+  const production = def.debit * def.cases * (def.qual ? facteurQualite(q) : 1);
 
-  const cases = monde.trouverEmplacement(ville, type, null);
-  if (!cases) return;
+  // On ne calcule pas au prix d'aujourd'hui, mais à celui qu'aura fait la
+  // production déjà en chantier.
+  //
+  // Sans cela, tout le monde lit le même prix élevé, tout le monde ouvre le
+  // même atelier le même mois, et la vague arrive ensemble : le prix s'effondre
+  // et personne ne gagne rien. C'est exactement ce qui arrivait aux
+  // manufactures — bâties tant que le baromètre des produits restait sous sa
+  // cible, laquelle est hors d'atteinte par construction, jusqu'à ce que le
+  // rendement de TOUTES tombe à zéro.
+  let enChantier = 0, installe = 0;
+  for (const v of m.villes) {
+    for (const b of monde.tousBatiments(v)) if (b.def.sort === def.sort) installe += b.capacite;
+    for (const c of monde.tousChantiers(v)) {
+      if (BAT[c.type].sort === def.sort) enChantier += BAT[c.type].debit * BAT[c.type].cases;
+    }
+  }
+  enChantier += production;   // le nôtre en fait partie
+  const dilution = installe > 0
+    ? Math.pow(installe / (installe + enChantier), P.exposantPrix) : 1;
 
-  ville.epargne -= cout;
-  monde.poser(type, ville, cases, null);
+  let mensuel = production * m.prix[def.sort] * dilution - P.salaireCase * def.cases;
+  for (const [r, qte] of Object.entries(def.intrants || {})) {
+    mensuel -= qte * def.cases * m.prix[r];
+  }
+
+  let bati = 0;
+  for (const [r, qte] of Object.entries(def.mat)) bati += qte * def.cases * m.prix[r];
+  const terrain = cases.reduce((s, c) => s + monde.prixCase(ville, c), 0);
+  const revient = terrain + bati;
+  if (revient <= 0) return 0;
+
+  return (mensuel * 12 - bati * P.entretienAnnuel) / revient;
 }
 
 function coutEstime(monde, ville, type) {

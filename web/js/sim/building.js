@@ -9,8 +9,8 @@
 // pertes et qui fixe le seuil d'activité.
 // ---------------------------------------------------------------------------
 
-import { P, BAT, materiaux, coutRef, loyer, prixTerrain, rendementVise }
-  from './params.js';
+import { P, BAT, materiaux, coutRef, loyer, prixTerrain, rendementVise,
+         facteurQualite, qualiteMax } from './params.js';
 
 let _idBatiment = 1;
 
@@ -26,6 +26,7 @@ export class Batiment {
     this.versEntrepot = false;          // affecter la production à son entrepôt
     this.age = 0;
     this.moisVide = 0;
+    this.moisDeficit = 0;
 
     // La facture a été établie au prix du marché du jour où le chantier a été
     // ouvert : un bâtiment ne coûte jamais deux fois la même chose.
@@ -72,16 +73,26 @@ export class Batiment {
   // malgré tout de la valeur.
   get terrainCourant() {
     return this.cases.reduce((s, c) =>
-      s + prixTerrain(this.ville.niveau, c.distanceGare), 0);
+      s + prixTerrain(this.ville.niveau, c.distanceGare, qualiteMax(c)), 0);
   }
 
   get entretien() { return this.valeurBatie * P.entretienAnnuel / 12; }
-  get masseSalarialePleine() { return this.n * P.salaireCase; }
+  // Le salaire est celui de la ville, pas une constante.
+  //
+  // Il l'était : le bâtiment payait 20 $ par case pendant que le ménage n'en
+  // recevait que 14. Les six dollars manquants ne partaient nulle part — ils
+  // n'existaient tout simplement pas des deux côtés du même livre de comptes.
+  // Le ménage ne pouvait plus s'offrir son panier, le baromètre des produits
+  // tombait à 59 % sans qu'aucun produit ne manque sur les étals, et la ville
+  // s'installait sur le pivot pour vingt ans.
+  get masseSalarialePleine() {
+    return this.n * (this.ville ? this.ville.salaire : P.salaireCase);
+  }
 
   // Capacité de production, qualité du sol comprise.
   get capacite() {
     if (!this.def.sort) return 0;
-    return this.def.debit * this.n * (this.def.qual ? this.qualite / 3 : 1);
+    return this.def.debit * this.n * (this.def.qual ? facteurQualite(this.qualite) : 1);
   }
 
   besoinsIntrants() {
@@ -213,10 +224,28 @@ export class Batiment {
     this.tauxReel = taux;
     this.production = this.capacite * taux;
 
+    // On ne consomme — et on ne paie — que ce qui entre réellement dans le
+    // produit. Le reste retourne au marché.
+    //
+    // C'est la loi du minimum vue depuis la caisse. Une aciérie qui reçoit tout
+    // son charbon et deux tiers de son minerai ne fait pas d'acier avec le
+    // charbon en trop : il ne sert à rien, et le lui facturer revenait à lui
+    // faire porter la pénurie deux fois. C'était assez pour rendre toutes les
+    // aciéries déficitaires — et, dans le même mouvement, pour retirer du
+    // marché un charbon dont personne ne se servait, ce qui en gonflait le prix
+    // et enrichissait les mines de la pénurie qu'elles causaient.
+    const part = this.activiteEffective > 0 ? taux / this.activiteEffective : 0;
+    let achats = 0;
+    for (const [r, o] of Object.entries(this.recu)) {
+      const utilise = Math.min(o, (besoins[r] || 0) * part);
+      const rendu = o - utilise;
+      if (rendu > 0) marche.offrir(r, rendu);
+      this.recu[r] = utilise;
+      achats += utilise * marche.prix[r];
+    }
+
     const prixSortie = marche.prix[this.def.sort];
     const recette = this.production * prixSortie;
-    let achats = 0;
-    for (const [r, o] of Object.entries(this.recu)) achats += o * marche.prix[r];
     const salaires = this.masseSalarialePleine * taux;
 
     this.resultat = recette - achats - salaires - ent;
@@ -244,6 +273,12 @@ export class Batiment {
     // Une case qui reste vide un an ferme : la fermeture libère les bras, le
     // foncier et le droit de rebâtir ailleurs.
     if (this.tauxReel <= 0.01) this.moisVide++; else this.moisVide = 0;
+    // Une affaire qui saigne finit par fermer. Sans ce compteur, une aciérie
+    // rationnée depuis dix ans reste debout : sa marge brute à pleine capacité
+    // est positive, donc l'arrêt automatique ne se déclenche jamais, et rien ne
+    // ramène jamais le nombre d'aciéries au nombre de mines qui peuvent les
+    // nourrir.
+    if (this.resultat < 0) this.moisDeficit++; else this.moisDeficit = 0;
     return this.resultat;
   }
 

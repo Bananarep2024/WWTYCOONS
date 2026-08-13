@@ -60,12 +60,15 @@ porte telle quelle en C# dans Unity, seul le rendu change.
 ```
 web/js/sim/
   params.js     le barème en code — aucune valeur numérique du jeu n'existe ailleurs
-  mapgen.js     génération de carte : relief, qualités de sol, rues, emprises de voie
+  mapgen.js     génération de carte : relief, qualités de sol, quartiers, emprises de voie
   market.js     formation des prix, rationnement au prorata
   building.js   production, comptes, valorisation d'un bâtiment
   company.js    société, cours de l'action, carnet de chantiers
   world.js      la boucle mensuelle
-  ai.js         comment une ville bâtit, comment les rivales jouent
+  ai.js         comment une ville bâtit, comment les rivales jouent — cinq règles :
+                on bâtit le goulot, on loge tant qu'on peut nourrir, on ne dépasse
+                pas les bras, on ne bâtit pas ce qui ne paiera pas, et une affaire
+                qui saigne deux ans ferme
   selftest.js   banc d'essai
 web/js/ui/      rendu carte, panneaux, feuille d'inspection
 ```
@@ -86,11 +89,17 @@ vingt ans de simulation sans joueur. Résultats attendus :
 | Marges par case | 4 / 16 / 22 $ | exactes |
 | Travail incorporé, un ménage | 0,900 case | 0,900 |
 | 30 % de production retenue, 5 mois | +19 % | +19,2 % |
-| Ville à 20 ans — emploi | 77–80 % | 81 % |
+| Ville à 20 ans — ménages | 80 → 150 et plus | 165–205 |
+| Ville à 20 ans — emploi | 70–80 % | 75–79 % |
 | Ville à 20 ans — nourriture | 100 % | 100 % |
-| Ville à 20 ans — produits | 54–63 % | 58 % |
-| Ville à 20 ans — moyenne | ~pivot (80 %) | 80 % |
-| Amplitude des prix | 0,67–1,30 × réf. | 0,86–1,23 |
+| Ville à 20 ans — produits | 60–85 % | 70–84 % |
+| Ville à 20 ans — moyenne | au-dessus du pivot | 82–87 % |
+| Ville à 20 ans — salaire | 16–20 $ | 17,4–17,7 |
+| Amplitude des prix | 0,67–1,30 × réf. | 0,75–1,10 |
+
+Les cinq dernières lignes ne sont pas des assertions : elles sont imprimées, pas vérifiées.
+Le carnet de chantiers tire au sort entre les occasions qui se valent, si bien que deux
+exécutions ne donnent jamais exactement la même ville.
 
 ## Ce que la démo couvre
 
@@ -105,6 +114,9 @@ terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
   ville, et le prix de chacune des douze marchandises sur les cinq villes
 - **Fiche complète au clic** : rentabilité, intrants reçus et manquants, production, marge,
   et le terrain sous les fondations — les cinq scores de sol, le prix, le quartier
+- **Depuis un logement, la ville** : chômage, jauges de nourriture et de produits
+  manufacturés, salaire de case, revenu du ménage et taux d'épargne — un immeuble ne vaut
+  que par le pouvoir d'achat de ceux qui l'habitent
 - **Racheter** le bâtiment d'un indépendant, **faire une offre** sur celui d'un rival
 - **Filtre de rentabilité** par type de bâtiment, sur la même échelle rouge → vert
 - Marché foncier : contiguïté, propriétaires indépendants, prix selon le niveau et la distance

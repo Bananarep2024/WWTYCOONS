@@ -50,3 +50,37 @@ Pain et viande sont pour l'instant strictement interchangeables, et le ranch est
 la ferme céréalière (pas d'intrant, même débit, même prix). C'est un choix provisoire assumé :
 il reste à décider ce qui distinguera vraiment la filière — valeur nutritive double, sol
 différent, ou débouché propre.
+
+---
+
+## Ouvertes après le rééquilibrage économique
+
+**1. Les derniers maillons ne gagnent rien, et c'est structurel.** L'aciérie et la
+manufacture campent entre 0 et 5 % alors que le barème leur assigne 20 et 25 %. Ce n'est
+plus un défaut de comptabilité — c'est l'équilibre de long terme d'un marché à entrée
+libre : le prix des produits manufacturés s'établit là où la manufacture marginale ne gagne
+plus rien, parce que la demande est bornée par la population tandis que l'offre ne l'est que
+par le capital. Les 25 % du barème ne valent qu'au prix de référence, c'est-à-dire quand
+l'offre égale la demande — ce que l'entrée libre défait aussitôt.
+
+Trois leviers, à trancher :
+
+- relever le prix de référence des produits manufacturés (17 $ aujourd'hui) ;
+- abaisser le coût de construction de la manufacture (680 $ la case) ;
+- accepter que les derniers maillons soient des affaires de **volume** et non de marge —
+  ce qui est défendable, et donnerait au jeu une raison de plus de posséder toute une
+  filière plutôt qu'un atelier isolé.
+
+**2. La rente foncière devrait se capitaliser par usage.** Le facteur de richesse fait
+qu'une case de fertilité 5 vaut 516 $ au lieu de 100. C'est ce qui empêche la bonne terre
+d'être une rente gratuite pour le premier arrivé. Mais le prix s'applique à la case, pas à
+son usage : une maison bâtie sur cette case la paie au même prix, alors qu'elle n'extrait
+rien du sol. Le loyer suivant le foncier, elle devient chère à louer — pendant que le budget
+du ménage provisionne un loyer forfaitaire de 5 $. Il faudrait soit valoriser la case au
+regard de l'usage qu'on en fait, soit indexer le loyer provisionné par le ménage sur le
+loyer réellement pratiqué.
+
+**3. Le chômage ne descend plus sous 25 %.** L'emploi se stabilise entre 72 et 79 %. La
+ville loge tant qu'elle peut nourrir, donc elle amène des bras plus vite qu'elle n'ouvre
+d'ateliers — et les ateliers qu'elle pourrait ouvrir en aval ne passent pas le seuil de
+rentabilité. C'est le même nœud que le point 1, vu du côté du travail.

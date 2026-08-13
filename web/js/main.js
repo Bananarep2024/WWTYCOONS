@@ -353,7 +353,7 @@ addEventListener('resize', () => rendu.dimensionner());
 
 // Exposés pour le banc d'essai : la page se pilote au doigt, mais un test
 // doit pouvoir viser une case précise.
-window.__rendu = rendu; window.__monde = monde;
+window.__rendu = rendu; window.__monde = monde; window.__feuille = contenuFeuille;
 
 rendu.dimensionner();
 rendu.rafraichirIndex();

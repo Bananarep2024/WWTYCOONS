@@ -7,6 +7,9 @@
 export const P = {
   moisParSeconde: 10,          // 1 mois = 10 s réelles
   salaireCase: 20,             // $ / mois, l'unité de compte de tout le jeu
+  elasticiteSalaire: 0.50,     // le salaire suit la tension du marché du travail
+  salairePlancher: 0.80,       // sans jamais tomber sous 16 $
+  salairePlafond: 1.50,        // ni monter au-dessus de 30 $
   terrainRef: 100,             // $ la case, avant facteurs
   entretienAnnuel: 0.10,       // 10 % / an de la valeur bâtie, foncier exclu
   loyerBase: 5,                // $ / mois pour une maison au niveau 1
@@ -20,6 +23,8 @@ export const P = {
   tensionMax: 6.00,
 
   // Ville
+  cibleProduits: 0.90,         // au-dessus, la ville cesse d'ajouter des manufactures
+  emploiPourLoger: 0.80,       // on cesse de loger quand on ne peut plus employer
   pivot: 0.80,                 // moyenne des baromètres au-dessus de laquelle on croît
   cadenceDemo: 0.002,          // 0,2 % de la population par mois et par point d'écart
   cadenceMax: 0.05,            // plafond ±5 % / mois
@@ -32,6 +37,7 @@ export const P = {
   seuilMatieres: 0.15,         // sous 15 % de ses besoins, un bâtiment s'arrête
   entretienSommeil: 0.10,      // 10 % de la masse salariale en sommeil
   moisAvantFermeture: 12,      // une case vide un an ferme
+  moisAvantFaillite: 24,       // une affaire qui saigne deux ans ferme
 
   // Société
   apportJoueur: 1500,
@@ -50,6 +56,17 @@ export const P = {
   attenuationDistance: 0.04,   // 1 / (1 + 0,04 × cases)
   partIndependants: 0.30,
   surprixIndependants: 1.20,
+
+  chantiersVilleParMois: 6,       // ce qu'une ville peut lancer en un mois
+  rendementMinimalPourBatir: 0.05,  // sous ce rendement attendu, on ne bâtit pas
+
+  // Le sol
+  // sortie d'une exploitation = débit de base × (solPlancher + solPente × qualité)
+  // calibré pour valoir 1,00 à la qualité 3, comme le barème le suppose
+  solPlancher: 0.46,
+  solPente: 0.18,              // q1 = 0,64 · q3 = 1,00 · q5 = 1,36
+  richessePlancher: 0.35,      // ce que vaut la plus mauvaise terre
+  richesseExposant: 4.0,       // à quel point la bonne terre se paie
 
   // Amorçage
   stockAmorcage: { planches: 800, briques: 400 },
@@ -169,11 +186,41 @@ export function niveauVille(menages) {
   return Math.min(n, 5);
 }
 
-// Prix d'une case de terrain : 100 $ × facteur de niveau × facteur de distance.
-export function prixTerrain(niveau, distanceGare) {
+// Ce qu'une case de sol rend, rapporté à une terre moyenne.
+//
+// Le barème est calibré sur la qualité 3. Une proportionnalité stricte —
+// sortie = base × q ÷ 3 — donnerait de 0,33 à 1,67, mais comme le salaire est
+// un coût FIXE, ce facteur 5 sur l'écart de production devient un facteur 5
+// sur la MARGE : une coupe forestière rapporterait 99 % l'an sur qualité 5 et
+// perdrait 68 % sur qualité 1. La courbe est donc resserrée.
+export function facteurQualite(q) {
+  return P.solPlancher + P.solPente * q;
+}
+
+// Prix d'une case de terrain.
+//
+//   100 $ × facteur de niveau × facteur de distance × facteur de richesse
+//
+// Le dernier terme est ce qui empêche la bonne terre d'être une rente gratuite :
+// une case qui rend davantage vaut davantage, et la rente se capitalise dans le
+// prix du sol au lieu de tomber dans la poche du premier arrivé. C'est aussi ce
+// qui donne son sel à l'achat précoce — la terre est chère AVANT qu'on ait bâti.
+export function prixTerrain(niveau, distanceGare, richesse = 3) {
   const fn = P.facteurNiveau[niveau - 1];
   const fd = 1 / (1 + P.attenuationDistance * distanceGare);
-  return P.terrainRef * fn * fd;
+  const fq = P.richessePlancher
+           + (1 - P.richessePlancher) * Math.pow(richesse / 3, P.richesseExposant);
+  return P.terrainRef * fn * fd * fq;
+}
+
+// La meilleure ressource d'une case décide de ce qu'elle vaut : le sol se paie
+// à son meilleur usage, pas à celui qu'on en fait. Une case fictive — celle des
+// devis, qui n'a pas encore de coordonnées — vaut la terre moyenne.
+export function qualiteMax(c) {
+  if (!c || !c.q) return 3;
+  let m = 1;
+  for (const q of QUALITES) if (c.q[q] > m) m = c.q[q];
+  return m;
 }
 
 // Loyer mensuel d'un logement plein : il découle du foncier, pas d'un barème.

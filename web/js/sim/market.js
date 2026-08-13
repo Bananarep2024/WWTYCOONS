@@ -18,7 +18,7 @@ export class Marche {
     this.entrees = {};                  // production mise en vente ce mois
     this.restants = {};                 // ce qui n'a pas encore été présenté au guichet
     this.service = {};                  // fraction du besoin réellement servie
-    this.prixRevient = {};              // plancher local : nul ne vend à perte
+    this.prixRevient = {};              // plancher local : le coût du meilleur
     for (const r of RESSOURCES) {
       this.stock[r] = 0;
       this.prix[r] = RES[r].prix;
@@ -26,7 +26,7 @@ export class Marche {
       this.entrees[r] = 0;
       this.restants[r] = 0;
       this.service[r] = 1;
-      this.prixRevient[r] = 0;
+      this.prixRevient[r] = Infinity;
     }
   }
 
@@ -37,11 +37,22 @@ export class Marche {
   demander(res, qte) { this.besoins[res] += qte; }
   offrir(res, qte) { this.entrees[res] += qte; this.stock[res] += qte; }
 
-  // Le prix de revient réel sur ce marché fait plancher : personne ne vend
-  // durablement à perte. Sur une mauvaise terre, chaque unité porte plus de
-  // salaire, et la marchandise y est structurellement plus chère.
+  // Le plancher, c'est le coût du MEILLEUR producteur — pas du pire.
+  //
+  // L'inverse a été essayé et c'était une catastrophe silencieuse : sur un
+  // marché continental, la mine la plus misérable du continent tirait vers le
+  // haut le prix du charbon partout. Ce prix devenait une rente pour toutes les
+  // bonnes mines, qui atteignaient 90 % de rendement ; il ne descendait jamais,
+  // donc la mine misérable survivait à l'équilibre exact et une mine de plus
+  // s'ouvrait chaque mois — 890 mines de charbon en vingt ans. Et en aval,
+  // l'aciérie payait cette rente sans pouvoir la répercuter.
+  //
+  // Le plancher juste est celui sous lequel même le producteur le plus efficace
+  // vendrait à perte : là, l'offre s'effondrerait pour de bon. Au-dessus, c'est
+  // à la tension de décider — et aux exploitations mal placées de s'arrêter,
+  // ce que le seuil de marge négative fait déjà.
   declarerRevient(res, coutUnitaire) {
-    this.prixRevient[res] = Math.max(this.prixRevient[res], coutUnitaire);
+    this.prixRevient[res] = Math.min(this.prixRevient[res], coutUnitaire);
   }
 
   // --- Phase 2 : on fixe les prix ------------------------------------------
@@ -62,9 +73,10 @@ export class Marche {
       // quelques mois avant que le prix ne s'envole.
       this.prix[r] += P.lissagePrix * (cible - this.prix[r]);
 
-      const bas = Math.max(ref * P.prixPlancher, this.prixRevient[r]);
+      const revient = Number.isFinite(this.prixRevient[r]) ? this.prixRevient[r] : 0;
+      const bas = Math.max(ref * P.prixPlancher, revient);
       this.prix[r] = Math.max(bas, Math.min(ref * P.prixPlafond, this.prix[r]));
-      this.prixRevient[r] = 0;
+      this.prixRevient[r] = Infinity;
     }
   }
 

@@ -6,8 +6,8 @@
 // perdrait le contexte de ce qu'il inspecte. (§21)
 // ---------------------------------------------------------------------------
 
-import { P, BAT, RES, RELIEFS, QUALITES, materiaux, coutRef, prixTerrain, rendementVise }
-  from '../sim/params.js';
+import { P, BAT, RES, RELIEFS, QUALITES, materiaux, coutRef, prixTerrain,
+         rendementVise, facteurQualite, qualiteMax } from '../sim/params.js';
 import { estAchetable } from '../sim/mapgen.js';
 import { COULEURS, echelle } from './render.js';
 import { eur, pct, rgb } from './panneaux.js';
@@ -53,7 +53,7 @@ function ficheTerrain(monde, v, c) {
   const joueur = monde.joueur;
   const aMoi = c.proprio === joueur.id;
   const prix = monde.prixCase(v, c);
-  const base = prixTerrain(v.niveau, c.distanceGare);
+  const base = prixTerrain(v.niveau, c.distanceGare, qualiteMax(c));
 
   const qualites = QUALITES.map(q => {
     const n = c.q[q];
@@ -196,6 +196,47 @@ const TEXTE_ALERTE = {
   perte: 'Perte financière',
 };
 
+// --- La ville vue depuis un logement ----------------------------------------
+//
+// Un immeuble ne vaut que par le pouvoir d'achat de ceux qui l'habitent. Le
+// loyer suit le foncier, l'occupation suit la population, et la population suit
+// les trois baromètres. Ces chiffres-là ne sont donc pas du décor : ce sont les
+// variables dont dépend directement le revenu du propriétaire.
+function jauge(etiquette, valeur, texte, inverse = false) {
+  const t = inverse ? 1 - valeur : valeur;
+  const couleur = rgb(echelle(Math.max(0, Math.min(1, t))));
+  return `<div class="fiche"><div class="etiq">${etiquette}</div>
+    <div class="v" style="color:${couleur}">${texte}</div>
+    <div style="margin-top:5px;height:5px;border-radius:3px;background:rgba(255,255,255,.10);overflow:hidden">
+      <div style="height:100%;width:${(Math.max(0, Math.min(1, valeur)) * 100).toFixed(0)}%;background:${couleur}"></div>
+    </div></div>`;
+}
+
+function ficheVilleDepuisLogement(v) {
+  const b = v.barometres;
+  const chomage = 1 - b.emploi;
+  const epargne = v.tauxEpargne === undefined ? 0 : v.tauxEpargne;
+
+  return `<h3>La ville, vue d'ici</h3>
+    <div class="grille">
+      ${jauge('Chômage', chomage, pct(chomage), true)}
+      ${jauge('Nourriture', b.nourriture, pct(b.nourriture))}
+      ${jauge('Produits manufacturés', b.produits, pct(b.produits))}
+    </div>
+    <div class="grille">
+      <div class="fiche"><div class="etiq">Salaire de case</div>
+        <div class="v">${v.salaire.toFixed(2)} $</div>
+        <div class="etiq" style="margin-top:2px">barème ${P.salaireCase} $</div></div>
+      <div class="fiche"><div class="etiq">Revenu du ménage</div>
+        <div class="v doux">${eur(v.revenuMenage || 0)}</div>
+        <div class="etiq" style="margin-top:2px">2 employés, emploi compris</div></div>
+      ${jauge('Taux d\'épargne', epargne, pct(epargne))}
+    </div>
+    <div class="note">Le ménage paie d'abord sa nourriture et son loyer ; c'est l'achat de
+      produits manufacturés qui encaisse tout le chômage. Ce qui reste après le panier ne
+      dort pas : il bâtit la ville, et ce sont ces chantiers-là que l'on rachète.</div>`;
+}
+
 function ficheBatiment(monde, b, c) {
   const def = b.def, m = b.ville.marche;
   const joueur = monde.joueur;
@@ -272,6 +313,10 @@ function ficheBatiment(monde, b, c) {
       </div>`;
   }
 
+  // Un logement : ce qui décide de son loyer et de son occupation, c'est l'état
+  // de la ville, pas ce qui se passe entre ses murs.
+  const ville = def.cat === 'loge' ? ficheVilleDepuisLogement(b.ville) : '';
+
   // --- Le terrain sous le bâtiment ----------------------------------------
   // Ce qu'il y a sous les fondations décide de ce que vaut le bâtiment autant
   // que ce qu'il produit : le terrain est la moitié du coût d'une maison, et la
@@ -302,7 +347,7 @@ function ficheBatiment(monde, b, c) {
         <div class="v doux" style="font-size:12px">${NOMS_QUARTIER[b.cases[0].quartier] || '—'}</div></div>
     </div>
     ${def.qual ? `<div class="note">Sol de qualité <b>${b.qualite.toFixed(1)} / 5</b> : cette
-      exploitation sort ${(b.qualite / 3).toFixed(2)}× ce que sortirait la même sur une terre
+      exploitation sort ${facteurQualite(b.qualite).toFixed(2)}× ce que sortirait la même sur une terre
       moyenne. Un handicap de terrain ne fait aucun bruit — il se lit uniquement dans la
       marge, et il ne se guérit jamais.</div>` : ''}`;
 
@@ -374,5 +419,5 @@ function ficheBatiment(monde, b, c) {
   return entete(def.nom,
       `${proprio} · ${b.ville.nom}`
       + (b.alerte ? ` · <span class="rouge">⚠ ${TEXTE_ALERTE[b.alerte]}</span>` : ''))
-    + exploitation + production + intrants + sol + actions;
+    + exploitation + ville + production + intrants + sol + actions;
 }
