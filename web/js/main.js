@@ -175,26 +175,109 @@ function brancherFeuille(v, c) {
 
 // --- Entrées ----------------------------------------------------------------
 
+// La carte se manipule au doigt : un toucher sélectionne, un glissement
+// déplace, deux doigts zooment. Il faut distinguer les trois, sans quoi le
+// moindre tremblement de la main ouvrirait une fiche au mauvais endroit.
+const doigts = new Map();
+let depart = null, aGlisse = false, ecartInitial = 0, zoomInitial = 1;
+
 cv.addEventListener('pointerdown', (e) => {
-  const r = cv.getBoundingClientRect();
-  const c = rendu.caseSous(e.clientX - r.left, e.clientY - r.top);
-  if (!c) return;
-  rendu.selection = c;
-  ouvrirFeuille();
-  rafraichirFeuille();
+  cv.setPointerCapture(e.pointerId);
+  doigts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (doigts.size === 1) {
+    depart = { x: e.clientX, y: e.clientY, cx: rendu.cx, cy: rendu.cy };
+    aGlisse = false;
+  } else if (doigts.size === 2) {
+    const [a, b] = [...doigts.values()];
+    ecartInitial = Math.hypot(a.x - b.x, a.y - b.y);
+    zoomInitial = rendu.zoom;
+    aGlisse = true;                       // un pincement n'est jamais une sélection
+  }
 });
+
+cv.addEventListener('pointermove', (e) => {
+  if (!doigts.has(e.pointerId)) return;
+  doigts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (doigts.size >= 2) {
+    const [a, b] = [...doigts.values()];
+    const ecart = Math.hypot(a.x - b.x, a.y - b.y);
+    if (ecartInitial > 8) {
+      const r = cv.getBoundingClientRect();
+      const cible = Math.max(1, Math.min(6, zoomInitial * ecart / ecartInitial));
+      rendu.zoomerVers((a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top, cible / rendu.zoom);
+    }
+    return;
+  }
+
+  if (!depart) return;
+  const dx = e.clientX - depart.x, dy = e.clientY - depart.y;
+  if (!aGlisse && Math.hypot(dx, dy) > 9) aGlisse = true;
+  if (aGlisse) {
+    rendu.cx = depart.cx + dx;
+    rendu.cy = depart.cy + dy;
+    rendu.recadrer();
+  }
+});
+
+function relacher(e) {
+  doigts.delete(e.pointerId);
+  if (doigts.size === 0 && depart && !aGlisse) {
+    const r = cv.getBoundingClientRect();
+    const c = rendu.caseSous(e.clientX - r.left, e.clientY - r.top);
+    if (c) { rendu.selection = c; ouvrirFeuille(); rafraichirFeuille(); }
+  }
+  if (doigts.size === 0) depart = null;
+}
+cv.addEventListener('pointerup', relacher);
+cv.addEventListener('pointercancel', (e) => { doigts.delete(e.pointerId); depart = null; });
+
+// À la molette sur ordinateur, au double-toucher sur mobile.
+cv.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const r = cv.getBoundingClientRect();
+  rendu.zoomerVers(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.15 : 1 / 1.15);
+}, { passive: false });
+
+let dernierToucher = 0;
+cv.addEventListener('pointerup', (e) => {
+  const t = Date.now();
+  if (t - dernierToucher < 300 && !aGlisse) {
+    const r = cv.getBoundingClientRect();
+    rendu.zoomerVers(e.clientX - r.left, e.clientY - r.top, rendu.zoom < 2.5 ? 2.2 : 1 / rendu.zoom);
+  }
+  dernierToucher = t;
+});
+
+$('#btnRecentrer').onclick = () => {
+  rendu.zoom = 1; rendu.cx = 0; rendu.cy = 0;
+};
+
+$('#btnLegende').onclick = () => $('#legende').classList.toggle('montre');
 
 $('#feuillePoignee').onclick = fermerFeuille;
 
 $('#btnPause').onclick = () => {
   enMarche = !enMarche;
-  $('#btnPause').textContent = enMarche ? '❚❚ Pause' : '▶ Reprendre';
+  $('#btnPause').querySelector('.signe').textContent = enMarche ? '❚❚' : '▶';
+  $('#btnPause').querySelector('.mot').textContent = enMarche ? ' Pause' : ' Reprendre';
 };
 
-document.querySelectorAll('.vit').forEach(b => b.onclick = () => {
-  vitesse = +b.dataset.vitesse;
-  document.querySelectorAll('.vit').forEach(x => x.classList.toggle('actif', x === b));
-});
+const VITESSES = [1, 4, 20];
+
+function reglerVitesse(v) {
+  vitesse = v;
+  document.querySelectorAll('.vit').forEach(x =>
+    x.classList.toggle('actif', +x.dataset.vitesse === v));
+  $('#btnVitesseCycle').textContent = '×' + v;
+}
+
+document.querySelectorAll('.vit').forEach(b =>
+  b.onclick = () => reglerVitesse(+b.dataset.vitesse));
+
+// Sur téléphone, un seul bouton qui tourne : ×1 → ×4 → ×20 → ×1.
+$('#btnVitesseCycle').onclick = () =>
+  reglerVitesse(VITESSES[(VITESSES.indexOf(vitesse) + 1) % VITESSES.length]);
 
 document.querySelectorAll('#modesCarte button').forEach(b => b.onclick = () => {
   rendu.mode = b.dataset.mode;

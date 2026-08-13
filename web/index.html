@@ -19,26 +19,27 @@
     <div class="val argent" id="tresorerie">15 000 $</div>
     <div class="sous" id="resultat">—</div>
   </div>
-  <div class="bloc">
+  <div class="bloc masquable">
     <div class="etiq">Cours de l'action</div>
     <div class="val" id="cours">1,00 $</div>
     <div class="sous" id="actifnet">actif net 15 000 $</div>
   </div>
-  <div class="bloc">
+  <div class="bloc masquable">
     <div class="etiq">Votre fortune</div>
     <div class="val or" id="fortune">1 500 $</div>
     <div class="sous">10 % du capital</div>
   </div>
-  <div class="bloc croissant">
+  <div class="bloc croissant masquable">
     <div class="etiq">Climat</div>
     <div class="val" id="climat">Normal</div>
     <div class="sous" id="rang">—</div>
   </div>
   <div class="commandes">
-    <button id="btnPause" class="cmd majeur">▶ Démarrer</button>
+    <button id="btnPause" class="cmd majeur"><span class="signe">▶</span><span class="mot"> Démarrer</span></button>
     <button data-vitesse="1" class="cmd vit actif">×1</button>
     <button data-vitesse="4" class="cmd vit">×4</button>
     <button data-vitesse="20" class="cmd vit">×20</button>
+    <button id="btnVitesseCycle" class="cmd">×1</button>
   </div>
 </header>
 
@@ -48,6 +49,8 @@
     <div id="zoneCarte">
       <canvas id="carte"></canvas>
       <div id="legende"></div>
+      <button id="btnRecentrer" title="Vue d'ensemble">⤢</button>
+      <button id="btnLegende" title="Légende">i</button>
     </div>
     <nav id="modesCarte">
       <button data-mode="fonction" class="actif">Fonction</button>

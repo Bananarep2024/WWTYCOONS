@@ -17,16 +17,29 @@ qui décide de la victoire, c'est son argent liquide plus la valeur en bourse de
 | `docs/01-DECISIONS.md` | Les 31 arbitrages de conception, et pourquoi. |
 | `docs/02-QUESTIONS-OUVERTES.md` | Ce qui reste à trancher. |
 | `design/` | Le document de conception d'origine (PDF, v28). |
-| `web/` | La démo navigateur. |
+| `web/` | La démo navigateur (sources). |
+| `web/wwtycoons.html` | **La page autonome, à ouvrir directement.** |
+| `build.mjs` | Regroupe les sources en page autonome. |
 
-## La démo
+## Jouer
 
 JavaScript pur, modules ES, canvas 2D. **Aucune dépendance, aucune étape de compilation.**
 
+**Sur mobile ou tablette** — `web/wwtycoons.html` est une page unique et autonome : tout est
+en ligne, aucune requête réseau. Elle s'ouvre depuis n'importe où — un fichier reçu, un
+hébergeur statique, GitHub Pages. Se joue au doigt : toucher pour inspecter, glisser pour se
+déplacer, deux doigts pour zoomer, ⤢ pour revenir à la vue d'ensemble.
+
+**En développement** — la version en modules séparés, plus commode à modifier :
+
 ```sh
-cd web && python3 -m http.server 8000
-# puis http://localhost:8000
+cd web && python3 -m http.server 8000     # puis http://localhost:8000
+node build.mjs                            # régénère la page autonome
 ```
+
+`build.mjs` produit deux fichiers : `wwtycoons.html`, complet et ouvrable tel quel, et
+`wwtycoons.hebergee.html`, sans squelette de document, pour les hébergeurs qui fournissent
+le leur.
 
 La simulation vit dans `web/js/sim/`, sans une seule ligne de rendu. C'est délibéré : elle se
 porte telle quelle en C# dans Unity, seul le rendu change.

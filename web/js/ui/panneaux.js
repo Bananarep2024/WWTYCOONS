@@ -124,8 +124,18 @@ export function panneauMarche(monde, v) {
 export function panneauComptes(monde) {
   const s = monde.joueur;
   const bats = s.batiments;
+
+  const enTete = `
+    <div class="grille">
+      <div class="fiche"><div class="etiq">Votre fortune</div>
+        <div class="v or">${eur(s.cours(monde.multiple) * s.actions * P.partFondateur)}</div></div>
+      <div class="fiche"><div class="etiq">Cours de l'action</div>
+        <div class="v">${s.cours(monde.multiple).toFixed(3).replace('.', ',')} $</div></div>
+      <div class="fiche"><div class="etiq">Climat</div>
+        <div class="v">${{ normal: 'Normal', euphorie: 'Euphorie', crise: 'Crise' }[monde.climat]}</div></div>
+    </div>`;
   if (!bats.length && !s.chantiers.length) {
-    return `<h3>Livre de comptes</h3>
+    return enTete + `<h3>Livre de comptes</h3>
       <div class="note">Votre société ne possède encore rien.<br><br>
       Cliquez une case sur la carte pour acheter du terrain, puis ouvrez un chantier.
       Le terrain est la moitié du coût d'une maison — et la totalité de ce qui fait
@@ -146,7 +156,7 @@ export function panneauComptes(monde) {
   const resultat = s.resultatMensuel;
   const actif = s.actifNet(monde.multiple);
 
-  return `
+  return enTete + `
     <h3>Exploitation du mois</h3>
     <table>
       <tr><th>Bâtiment</th><th>Ville</th><th class="n">Activité</th><th class="n">Résultat</th><th class="n">Marge/u</th></tr>

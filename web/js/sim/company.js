@@ -9,11 +9,11 @@
 
 import { P, RESSOURCES, materiaux } from './params.js';
 
-let _id = 1;
+let _idSociete = 1;
 
 export class Societe {
   constructor(nom, couleur, estJoueur = false) {
-    this.id = `S${_id++}`;
+    this.id = `S${_idSociete++}`;
     this.nom = nom;
     this.couleur = couleur;
     this.estJoueur = estJoueur;
@@ -117,11 +117,11 @@ export class Societe {
 // sur le marché, au même titre que le pain d'un ménage.
 // ---------------------------------------------------------------------------
 
-let _cid = 1;
+let _idChantier = 1;
 
 export class Chantier {
   constructor(type, ville, cases, societe, coutTerrain) {
-    this.id = _cid++;
+    this.id = _idChantier++;
     this.type = type;
     this.ville = ville;
     this.cases = cases;

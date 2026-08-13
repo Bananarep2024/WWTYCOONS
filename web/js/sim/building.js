@@ -11,11 +11,11 @@
 
 import { P, BAT, materiaux, coutRef, loyer, prixTerrain } from './params.js';
 
-let _id = 1;
+let _idBatiment = 1;
 
 export class Batiment {
   constructor(type, ville, cases, societe) {
-    this.id = _id++;
+    this.id = _idBatiment++;
     this.type = type;
     this.def = BAT[type];
     this.ville = ville;

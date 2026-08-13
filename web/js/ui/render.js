@@ -47,11 +47,35 @@ export class Rendu {
 
   get ville() { return this.monde.villes[this.iVille || 0]; }
 
-  // Taille d'une case à l'écran : la ville tient toujours entièrement dans la
-  // fenêtre, quel que soit l'écran.
-  get pas() { return Math.max(3, Math.floor(Math.min(this.w, this.h) / this.ville.N) * this.zoom); }
+  // Taille d'une case à l'écran. À zoom 1, la ville tient entièrement dans la
+  // fenêtre, quel que soit l'écran — c'est la vue d'ensemble. Au-delà, on entre
+  // dans le détail, et sur un téléphone c'est indispensable : une case de sept
+  // pixels ne se vise pas au doigt.
+  get pasBase() { return Math.min(this.w, this.h) / this.ville.N; }
+  get pas() { return Math.max(2, this.pasBase * this.zoom); }
   get ox() { return Math.round((this.w - this.ville.N * this.pas) / 2 + this.cx); }
   get oy() { return Math.round((this.h - this.ville.N * this.pas) / 2 + this.cy); }
+
+  // On ne laisse jamais la ville sortir entièrement de l'écran.
+  recadrer() {
+    const etendue = this.ville.N * this.pas;
+    const margeX = Math.max(0, (etendue - this.w) / 2 + this.w * 0.35);
+    const margeY = Math.max(0, (etendue - this.h) / 2 + this.h * 0.35);
+    this.cx = Math.max(-margeX, Math.min(margeX, this.cx));
+    this.cy = Math.max(-margeY, Math.min(margeY, this.cy));
+  }
+
+  // Zoome en gardant fixe le point visé — sinon la carte glisse sous le doigt.
+  zoomerVers(px, py, facteur) {
+    const avant = this.pas;
+    this.zoom = Math.max(1, Math.min(6, this.zoom * facteur));
+    const apres = this.pas;
+    if (apres === avant) return;
+    const k = apres / avant;
+    this.cx = (this.cx + this.w / 2 - px) * k - this.w / 2 + px;
+    this.cy = (this.cy + this.h / 2 - py) * k - this.h / 2 + py;
+    this.recadrer();
+  }
 
   caseSous(px, py) {
     const x = Math.floor((px - this.ox) / this.pas), y = Math.floor((py - this.oy) / this.pas);

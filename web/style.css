@@ -15,14 +15,24 @@
   --joueur:     #d9a441;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+button:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--or); outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
 
 body {
   background: var(--fond);
   color: var(--texte);
   font: 13px/1.45 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
   height: 100vh;
+  height: 100dvh;
   display: flex;
+  overscroll-behavior: none;
   flex-direction: column;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
@@ -169,12 +179,64 @@ input[type=range] { width: 100%; accent-color: var(--or); }
   padding: 26px 30px; max-width: 480px; width: 100%; }
 #finPartie h1 { font-size: 21px; margin-bottom: 4px; }
 
-/* ---------- Étroit ---------- */
+/* ---------- Boutons flottants sur la carte ---------- */
+
+#btnRecentrer, #btnLegende {
+  position: absolute; right: 10px;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(28,26,21,.92); color: var(--doux);
+  border: 1px solid var(--bord); cursor: pointer;
+  font-size: 16px; line-height: 1; font-family: inherit;
+  display: flex; align-items: center; justify-content: center;
+}
+#btnRecentrer { top: 10px; }
+#btnLegende   { top: 58px; }
+#btnRecentrer:active, #btnLegende:active { background: var(--fond3); color: var(--or); }
+
+/* ---------- Tablette et téléphone ---------- */
+/* La carte doit rester la pièce maîtresse : c'est elle qu'on lit, et une
+   feuille qui remonte du bas laisse le contexte visible au-dessus. */
 
 @media (max-width: 860px) {
   main { flex-direction: column; }
-  #colDroite { flex: 0 0 44%; border-left: 0; border-top: 1px solid var(--bord); }
-  #feuille { right: 0; max-height: 70vh; }
-  #barre .bloc { min-width: 96px; padding: 6px 10px; }
+  #colGauche { flex: 1 1 auto; min-height: 42vh; }
+  #colDroite { flex: 0 0 40vh; border-left: 0; border-top: 1px solid var(--bord); }
+  #feuille { right: 0; max-height: 72vh; }
+
+  /* Des cibles qu'on vise au pouce, pas à la souris. */
+  nav button { padding: 11px 15px; font-size: 13px; }
+  nav#modesCarte button { padding: 10px 13px; font-size: 12px; }
+  .actions button { padding: 11px 15px; font-size: 13px; }
+  .cmd { padding: 10px 14px; }
+  #feuillePoignee { height: 4px; width: 60px; margin-top: 10px; }
+  #feuilleCorps { padding: 10px 14px calc(20px + env(safe-area-inset-bottom)); }
+
+  #barre { padding-top: env(safe-area-inset-top); }
+  #barre .bloc { min-width: 88px; padding: 6px 11px; }
   .val { font-size: 15px; }
+  .sous { font-size: 10px; }
+  .commandes { padding: 0 8px; gap: 4px; }
+
+  #legende { display: none; }
+  #legende.montre { display: block; }
+  table { font-size: 13px; }
+  td { padding: 5px 6px 5px 0; }
+}
+
+#btnVitesseCycle { display: none; }
+
+/* Sur un téléphone, la barre n'a pas la largeur de tout montrer. On garde ce
+   qui commande une décision — la date, l'argent — et on replie les trois
+   boutons de vitesse en un seul, qui tourne. Le reste vit dans les onglets. */
+@media (max-width: 620px) {
+  #barre .bloc.masquable { display: none; }
+  #barre .bloc { min-width: 0; padding: 6px 9px; }
+  .val { font-size: 14px; }
+  .etiq { font-size: 9px; letter-spacing: .05em; }
+  .cmd.vit { display: none; }
+  #btnVitesseCycle { display: block; min-width: 44px; }
+  #btnPause .mot { display: none; }
+  #btnPause { min-width: 46px; font-size: 15px; }
+  .commandes { padding: 0 7px; }
+  #colDroite { flex: 0 0 38vh; }
 }
