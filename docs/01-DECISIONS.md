@@ -255,3 +255,37 @@ secondes. C'est une décision de conception, pas un correctif : la carte est res
 
 **La scierie, la minoterie et la manufacture restent sous leur cible** (5 à 9 % contre 20 et
 25). C'est toujours l'équilibre de long terme d'un marché à entrée libre, décrit plus haut.
+
+---
+
+## Bâtir : l'option qui n'existait pas, et la ville qui doit monter d'un étage
+
+| Point | Décision |
+|---|---|
+| **Le bug qui rendait la construction invisible** | `menuConstruire` appelait `empriseDepuis(monde, v, c, t)` — quatre arguments contre trois. Le paramètre `type` recevait la case, `BAT[case]` valait `undefined`, et la lecture de `def.h` levait une exception qui emportait toute la fiche. Le joueur qui cliquait une case lui appartenant voyait un panneau vide. |
+| **Le mode Bâtir** | Une icône dédiée dans la barre du haut. On choisit le bâtiment **d'abord** — catalogue avec emprise, rendement visé et prix des matériaux au marché local du jour — puis la carte montre elle-même où il peut aller : toutes les cases possibles cerclées d'or, l'emprise exacte en plein sous le doigt. |
+| **Le foncier acheté dans le même geste** | On exigeait auparavant de posséder chaque case avant de pouvoir bâtir. Or le joueur commence avec **zéro case** et 15 000 $ : il fallait deviner qu'une case libre de la frontière était achetable, l'acheter, puis la re-cliquer. Deux gestes que rien n'annonçait. `empriseConstructible` accepte désormais les cases vierges touchant la frontière et celles d'un indépendant ; `ouvrirChantier` règle le tout d'un coup. Jamais la terre d'un rival. |
+| **Un toucher ou deux** | Un bâtiment d'une seule case se pose au premier toucher. Pour les autres, le premier montre l'emprise et le second la valide — sur un écran tactile il n'y a pas de survol, et poser à l'aveugle un carré de quatre cases n'est pas jouable. |
+| **Le volet s'efface** | Défaut découvert au test : sur téléphone le volet couvre 631 pixels sur 830. Le doigt tendu vers la carte retombait sur la liste et **changeait de bâtiment au lieu d'en poser un**. Choisir un bâtiment referme désormais le volet ; le bandeau du haut rappelle ce qu'on pose et offre « Annuler ». |
+
+### La ville monte d'un étage quand la place manque
+
+| Point | Décision |
+|---|---|
+| **On ne pose plus de pavillon sur les dernières cases** | Une ville à l'étroit qui n'a pas les moyens d'un immeuble **attend** — elle passe au besoin suivant. Chaque maison posée sur les dernières cases libres est un ménage gagné aujourd'hui et vingt perdus demain. |
+| **L'étroitesse se mesure sur le quartier d'habitation** | Et non sur le territoire entier : une ville peut avoir des hectares agricoles en friche tout en n'ayant plus où loger personne. Sous 25 % de cases d'habitation libres, on bâtit haut. |
+| **L'emploi s'apprécie sur l'état d'APRÈS** | Un immeuble amène vingt ménages d'un coup — quarante bras, zéro poste. Une ville qui vérifiait son taux d'emploi avant de le poser le voyait s'effondrer juste après : 62 à 70 % d'emploi, contre 88 à 90 % attendus. Le contrôle est désormais prospectif, comme le calcul de rentabilité l'est pour les usines. |
+
+Sur des villes volontairement étroites (rayon 12), **55 % de la population finit logée en immeuble**.
+
+### Le seuil de logement, mesuré à nouveau
+
+| Seuil | Ménages à 10 / 20 / 40 ans | Chômage | Produits | Salaire | Épargne | Moyenne |
+|---|---|---|---|---|---|---|
+| 78 % | 381 / 411 / 410 | 28 % | 73 % | 27,3 $ | 21 % | 81 % |
+| 82 % | 327 / 370 / 431 | 25 % | 89 % | 24,7 $ | 13 % | 87 % |
+| 86 % | 188 / 208 / 250 | 20 % | 99 % | 21,9 $ | 8 % | 92 % |
+| **90 %** | **165 / 205 / 273** | **16 %** | **100 %** | **20,0 $** | 7 % | **95 %** |
+
+À 90 % la population croît encore à quarante ans au lieu de plafonner, et le salaire s'établit
+exactement sur les 20 $ du barème sans qu'on le lui ait demandé.

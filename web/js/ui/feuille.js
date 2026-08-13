@@ -113,7 +113,7 @@ function menuConstruire(monde, v, c) {
       // moins cher que pendant une pénurie.
       let cout = 0;
       for (const [r, q] of Object.entries(materiaux(t))) cout += q * m.prix[r];
-      const emprise = empriseDepuis(monde, v, c, t);
+      const emprise = empriseDepuis(monde, c, t);
       const possible = !!emprise && joueur.tresorerie >= cout;
       const cher = cout / coutRef(t);
       return `<button class="btnBatir" data-type="${t}" ${possible ? '' : 'disabled'}
@@ -134,7 +134,52 @@ function menuConstruire(monde, v, c) {
 }
 
 // Cherche une emprise de la bonne forme, ancrée sur la case cliquée, dont le
-// joueur possède toutes les cases.
+// joueur possède déjà toutes les cases OU peut les acheter sur-le-champ.
+//
+// C'est la fonction du mode « Bâtir ». Exiger de posséder d'abord chaque case
+// était le vrai obstacle : le joueur commence sans un pouce de terre, et rien
+// dans l'interface ne lui disait qu'il fallait acheter avant de pouvoir bâtir.
+// Ici on additionne le foncier manquant au devis, et `ouvrirChantier` achète le
+// tout d'un seul geste.
+export function empriseConstructible(monde, c, type) {
+  const def = BAT[type];
+  const joueur = monde.joueur;
+  let meilleur = null;
+  for (let dy = 0; dy < def.h; dy++) for (let dx = 0; dx < def.w; dx++) {
+    const cases = [];
+    let ok = true, terrain = 0;
+    for (let j = 0; j < def.h && ok; j++) for (let i = 0; i < def.w && ok; i++) {
+      const k = monde.caseAt(c.x - dx + i, c.y - dy + j);
+      if (!k || !k.ville || k.voie || k.bat || k.chantier) { ok = false; break; }
+      if (k.proprio !== joueur.id) {
+        // Une terre vierge doit toucher la frontière ; un indépendant vend
+        // toujours, plus cher. Le reste appartient à un rival : on ne prend pas.
+        if (k.proprio && k.proprio !== 'ind') { ok = false; break; }
+        if (!k.proprio && !estAchetable(monde, k)) { ok = false; break; }
+        terrain += monde.prixCase(k.ville, k);
+      }
+      cases.push(k);
+    }
+    if (!ok || cases.length !== def.cases) continue;
+    // À forme égale, on prend l'emprise la moins chère en foncier.
+    if (!meilleur || terrain < meilleur.terrain) meilleur = { cases, terrain };
+  }
+  return meilleur;
+}
+
+// Le devis complet d'un bâtiment posé ici : le foncier manquant plus les
+// matériaux au prix du marché local du jour.
+export function devis(monde, c, type) {
+  const e = empriseConstructible(monde, c, type);
+  if (!e) return null;
+  const m = c.ville.marche;
+  let materiel = 0;
+  for (const [r, q] of Object.entries(materiaux(type))) materiel += q * m.prix[r];
+  return { cases: e.cases, terrain: e.terrain, materiel, total: e.terrain + materiel };
+}
+
+// L'ancienne version, qui exige la pleine possession : c'est encore la bonne
+// pour le menu qui s'ouvre sur une case qu'on détient déjà.
 export function empriseDepuis(monde, c, type) {
   const def = BAT[type];
   const joueur = monde.joueur;

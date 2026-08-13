@@ -252,3 +252,42 @@ input[type=range] { width: 100%; accent-color: var(--or); }
 @media (max-width: 400px) {
   .jauge:nth-child(3) { display: none; }   /* la fortune vit dans « Société » */
 }
+
+
+/* ---------- Le volet « Bâtir » ---------- */
+/* Une ligne par bâtiment : nom, emprise, rendement visé, prix. C'est un
+   catalogue, pas une grille de pastilles — on compare des chiffres. */
+
+.listeBatir { display: flex; flex-direction: column; gap: 3px; }
+.ligneBatir {
+  display: grid; grid-template-columns: 14px 1fr auto; gap: 4px 8px;
+  align-items: center; text-align: left;
+  background: var(--fond3); border: 1px solid var(--bord); border-radius: 5px;
+  padding: 8px 10px; cursor: pointer; font: inherit; color: var(--texte);
+}
+.ligneBatir:hover:not(:disabled) { border-color: var(--or); }
+.ligneBatir:disabled { opacity: .38; cursor: not-allowed; }
+.ligneBatir.actif { border-color: var(--or); background: #2f2718; }
+.ligneBatir .nomBat  { font-size: 13px; }
+.ligneBatir .prixBat { font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+.ligneBatir .sousBat {
+  grid-column: 2 / 4; font-size: 10px; color: var(--faible);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+
+.avertBatir {
+  background: #2f2718; border: 1px solid var(--or); border-radius: 5px;
+  padding: 9px 11px; margin-bottom: 10px; font-size: 12px; color: var(--texte);
+}
+.avertBatir button {
+  display: block; margin-top: 7px;
+  background: var(--fond3); color: var(--doux); border: 1px solid var(--bord);
+  border-radius: 4px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: 11px;
+}
+.avertBatir button:hover { color: var(--or); border-color: var(--or); }
+
+/* Six icônes tiennent encore sur un téléphone, mais il faut serrer. */
+@media (max-width: 760px) {
+  .ico { padding: 5px 1px; }
+  .ico span { font-size: 8px; }
+}

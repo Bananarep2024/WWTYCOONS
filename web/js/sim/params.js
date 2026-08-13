@@ -27,6 +27,7 @@ export const P = {
   cibleProduits: 0.90,         // au-dessus, la ville cesse d'ajouter des manufactures
   menagesParBureaux: 40,       // un immeuble de bureaux pour tant de ménages
   emploiPourLoger: 0.90,       // on ne loge que dans une ville qui a du travail
+  densifierSous: 0.25,         // quartier d'habitation rempli au 3/4 : on bâtit haut
   pivot: 0.80,                 // moyenne des baromètres au-dessus de laquelle on croît
   cadenceDemo: 0.0035,          // 0,2 % de la population par mois et par point d'écart
   cadenceMax: 0.05,            // plafond ±5 % / mois

@@ -75,6 +75,8 @@ export class Rendu {
     this.filtrePrix = null;          // ou le nom d'une ressource
     this.filtreRdt = null;           // ou un type de bâtiment, ou 'tous'
     this.selection = null;
+    this.pose = null;          // type de bâtiment qu'on cherche à poser
+    this.survol = null;        // dernière case visée, pour l'aperçu
     this.zoom = 1;
     this.cx = 0; this.cy = 0;
     this.index = [];                 // les bâtiments, rafraîchis au mois
@@ -316,11 +318,43 @@ export class Rendu {
       }
     }
 
+    if (this.pose) this.dessinerPose(ctx, p, ox, oy, x0, y0, x1, y1);
+
     if (this.selection) {
       const c = this.selection;
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
       ctx.strokeRect(ox + c.x * p - 1, oy + c.y * p - 1, p + 2, p + 2);
     }
+  }
+
+  // Le mode « Bâtir ». On cercle d'or tout ce qui peut recevoir le bâtiment
+  // choisi, et on montre en plein l'emprise exacte sous le doigt : sans cet
+  // aperçu, poser un carré de quatre cases relève de la divination.
+  dessinerPose(ctx, p, ox, oy, x0, y0, x1, y1) {
+    const m = this.monde, def = BAT[this.pose];
+
+    ctx.strokeStyle = 'rgba(224,177,85,.85)';
+    ctx.lineWidth = Math.max(1, p * 0.12);
+    for (const v of m.villes) for (const c of v.cases) {
+      if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
+      if (!this.posable(c)) continue;
+      ctx.strokeRect(ox + c.x * p + .5, oy + c.y * p + .5, p - 1, p - 1);
+    }
+
+    const e = this.survol && this.emprise ? this.emprise(this.survol, this.pose) : null;
+    if (e) {
+      ctx.fillStyle = 'rgba(224,177,85,.42)';
+      for (const c of e.cases) ctx.fillRect(ox + c.x * p, oy + c.y * p, p, p);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+      const xs = e.cases.map(c => c.x), ys = e.cases.map(c => c.y);
+      ctx.strokeRect(ox + Math.min(...xs) * p - 1, oy + Math.min(...ys) * p - 1,
+                     def.w * p + 2, def.h * p + 2);
+    }
+  }
+
+  // Une case est posable si le bâtiment choisi tient quelque part autour d'elle.
+  posable(c) {
+    return this.emprise ? !!this.emprise(c, this.pose) : false;
   }
 
   dessinerVoies(ctx, p, ox, oy, x0, y0, x1, y1) {

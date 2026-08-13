@@ -264,6 +264,45 @@ input[type=range] { width: 100%; accent-color: var(--or); }
   .jauge:nth-child(3) { display: none; }   /* la fortune vit dans « Société » */
 }
 
+
+/* ---------- Le volet « Bâtir » ---------- */
+/* Une ligne par bâtiment : nom, emprise, rendement visé, prix. C'est un
+   catalogue, pas une grille de pastilles — on compare des chiffres. */
+
+.listeBatir { display: flex; flex-direction: column; gap: 3px; }
+.ligneBatir {
+  display: grid; grid-template-columns: 14px 1fr auto; gap: 4px 8px;
+  align-items: center; text-align: left;
+  background: var(--fond3); border: 1px solid var(--bord); border-radius: 5px;
+  padding: 8px 10px; cursor: pointer; font: inherit; color: var(--texte);
+}
+.ligneBatir:hover:not(:disabled) { border-color: var(--or); }
+.ligneBatir:disabled { opacity: .38; cursor: not-allowed; }
+.ligneBatir.actif { border-color: var(--or); background: #2f2718; }
+.ligneBatir .nomBat  { font-size: 13px; }
+.ligneBatir .prixBat { font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+.ligneBatir .sousBat {
+  grid-column: 2 / 4; font-size: 10px; color: var(--faible);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+
+.avertBatir {
+  background: #2f2718; border: 1px solid var(--or); border-radius: 5px;
+  padding: 9px 11px; margin-bottom: 10px; font-size: 12px; color: var(--texte);
+}
+.avertBatir button {
+  display: block; margin-top: 7px;
+  background: var(--fond3); color: var(--doux); border: 1px solid var(--bord);
+  border-radius: 4px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: 11px;
+}
+.avertBatir button:hover { color: var(--or); border-color: var(--or); }
+
+/* Six icônes tiennent encore sur un téléphone, mais il faut serrer. */
+@media (max-width: 760px) {
+  .ico { padding: 5px 1px; }
+  .ico span { font-size: 8px; }
+}
+
 </style>
 </head>
 <body>
@@ -297,6 +336,10 @@ input[type=range] { width: 100%; accent-color: var(--or); }
     <button class="ico" data-vue="marche" title="Le marché" aria-label="Le marché">
       <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 4 4-7 5 6v3H3z" opacity=".55"/><path d="M3 13l5-6 4 4 4-7 5 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
       <span>Marché</span>
+    </button>
+    <button class="ico" data-vue="batir" title="Bâtir" aria-label="Bâtir">
+      <svg viewBox="0 0 24 24"><path d="M3 20h18v2H3zM6 20V9l6-4 6 4v11h-4v-6h-4v6z" opacity=".55"/><path d="M6 20V9l6-4 6 4v11" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 2v3M10.5 3.5h3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      <span>Bâtir</span>
     </button>
     <button class="ico" data-vue="societe" title="Ma société" aria-label="Ma société">
       <svg viewBox="0 0 24 24"><path d="M4 21V6l8-3 8 3v15zM9 21v-5h6v5z" opacity=".55"/><path d="M4 21V6l8-3 8 3v15H4z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
@@ -379,6 +422,7 @@ const P = {
   cibleProduits: 0.90,         // au-dessus, la ville cesse d'ajouter des manufactures
   menagesParBureaux: 40,       // un immeuble de bureaux pour tant de ménages
   emploiPourLoger: 0.90,       // on ne loge que dans une ville qui a du travail
+  densifierSous: 0.25,         // quartier d'habitation rempli au 3/4 : on bâtit haut
   pivot: 0.80,                 // moyenne des baromètres au-dessus de laquelle on croît
   cadenceDemo: 0.0035,          // 0,2 % de la population par mois et par point d'écart
   cadenceMax: 0.05,            // plafond ±5 % / mois
@@ -1682,6 +1726,15 @@ function emploiDeBouclage(ville) {
   return P.emploiPourLoger;
 }
 
+// L'emploi tiendra-t-il si l'on ajoute ces ménages ? Deux bras chacun, et pas
+// un poste de plus : c'est la question que doit se poser une ville avant de
+// bâtir, et non celle de savoir si elle a du travail aujourd'hui.
+function emploiTiendra(monde, ville, menagesAjoutes) {
+  const bras = (ville.menages + menagesAjoutes) * P.employesParMenage;
+  if (bras <= 0) return true;
+  return Math.min(ville.postesDemandes || 0, bras) / bras >= P.emploiPourLoger;
+}
+
 // Les besoins de la ville, dans l'ordre où elle les ressent.
 function besoinsClasses(monde, ville, penchant) {
   const b = ville.barometres;
@@ -1834,11 +1887,28 @@ function unChantierDeVille(monde, ville) {
       // plus un pouce de terre, et s'est arrêtée là avec quatre millions de
       // dollars d'épargne dont elle ne savait que faire.
       const acierDispo = (ville.marche.service.acier ?? 1) > 0.75;
-      // Et l'on densifie d'autant plus volontiers que la place manque.
-      const serre = ville.cases.filter(c => !c.bat && !c.chantier && !c.voie).length
-                    < ville.cases.length * 0.12;
+      // Et l'on densifie d'autant plus volontiers que la place manque. La
+      // mesure porte sur le QUARTIER D'HABITATION, pas sur le territoire :
+      // c'est là que le logement va, et une ville peut avoir des hectares
+      // agricoles en friche tout en n'ayant plus où loger personne.
+      let res = 0, resLibres = 0;
+      for (const c of ville.cases) {
+        if (c.quartier !== 'residentiel') continue;
+        res++;
+        if (!c.bat && !c.chantier && !c.voie) resLibres++;
+      }
+      const serre = res > 0 && resLibres < res * P.densifierSous;
       const grande = ville.menages > 260 || serre;
-      type = (acierDispo && grande && budget > 4500) ? 'immeuble' : 'maison';
+      const peutImmeuble = acierDispo && budget > 4500;
+      if (serre && !peutImmeuble) {
+        // Ville à l'étroit et pas les moyens de bâtir en hauteur : on ne pose
+        // SURTOUT pas une maison de plus. Chaque pavillon posé sur les dernières
+        // cases libres est un ménage gagné aujourd'hui et vingt perdus demain —
+        // c'est ainsi qu'une ville se condamnait à quatre cents habitants.
+        // On attend l'acier et l'argent, et on va voir le besoin suivant.
+        continue;
+      }
+      type = (peutImmeuble && grande) ? 'immeuble' : 'maison';
     } else {
       type = remonter(monde, ville, besoin.res);
     }
@@ -1850,6 +1920,12 @@ function unChantierDeVille(monde, ville) {
     // POSTES qu'il faut pouvoir pourvoir, pas la surface qu'il couvre.
     const brasRequis = def.cat === 'bur' ? def.postes : def.cases;
     if (def.cat !== 'loge' && brasDisponibles(monde, ville) < brasRequis) continue;
+
+    // Un logement s'apprécie sur l'emploi qu'il y AURA, pas sur celui qu'il y a.
+    // Un immeuble amène vingt ménages d'un seul coup — quarante bras — et une
+    // ville qui vérifie son taux d'emploi avant de le poser le verra s'effondrer
+    // juste après. On regarde donc l'état d'après.
+    if (def.cat === 'loge' && !emploiTiendra(monde, ville, def.menages)) continue;
 
     const cout = coutEstime(monde, ville, type);
     if (budget < cout) continue;
@@ -3266,6 +3342,8 @@ class Rendu {
     this.filtrePrix = null;          // ou le nom d'une ressource
     this.filtreRdt = null;           // ou un type de bâtiment, ou 'tous'
     this.selection = null;
+    this.pose = null;          // type de bâtiment qu'on cherche à poser
+    this.survol = null;        // dernière case visée, pour l'aperçu
     this.zoom = 1;
     this.cx = 0; this.cy = 0;
     this.index = [];                 // les bâtiments, rafraîchis au mois
@@ -3507,11 +3585,43 @@ class Rendu {
       }
     }
 
+    if (this.pose) this.dessinerPose(ctx, p, ox, oy, x0, y0, x1, y1);
+
     if (this.selection) {
       const c = this.selection;
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
       ctx.strokeRect(ox + c.x * p - 1, oy + c.y * p - 1, p + 2, p + 2);
     }
+  }
+
+  // Le mode « Bâtir ». On cercle d'or tout ce qui peut recevoir le bâtiment
+  // choisi, et on montre en plein l'emprise exacte sous le doigt : sans cet
+  // aperçu, poser un carré de quatre cases relève de la divination.
+  dessinerPose(ctx, p, ox, oy, x0, y0, x1, y1) {
+    const m = this.monde, def = BAT[this.pose];
+
+    ctx.strokeStyle = 'rgba(224,177,85,.85)';
+    ctx.lineWidth = Math.max(1, p * 0.12);
+    for (const v of m.villes) for (const c of v.cases) {
+      if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
+      if (!this.posable(c)) continue;
+      ctx.strokeRect(ox + c.x * p + .5, oy + c.y * p + .5, p - 1, p - 1);
+    }
+
+    const e = this.survol && this.emprise ? this.emprise(this.survol, this.pose) : null;
+    if (e) {
+      ctx.fillStyle = 'rgba(224,177,85,.42)';
+      for (const c of e.cases) ctx.fillRect(ox + c.x * p, oy + c.y * p, p, p);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+      const xs = e.cases.map(c => c.x), ys = e.cases.map(c => c.y);
+      ctx.strokeRect(ox + Math.min(...xs) * p - 1, oy + Math.min(...ys) * p - 1,
+                     def.w * p + 2, def.h * p + 2);
+    }
+  }
+
+  // Une case est posable si le bâtiment choisi tient quelque part autour d'elle.
+  posable(c) {
+    return this.emprise ? !!this.emprise(c, this.pose) : false;
   }
 
   dessinerVoies(ctx, p, ox, oy, x0, y0, x1, y1) {
@@ -3924,6 +4034,73 @@ function voletRail(monde) {
   `;
 }
 
+
+// ---------------------------------------------------------------------------
+// Bâtir. Le volet qui manquait.
+//
+// Le joueur commence sans un pouce de terre. Pour bâtir il fallait deviner
+// qu'une case libre de la frontière était achetable, l'acheter, puis la
+// re-cliquer — deux gestes que rien n'annonçait, sur une case que la carte ne
+// distinguait pas des autres. On choisit maintenant le bâtiment d'abord, et la
+// carte montre elle-même où il peut aller.
+// ---------------------------------------------------------------------------
+
+const MENU_BATIR = [
+  ['Logement', ['maison', 'immeuble']],
+  ['Exploitation', ['coupe', 'carriere', 'mineCharbon', 'mineFer', 'ferme', 'ranch']],
+  ['Transformation', ['scierie', 'briqueterie', 'minoterie', 'abattoir', 'acierie']],
+  ['Manufacture', ['manufacture']],
+  ['Rapport et négoce', ['bureaux', 'entrepot']],
+];
+
+function voletBatir(monde, rendu) {
+  const joueur = monde.joueur;
+  // Le devis se chiffre dans la ville qu'on regarde : les matériaux n'ont pas
+  // le même prix d'un marché à l'autre tant que le rail ne les a pas réunis.
+  const v = monde.villeChoisie || rendu.villeAuCentre() || monde.villes[0];
+  const m = v.marche;
+
+  const groupes = MENU_BATIR.map(([titre, types]) => {
+    const lignes = types.map(t => {
+      const def = BAT[t];
+      let materiel = 0;
+      for (const [r, q] of Object.entries(materiaux(t))) materiel += q * m.prix[r];
+      const cher = materiel / coutRef(t);
+      const choisi = rendu.pose === t;
+      const abordable = joueur.tresorerie >= materiel;
+      const vise = rendementVise(t);
+      return `<button class="ligneBatir ${choisi ? 'actif' : ''}" data-batir="${t}"
+                ${abordable ? '' : 'disabled'}>
+        <span class="puce" style="background:${COULEURS[t]}"></span>
+        <span class="nomBat">${def.nom}</span>
+        <span class="sousBat">${def.w}×${def.h}${vise ? ' · visé ' + Math.round(vise * 100) + ' %' : ''}</span>
+        <span class="prixBat ${cher > 1.25 ? 'rouge' : cher < 0.85 ? 'vert' : 'doux'}">${eur(materiel)}</span>
+      </button>`;
+    }).join('');
+    return `<h3>${titre}</h3><div class="listeBatir">${lignes}</div>`;
+  }).join('');
+
+  const enCours = rendu.pose
+    ? `<div class="avertBatir">Posez la <b>${BAT[rendu.pose].nom}</b> — touchez la carte.
+         Les cases possibles sont cerclées d'or.
+         <button id="btnAnnulerPose">Annuler</button></div>`
+    : `<div class="note">Choisissez un bâtiment, puis touchez la carte à l'endroit voulu.
+         Le terrain qui vous manque est acheté dans le même geste — on ne peut prendre
+         qu'une terre vierge touchant la frontière urbaine, ou celle d'un indépendant,
+         jamais celle d'un rival.</div>`;
+
+  return `<div class="grille">
+      <div class="fiche"><div class="etiq">Trésorerie</div>
+        <div class="v or">${eur(joueur.tresorerie)}</div></div>
+      <div class="fiche"><div class="etiq">Devis établi à</div>
+        <div class="v" style="font-size:12px">${v.nom}</div></div>
+    </div>
+    ${enCours}${groupes}
+    <div class="note">Le prix affiché est celui des <b>matériaux au marché du jour</b> ;
+      le foncier s'y ajoute selon l'endroit et vous est annoncé avant de valider. Le cash
+      part immédiatement, le chantier ne sort de terre qu'à la dernière brique livrée.</div>`;
+}
+
 // ===== js/ui/feuille.js ==============================================
 
 // ---------------------------------------------------------------------------
@@ -4039,7 +4216,7 @@ function menuConstruire(monde, v, c) {
       // moins cher que pendant une pénurie.
       let cout = 0;
       for (const [r, q] of Object.entries(materiaux(t))) cout += q * m.prix[r];
-      const emprise = empriseDepuis(monde, v, c, t);
+      const emprise = empriseDepuis(monde, c, t);
       const possible = !!emprise && joueur.tresorerie >= cout;
       const cher = cout / coutRef(t);
       return `<button class="btnBatir" data-type="${t}" ${possible ? '' : 'disabled'}
@@ -4060,7 +4237,52 @@ function menuConstruire(monde, v, c) {
 }
 
 // Cherche une emprise de la bonne forme, ancrée sur la case cliquée, dont le
-// joueur possède toutes les cases.
+// joueur possède déjà toutes les cases OU peut les acheter sur-le-champ.
+//
+// C'est la fonction du mode « Bâtir ». Exiger de posséder d'abord chaque case
+// était le vrai obstacle : le joueur commence sans un pouce de terre, et rien
+// dans l'interface ne lui disait qu'il fallait acheter avant de pouvoir bâtir.
+// Ici on additionne le foncier manquant au devis, et `ouvrirChantier` achète le
+// tout d'un seul geste.
+function empriseConstructible(monde, c, type) {
+  const def = BAT[type];
+  const joueur = monde.joueur;
+  let meilleur = null;
+  for (let dy = 0; dy < def.h; dy++) for (let dx = 0; dx < def.w; dx++) {
+    const cases = [];
+    let ok = true, terrain = 0;
+    for (let j = 0; j < def.h && ok; j++) for (let i = 0; i < def.w && ok; i++) {
+      const k = monde.caseAt(c.x - dx + i, c.y - dy + j);
+      if (!k || !k.ville || k.voie || k.bat || k.chantier) { ok = false; break; }
+      if (k.proprio !== joueur.id) {
+        // Une terre vierge doit toucher la frontière ; un indépendant vend
+        // toujours, plus cher. Le reste appartient à un rival : on ne prend pas.
+        if (k.proprio && k.proprio !== 'ind') { ok = false; break; }
+        if (!k.proprio && !estAchetable(monde, k)) { ok = false; break; }
+        terrain += monde.prixCase(k.ville, k);
+      }
+      cases.push(k);
+    }
+    if (!ok || cases.length !== def.cases) continue;
+    // À forme égale, on prend l'emprise la moins chère en foncier.
+    if (!meilleur || terrain < meilleur.terrain) meilleur = { cases, terrain };
+  }
+  return meilleur;
+}
+
+// Le devis complet d'un bâtiment posé ici : le foncier manquant plus les
+// matériaux au prix du marché local du jour.
+function devis(monde, c, type) {
+  const e = empriseConstructible(monde, c, type);
+  if (!e) return null;
+  const m = c.ville.marche;
+  let materiel = 0;
+  for (const [r, q] of Object.entries(materiaux(type))) materiel += q * m.prix[r];
+  return { cases: e.cases, terrain: e.terrain, materiel, total: e.terrain + materiel };
+}
+
+// L'ancienne version, qui exige la pleine possession : c'est encore la bonne
+// pour le menu qui s'ouvre sur une case qu'on détient déjà.
 function empriseDepuis(monde, c, type) {
   const def = BAT[type];
   const joueur = monde.joueur;
@@ -4421,7 +4643,7 @@ function rafraichirBarre() {
 // --- Volet ------------------------------------------------------------------
 
 const TITRES = { filtres: 'Filtres', villes: 'Les villes', marche: 'Le marché',
-                 societe: 'Ma société', rail: 'Le chemin de fer' };
+                 societe: 'Ma société', rail: 'Le chemin de fer', batir: 'Bâtir' };
 
 function ouvrirVolet(vue) {
   vueVolet = vue;
@@ -4448,6 +4670,7 @@ function rafraichirVolet() {
     : vueVolet === 'villes'  ? voletVilles(monde)
     : vueVolet === 'marche'  ? voletMarche(monde, rendu)
     : vueVolet === 'societe' ? voletSociete(monde)
+    : vueVolet === 'batir'   ? voletBatir(monde, rendu)
     : voletRail(monde);
   corps.scrollTop = haut;
   brancherVolet(corps);
@@ -4480,6 +4703,25 @@ function brancherVolet(corps) {
     fermerVolet();
     ouvrirFeuille(); rafraichirFeuille();
   });
+  corps.querySelectorAll('[data-batir]').forEach(b => b.onclick = () => {
+    // Re-toucher le bâtiment déjà choisi annule la pose : on ne se retrouve
+    // jamais coincé dans un mode dont on ne sait pas sortir.
+    const meme = rendu.pose === b.dataset.batir;
+    rendu.pose = meme ? null : b.dataset.batir;
+    rendu.survol = null;
+    // Et le volet s'efface — sur téléphone il couvre les trois quarts de
+    // l'écran, si bien que le doigt tendu vers la carte retombait sur la liste
+    // et changeait de bâtiment au lieu d'en poser un. Le bandeau du haut suffit
+    // à rappeler ce qu'on est en train de faire.
+    if (!meme) { fermerVolet(); fermerFeuille(); }
+    majBandeauPose();
+    if (vueVolet) rafraichirVolet();
+  });
+  const annuler = corps.querySelector('#btnAnnulerPose');
+  if (annuler) annuler.onclick = () => {
+    rendu.pose = null; rendu.survol = null; majBandeauPose(); rafraichirVolet();
+  };
+
   corps.querySelectorAll('.miniInvest').forEach(btn => btn.onclick = () => {
     monde.investirRail(monde.liaisons[+btn.dataset.liaison], monde.joueur, 800);
     rafraichirTout();
@@ -4500,6 +4742,43 @@ function appliquerFiltre(nom, prix, rdt) {
     : nom === 'proprio' ? 'Mes possessions'
     : (FILTRES_CASE[nom] || FILTRES_VILLE[nom]).nom;
   $('#bandeauEchelle').style.display = nom === 'proprio' ? 'none' : '';
+}
+
+// Le bandeau du haut sert aussi de rappel de mode : on ne doit jamais pouvoir
+// toucher la carte sans savoir ce qui va s'y passer.
+function majBandeauPose() {
+  const b = $('#bandeauFiltre');
+  $('#btnQuitterFiltre').textContent = 'Voir les bâtiments';
+  if (!rendu.pose) {
+    if (!rendu.filtre && !rendu.filtrePrix && !rendu.filtreRdt) b.classList.add('cachee');
+    else appliquerFiltre(rendu.filtre, rendu.filtrePrix, rendu.filtreRdt);
+    return;
+  }
+  b.classList.remove('cachee');
+  $('#bandeauNom').textContent = `Poser — ${BAT[rendu.pose].nom} · touchez la carte`;
+  $('#bandeauEchelle').style.display = 'none';
+  $('#btnQuitterFiltre').textContent = 'Annuler';
+}
+
+// Poser un bâtiment : on achète le foncier manquant et on ouvre le chantier
+// d'un seul geste. Le joueur voit le total avant de valider.
+function poser(c) {
+  const d = devis(monde, c, rendu.pose);
+  if (!d) return false;
+  const joueur = monde.joueur;
+  if (joueur.tresorerie < d.total) {
+    $('#bandeauNom').textContent =
+      `${BAT[rendu.pose].nom} — ${eur(d.total)}, trésorerie insuffisante`;
+    return false;
+  }
+  // Le foncier des cases qu'on ne possède pas encore est réglé par
+  // `ouvrirChantier` lui-même ; il ne reste qu'à les rendre acquérables.
+  if (!monde.ouvrirChantier(rendu.pose, c.ville, d.cases, joueur)) return false;
+  rendu.rafraichirIndex();
+  rendu.pose = null; rendu.survol = null;
+  majBandeauPose();
+  rafraichirTout();
+  return true;
 }
 
 // --- Feuille ----------------------------------------------------------------
@@ -4647,7 +4926,15 @@ cv.addEventListener('pointerup', (e) => {
       rendu.zoomerVers(px, py, 2.0);
     } else {
       const c = rendu.caseSous(px, py);
-      if (c) {
+      if (c && rendu.pose) {
+        // Un bâtiment d'une seule case se pose au premier toucher : il n'y a
+        // rien à prévisualiser. Pour les autres, le premier toucher montre
+        // l'emprise et le second la valide — sur un écran tactile il n'y a pas
+        // de survol, et poser à l'aveugle un carré de quatre cases n'est pas
+        // jouable.
+        if (BAT[rendu.pose].cases === 1 || rendu.survol === c) poser(c);
+        else rendu.survol = c;
+      } else if (c) {
         rendu.selection = c;
         if (c.ville) monde.villeChoisie = c.ville;
         ouvrirFeuille(); rafraichirFeuille();
@@ -4686,7 +4973,11 @@ document.querySelectorAll('.ico[data-vue]').forEach(b => b.onclick = () => {
 $('#btnFiltres').onclick = () => vueVolet === 'filtres' ? fermerVolet() : ouvrirVolet('filtres');
 $('#btnFermerVolet').onclick = fermerVolet;
 $('#feuillePoignee').onclick = fermerFeuille;
-$('#btnQuitterFiltre').onclick = () => { appliquerFiltre(null, null, null); rafraichirVolet(); };
+$('#btnQuitterFiltre').onclick = () => {
+  if (rendu.pose) { rendu.pose = null; rendu.survol = null; majBandeauPose(); }
+  else appliquerFiltre(null, null, null);
+  if (vueVolet) rafraichirVolet();
+};
 
 $('#btnRecentrer').onclick = () => { rendu.zoom = 1; rendu.cx = 0; rendu.cy = 0; };
 $('#btnZoomPlus').onclick  = () => rendu.zoomerVers(rendu.w / 2, rendu.h / 2, 1.6);
@@ -4703,7 +4994,12 @@ addEventListener('resize', () => rendu.dimensionner());
 
 // Exposés pour le banc d'essai : la page se pilote au doigt, mais un test
 // doit pouvoir viser une case précise.
-window.__rendu = rendu; window.__monde = monde; window.__feuille = contenuFeuille;
+// Le rendu a besoin de savoir où un bâtiment tient ; feuille.js importe déjà
+// render.js, on injecte donc la fonction plutôt que de croiser les imports.
+rendu.emprise = (c, type) => empriseConstructible(monde, c, type);
+rendu.villeAuCentre = () => monde.villeChoisie || monde.villes[0];
+
+window.__rendu = rendu; window.__monde = monde; window.__feuille = contenuFeuille; window.__feuille = contenuFeuille;
 
 rendu.dimensionner();
 rendu.rafraichirIndex();

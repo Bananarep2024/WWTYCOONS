@@ -125,6 +125,15 @@ export function emploiDeBouclage(ville) {
   return P.emploiPourLoger;
 }
 
+// L'emploi tiendra-t-il si l'on ajoute ces ménages ? Deux bras chacun, et pas
+// un poste de plus : c'est la question que doit se poser une ville avant de
+// bâtir, et non celle de savoir si elle a du travail aujourd'hui.
+function emploiTiendra(monde, ville, menagesAjoutes) {
+  const bras = (ville.menages + menagesAjoutes) * P.employesParMenage;
+  if (bras <= 0) return true;
+  return Math.min(ville.postesDemandes || 0, bras) / bras >= P.emploiPourLoger;
+}
+
 // Les besoins de la ville, dans l'ordre où elle les ressent.
 function besoinsClasses(monde, ville, penchant) {
   const b = ville.barometres;
@@ -277,11 +286,28 @@ function unChantierDeVille(monde, ville) {
       // plus un pouce de terre, et s'est arrêtée là avec quatre millions de
       // dollars d'épargne dont elle ne savait que faire.
       const acierDispo = (ville.marche.service.acier ?? 1) > 0.75;
-      // Et l'on densifie d'autant plus volontiers que la place manque.
-      const serre = ville.cases.filter(c => !c.bat && !c.chantier && !c.voie).length
-                    < ville.cases.length * 0.12;
+      // Et l'on densifie d'autant plus volontiers que la place manque. La
+      // mesure porte sur le QUARTIER D'HABITATION, pas sur le territoire :
+      // c'est là que le logement va, et une ville peut avoir des hectares
+      // agricoles en friche tout en n'ayant plus où loger personne.
+      let res = 0, resLibres = 0;
+      for (const c of ville.cases) {
+        if (c.quartier !== 'residentiel') continue;
+        res++;
+        if (!c.bat && !c.chantier && !c.voie) resLibres++;
+      }
+      const serre = res > 0 && resLibres < res * P.densifierSous;
       const grande = ville.menages > 260 || serre;
-      type = (acierDispo && grande && budget > 4500) ? 'immeuble' : 'maison';
+      const peutImmeuble = acierDispo && budget > 4500;
+      if (serre && !peutImmeuble) {
+        // Ville à l'étroit et pas les moyens de bâtir en hauteur : on ne pose
+        // SURTOUT pas une maison de plus. Chaque pavillon posé sur les dernières
+        // cases libres est un ménage gagné aujourd'hui et vingt perdus demain —
+        // c'est ainsi qu'une ville se condamnait à quatre cents habitants.
+        // On attend l'acier et l'argent, et on va voir le besoin suivant.
+        continue;
+      }
+      type = (peutImmeuble && grande) ? 'immeuble' : 'maison';
     } else {
       type = remonter(monde, ville, besoin.res);
     }
@@ -293,6 +319,12 @@ function unChantierDeVille(monde, ville) {
     // POSTES qu'il faut pouvoir pourvoir, pas la surface qu'il couvre.
     const brasRequis = def.cat === 'bur' ? def.postes : def.cases;
     if (def.cat !== 'loge' && brasDisponibles(monde, ville) < brasRequis) continue;
+
+    // Un logement s'apprécie sur l'emploi qu'il y AURA, pas sur celui qu'il y a.
+    // Un immeuble amène vingt ménages d'un seul coup — quarante bras — et une
+    // ville qui vérifie son taux d'emploi avant de le poser le verra s'effondrer
+    // juste après. On regarde donc l'état d'après.
+    if (def.cat === 'loge' && !emploiTiendra(monde, ville, def.menages)) continue;
 
     const cout = coutEstime(monde, ville, type);
     if (budget < cout) continue;

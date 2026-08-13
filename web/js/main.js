@@ -8,9 +8,11 @@
 import { P, RES, BAT } from './sim/params.js';
 import { Monde } from './sim/world.js';
 import { Rendu, FILTRES_CASE, FILTRES_VILLE } from './ui/render.js';
-import { $, eur, pct, voletFiltres, voletVilles, voletMarche, voletSociete, voletRail }
+import { $, eur, pct, voletFiltres, voletVilles, voletMarche, voletSociete, voletRail,
+         voletBatir }
   from './ui/panneaux.js';
-import { contenuFeuille, empriseDepuis } from './ui/feuille.js';
+import { contenuFeuille, empriseDepuis, empriseConstructible, devis }
+  from './ui/feuille.js';
 
 const MOIS = ['janv.', 'févr.', 'mars', 'avril', 'mai', 'juin',
               'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
@@ -71,7 +73,7 @@ function rafraichirBarre() {
 // --- Volet ------------------------------------------------------------------
 
 const TITRES = { filtres: 'Filtres', villes: 'Les villes', marche: 'Le marché',
-                 societe: 'Ma société', rail: 'Le chemin de fer' };
+                 societe: 'Ma société', rail: 'Le chemin de fer', batir: 'Bâtir' };
 
 function ouvrirVolet(vue) {
   vueVolet = vue;
@@ -98,6 +100,7 @@ function rafraichirVolet() {
     : vueVolet === 'villes'  ? voletVilles(monde)
     : vueVolet === 'marche'  ? voletMarche(monde, rendu)
     : vueVolet === 'societe' ? voletSociete(monde)
+    : vueVolet === 'batir'   ? voletBatir(monde, rendu)
     : voletRail(monde);
   corps.scrollTop = haut;
   brancherVolet(corps);
@@ -130,6 +133,25 @@ function brancherVolet(corps) {
     fermerVolet();
     ouvrirFeuille(); rafraichirFeuille();
   });
+  corps.querySelectorAll('[data-batir]').forEach(b => b.onclick = () => {
+    // Re-toucher le bâtiment déjà choisi annule la pose : on ne se retrouve
+    // jamais coincé dans un mode dont on ne sait pas sortir.
+    const meme = rendu.pose === b.dataset.batir;
+    rendu.pose = meme ? null : b.dataset.batir;
+    rendu.survol = null;
+    // Et le volet s'efface — sur téléphone il couvre les trois quarts de
+    // l'écran, si bien que le doigt tendu vers la carte retombait sur la liste
+    // et changeait de bâtiment au lieu d'en poser un. Le bandeau du haut suffit
+    // à rappeler ce qu'on est en train de faire.
+    if (!meme) { fermerVolet(); fermerFeuille(); }
+    majBandeauPose();
+    if (vueVolet) rafraichirVolet();
+  });
+  const annuler = corps.querySelector('#btnAnnulerPose');
+  if (annuler) annuler.onclick = () => {
+    rendu.pose = null; rendu.survol = null; majBandeauPose(); rafraichirVolet();
+  };
+
   corps.querySelectorAll('.miniInvest').forEach(btn => btn.onclick = () => {
     monde.investirRail(monde.liaisons[+btn.dataset.liaison], monde.joueur, 800);
     rafraichirTout();
@@ -150,6 +172,43 @@ function appliquerFiltre(nom, prix, rdt) {
     : nom === 'proprio' ? 'Mes possessions'
     : (FILTRES_CASE[nom] || FILTRES_VILLE[nom]).nom;
   $('#bandeauEchelle').style.display = nom === 'proprio' ? 'none' : '';
+}
+
+// Le bandeau du haut sert aussi de rappel de mode : on ne doit jamais pouvoir
+// toucher la carte sans savoir ce qui va s'y passer.
+function majBandeauPose() {
+  const b = $('#bandeauFiltre');
+  $('#btnQuitterFiltre').textContent = 'Voir les bâtiments';
+  if (!rendu.pose) {
+    if (!rendu.filtre && !rendu.filtrePrix && !rendu.filtreRdt) b.classList.add('cachee');
+    else appliquerFiltre(rendu.filtre, rendu.filtrePrix, rendu.filtreRdt);
+    return;
+  }
+  b.classList.remove('cachee');
+  $('#bandeauNom').textContent = `Poser — ${BAT[rendu.pose].nom} · touchez la carte`;
+  $('#bandeauEchelle').style.display = 'none';
+  $('#btnQuitterFiltre').textContent = 'Annuler';
+}
+
+// Poser un bâtiment : on achète le foncier manquant et on ouvre le chantier
+// d'un seul geste. Le joueur voit le total avant de valider.
+function poser(c) {
+  const d = devis(monde, c, rendu.pose);
+  if (!d) return false;
+  const joueur = monde.joueur;
+  if (joueur.tresorerie < d.total) {
+    $('#bandeauNom').textContent =
+      `${BAT[rendu.pose].nom} — ${eur(d.total)}, trésorerie insuffisante`;
+    return false;
+  }
+  // Le foncier des cases qu'on ne possède pas encore est réglé par
+  // `ouvrirChantier` lui-même ; il ne reste qu'à les rendre acquérables.
+  if (!monde.ouvrirChantier(rendu.pose, c.ville, d.cases, joueur)) return false;
+  rendu.rafraichirIndex();
+  rendu.pose = null; rendu.survol = null;
+  majBandeauPose();
+  rafraichirTout();
+  return true;
 }
 
 // --- Feuille ----------------------------------------------------------------
@@ -297,7 +356,15 @@ cv.addEventListener('pointerup', (e) => {
       rendu.zoomerVers(px, py, 2.0);
     } else {
       const c = rendu.caseSous(px, py);
-      if (c) {
+      if (c && rendu.pose) {
+        // Un bâtiment d'une seule case se pose au premier toucher : il n'y a
+        // rien à prévisualiser. Pour les autres, le premier toucher montre
+        // l'emprise et le second la valide — sur un écran tactile il n'y a pas
+        // de survol, et poser à l'aveugle un carré de quatre cases n'est pas
+        // jouable.
+        if (BAT[rendu.pose].cases === 1 || rendu.survol === c) poser(c);
+        else rendu.survol = c;
+      } else if (c) {
         rendu.selection = c;
         if (c.ville) monde.villeChoisie = c.ville;
         ouvrirFeuille(); rafraichirFeuille();
@@ -336,7 +403,11 @@ document.querySelectorAll('.ico[data-vue]').forEach(b => b.onclick = () => {
 $('#btnFiltres').onclick = () => vueVolet === 'filtres' ? fermerVolet() : ouvrirVolet('filtres');
 $('#btnFermerVolet').onclick = fermerVolet;
 $('#feuillePoignee').onclick = fermerFeuille;
-$('#btnQuitterFiltre').onclick = () => { appliquerFiltre(null, null, null); rafraichirVolet(); };
+$('#btnQuitterFiltre').onclick = () => {
+  if (rendu.pose) { rendu.pose = null; rendu.survol = null; majBandeauPose(); }
+  else appliquerFiltre(null, null, null);
+  if (vueVolet) rafraichirVolet();
+};
 
 $('#btnRecentrer').onclick = () => { rendu.zoom = 1; rendu.cx = 0; rendu.cy = 0; };
 $('#btnZoomPlus').onclick  = () => rendu.zoomerVers(rendu.w / 2, rendu.h / 2, 1.6);
@@ -353,7 +424,12 @@ addEventListener('resize', () => rendu.dimensionner());
 
 // Exposés pour le banc d'essai : la page se pilote au doigt, mais un test
 // doit pouvoir viser une case précise.
-window.__rendu = rendu; window.__monde = monde; window.__feuille = contenuFeuille;
+// Le rendu a besoin de savoir où un bâtiment tient ; feuille.js importe déjà
+// render.js, on injecte donc la fonction plutôt que de croiser les imports.
+rendu.emprise = (c, type) => empriseConstructible(monde, c, type);
+rendu.villeAuCentre = () => monde.villeChoisie || monde.villes[0];
+
+window.__rendu = rendu; window.__monde = monde; window.__feuille = contenuFeuille; window.__feuille = contenuFeuille;
 
 rendu.dimensionner();
 rendu.rafraichirIndex();

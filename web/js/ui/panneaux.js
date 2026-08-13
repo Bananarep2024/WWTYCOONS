@@ -6,7 +6,8 @@
 //   le joueur ne peut prendre aucune décision éclairée — il jouera au hasard. »
 // ---------------------------------------------------------------------------
 
-import { P, RES, RESSOURCES, BAT, TYPES_BAT, niveauVille } from '../sim/params.js';
+import { P, RES, RESSOURCES, BAT, TYPES_BAT, niveauVille, materiaux, coutRef,
+         rendementVise } from '../sim/params.js';
 import { COULEURS, FILTRES_CASE, FILTRES_VILLE, echelle } from './render.js';
 
 export const $ = (s) => document.querySelector(s);
@@ -283,4 +284,71 @@ export function voletRail(monde) {
     <h3>Journal</h3>
     <div class="note">${monde.journal.slice(-8).reverse().join('<br>') || 'Rien à signaler.'}</div>
   `;
+}
+
+
+// ---------------------------------------------------------------------------
+// Bâtir. Le volet qui manquait.
+//
+// Le joueur commence sans un pouce de terre. Pour bâtir il fallait deviner
+// qu'une case libre de la frontière était achetable, l'acheter, puis la
+// re-cliquer — deux gestes que rien n'annonçait, sur une case que la carte ne
+// distinguait pas des autres. On choisit maintenant le bâtiment d'abord, et la
+// carte montre elle-même où il peut aller.
+// ---------------------------------------------------------------------------
+
+const MENU_BATIR = [
+  ['Logement', ['maison', 'immeuble']],
+  ['Exploitation', ['coupe', 'carriere', 'mineCharbon', 'mineFer', 'ferme', 'ranch']],
+  ['Transformation', ['scierie', 'briqueterie', 'minoterie', 'abattoir', 'acierie']],
+  ['Manufacture', ['manufacture']],
+  ['Rapport et négoce', ['bureaux', 'entrepot']],
+];
+
+export function voletBatir(monde, rendu) {
+  const joueur = monde.joueur;
+  // Le devis se chiffre dans la ville qu'on regarde : les matériaux n'ont pas
+  // le même prix d'un marché à l'autre tant que le rail ne les a pas réunis.
+  const v = monde.villeChoisie || rendu.villeAuCentre() || monde.villes[0];
+  const m = v.marche;
+
+  const groupes = MENU_BATIR.map(([titre, types]) => {
+    const lignes = types.map(t => {
+      const def = BAT[t];
+      let materiel = 0;
+      for (const [r, q] of Object.entries(materiaux(t))) materiel += q * m.prix[r];
+      const cher = materiel / coutRef(t);
+      const choisi = rendu.pose === t;
+      const abordable = joueur.tresorerie >= materiel;
+      const vise = rendementVise(t);
+      return `<button class="ligneBatir ${choisi ? 'actif' : ''}" data-batir="${t}"
+                ${abordable ? '' : 'disabled'}>
+        <span class="puce" style="background:${COULEURS[t]}"></span>
+        <span class="nomBat">${def.nom}</span>
+        <span class="sousBat">${def.w}×${def.h}${vise ? ' · visé ' + Math.round(vise * 100) + ' %' : ''}</span>
+        <span class="prixBat ${cher > 1.25 ? 'rouge' : cher < 0.85 ? 'vert' : 'doux'}">${eur(materiel)}</span>
+      </button>`;
+    }).join('');
+    return `<h3>${titre}</h3><div class="listeBatir">${lignes}</div>`;
+  }).join('');
+
+  const enCours = rendu.pose
+    ? `<div class="avertBatir">Posez la <b>${BAT[rendu.pose].nom}</b> — touchez la carte.
+         Les cases possibles sont cerclées d'or.
+         <button id="btnAnnulerPose">Annuler</button></div>`
+    : `<div class="note">Choisissez un bâtiment, puis touchez la carte à l'endroit voulu.
+         Le terrain qui vous manque est acheté dans le même geste — on ne peut prendre
+         qu'une terre vierge touchant la frontière urbaine, ou celle d'un indépendant,
+         jamais celle d'un rival.</div>`;
+
+  return `<div class="grille">
+      <div class="fiche"><div class="etiq">Trésorerie</div>
+        <div class="v or">${eur(joueur.tresorerie)}</div></div>
+      <div class="fiche"><div class="etiq">Devis établi à</div>
+        <div class="v" style="font-size:12px">${v.nom}</div></div>
+    </div>
+    ${enCours}${groupes}
+    <div class="note">Le prix affiché est celui des <b>matériaux au marché du jour</b> ;
+      le foncier s'y ajoute selon l'endroit et vous est annoncé avant de valider. Le cash
+      part immédiatement, le chantier ne sort de terre qu'à la dernière brique livrée.</div>`;
 }
