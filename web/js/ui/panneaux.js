@@ -79,46 +79,114 @@ export function voletFiltres(monde, rendu) {
 
 // --- Villes -----------------------------------------------------------------
 
-export function voletVilles(monde) {
-  return `<h3>Les cinq villes</h3>
-    <div class="listeVilles">
-      ${monde.villes.map(v => {
-        const b = v.barometres;
-        const moy = (b.nourriture + b.emploi + b.produits) / 3;
-        return `<button data-ville="${v.id}">
-          <span>
-            <b>${v.nom}</b>${v.enCrise ? ' <span class="rouge">⚠</span>' : ''}
-            <span class="cv"><br>${P.nomsNiveau[v.niveau - 1]} · ${Math.round(v.menages)} ménages</span>
-          </span>
-          <span class="cv" style="text-align:right">
-            <span style="color:${rgb(echelle(moy))}">●</span> ${pct(moy)}
-            <br>salaire ${v.salaire.toFixed(1)} $
-          </span>
-        </button>`;
-      }).join('')}
+// L'attractivité, ville par ville, et ce qui la compose.
+//
+// C'est le seul chiffre qui décide de la population : bâtir des logements ne
+// fait venir personne, cela ouvre des portes. Le joueur doit donc pouvoir lire
+// d'un coup d'œil pourquoi une ville attire et pourquoi une autre stagne — et
+// les quatre composantes se lisent séparément, sinon le chiffre global ne dit
+// rien d'actionnable.
+
+// `val` est la position sur l'échelle rouge → vert, entre 0 et 1 ; `affiche`
+// est ce qu'on écrit. Les deux diffèrent pour le pouvoir d'achat, dont le
+// chiffre parlant est un rapport centré sur 100 % et non une position.
+function miniJauge(nom, val, seuil, affiche) {
+  const alerte = seuil !== undefined && val < seuil;
+  return `<div class="mini">
+    <div class="miniTete"><span>${nom}</span>
+      <span class="${alerte ? 'rouge' : 'doux'}">${affiche ?? pct(val)}${alerte ? ' ⚠' : ''}</span></div>
+    <div class="miniPiste"><div style="width:${Math.min(100, Math.max(0, val) * 100)}%;
+      background:${rgb(echelle(val))}"></div></div>
+  </div>`;
+}
+
+// L'aisance vaut 1,00 quand le ménage boucle tout juste. On la ramène sur
+// l'échelle commune pour qu'elle se lise comme les autres : 0,70 → rouge,
+// 1,20 → vert.
+function echelleAisance(a) {
+  return (a - P.aisanceMin) / (P.aisanceMax - P.aisanceMin);
+}
+
+function carteVille(monde, v) {
+  const b = v.barometres;
+  const a = monde.attractivite(v);
+  const ais = monde.aisance(v);
+  const croissance = v.enCrise ? -P.exodeCritique
+    : Math.max(-P.cadenceMax, Math.min(P.cadenceMax, P.cadenceDemo * 100 * (a - P.pivot)));
+
+  const mouvement = v.enCrise
+    ? '<span class="rouge">seuil critique franchi — la ville se vide</span>'
+    : croissance > 0.0005
+      ? `<span class="vert">+${(croissance * 100).toFixed(1)} % par mois</span> venus du dehors`
+      : croissance < -0.0005
+        ? `<span class="rouge">${(croissance * 100).toFixed(1)} % par mois</span> — elle repousse`
+        : '<span class="doux">à l\'équilibre, sur son pivot</span>';
+
+  const mig = v.migration === undefined ? 0 : v.migration;
+  const echange = Math.abs(mig) < 0.05 ? ''
+    : mig > 0 ? ` · <span class="vert">+${mig.toFixed(1)}</span> pris aux villes reliées`
+              : ` · <span class="rouge">${mig.toFixed(1)}</span> partis vers les villes reliées`;
+
+  const plein = v.occupation > 0.97
+    ? '<div class="avert">Logements pleins : l\'attractivité ne peut plus se traduire en habitants.</div>'
+    : v.occupation < 0.55 && v.capaciteLogement > 0
+      ? '<div class="note">Beaucoup de logements vides — ils ne feront venir personne tant que l\'attractivité restera sous le pivot.</div>'
+      : '';
+
+  return `<div class="carteVille ${monde.villeChoisie === v ? 'actif' : ''}" data-ville="${v.id}">
+    <div class="tetVille">
+      <span><b>${v.nom}</b>${v.enCrise ? ' <span class="rouge">⚠</span>' : ''}
+        <span class="cv"><br>${P.nomsNiveau[v.niveau - 1]} · ${Math.round(v.menages)} ménages
+        · ${pct(v.occupation)} occupé</span></span>
+      <span class="attrait" style="color:${rgb(echelle(a))}">${pct(a)}
+        <span class="etiq" style="display:block;text-align:right">attractivité</span></span>
     </div>
-    <div class="note">Touchez une ville pour l'atteindre sur la carte.</div>
+    <div class="minis">
+      ${miniJauge('Nourriture', b.nourriture, P.seuilsCritiques.nourriture)}
+      ${miniJauge('Emploi', b.emploi, P.seuilsCritiques.emploi)}
+      ${miniJauge('Produits', b.produits, P.seuilsCritiques.produits)}
+      ${miniJauge('Pouvoir d\'achat', echelleAisance(ais), undefined,
+                   (ais * 100).toFixed(0) + ' %')}
+    </div>
+    <div class="pied">${mouvement}${echange}
+      · salaire ${v.salaire.toFixed(1)} $ · panier ${monde.panier(v).toFixed(1)} $</div>
+    ${plein}
+  </div>`;
+}
+
+export function voletVilles(monde) {
+  const classees = monde.villes.slice()
+    .sort((a, b) => monde.attractivite(b) - monde.attractivite(a));
+  return `<h3>Attractivité — les cinq villes</h3>
+    <div class="listeCartesVilles">${classees.map(v => carteVille(monde, v)).join('')}</div>
+    <div class="note">
+      <b>attractivité = moyenne des trois baromètres × pouvoir d'achat</b>, où le pouvoir
+      d'achat vaut le revenu du ménage divisé par son panier — 100 % quand il boucle tout
+      juste. Au-dessus du pivot de ${pct(P.pivot)} la ville attire des habitants
+      <b>du dehors</b> ; en dessous elle en perd. Une part très faible de la population
+      circule en plus entre les villes qu'un rail relie, au prorata de leur attrait.<br><br>
+      Bâtir des logements <b>ne fait venir personne</b> : cela ouvre des portes que
+      l'attractivité remplira, ou pas.
+    </div>
     ${monde.villeChoisie ? detailVille(monde, monde.villeChoisie) : ''}
   `;
 }
 
 export function detailVille(monde, v) {
   const b = v.barometres;
+  const a = monde.attractivite(v);
+  const ais = monde.aisance(v);
   const moy = (b.nourriture + b.emploi + b.produits) / 3;
+  const panier = monde.panier(v);
+  const revenu = P.employesParMenage * v.salaire * b.emploi;
 
   const jauge = (nom, val, seuil) => `
     <div class="barometre">
       <div class="tete"><span>${nom}</span>
-        <span class="${val < seuil ? 'rouge' : 'doux'}">${pct(val)}${val < seuil ? ' ⚠' : ''}</span></div>
+        <span class="${seuil !== undefined && val < seuil ? 'rouge' : 'doux'}">${pct(val)}${seuil !== undefined && val < seuil ? ' ⚠' : ''}</span></div>
       <div class="piste"><div class="jauge2"
         style="width:${Math.min(100, val * 100)}%;background:${rgb(echelle(val))}"></div></div>
     </div>`;
-
-  const tendance = v.enCrise
-    ? '<span class="rouge">seuil critique franchi — la ville se vide de 5 % par mois</span>'
-    : moy > P.pivot + 0.005 ? `<span class="vert">attractive — +${(0.2 * (moy - P.pivot) * 100).toFixed(1)} % par mois</span>`
-    : moy < P.pivot - 0.005 ? `<span class="rouge">elle repousse — ${(0.2 * (moy - P.pivot) * 100).toFixed(1)} % par mois</span>`
-    : '<span class="doux">à l\'équilibre, sur son pivot</span>';
 
   const n = niveauVille(v.menages);
   const palier = n >= 5 ? 'Métropole — dernier palier.'
@@ -130,7 +198,9 @@ export function detailVille(monde, v) {
     <h3>${v.nom} · ${P.nomsNiveau[v.niveau - 1]}</h3>
     <div class="grille">
       <div class="fiche"><div class="etiq">Ménages</div><div class="v">${Math.round(v.menages)}</div></div>
-      <div class="fiche"><div class="etiq">Occupation</div><div class="v">${pct(v.occupation)}</div></div>
+      <div class="fiche"><div class="etiq">Logements</div>
+        <div class="v">${Math.round(v.capaciteLogement || 0)}</div>
+        <div class="etiq" style="margin-top:2px">${pct(v.occupation)} occupés</div></div>
       <div class="fiche"><div class="etiq">Salaire</div><div class="v">${v.salaire.toFixed(1)} $</div></div>
       <div class="fiche"><div class="etiq">Bras libres</div>
         <div class="v">${Math.round(Math.max(0, (v.bras || 0) - (v.postesDemandes || 0)))}</div></div>
@@ -140,12 +210,35 @@ export function detailVille(monde, v) {
     ${jauge('Nourriture', b.nourriture, P.seuilsCritiques.nourriture)}
     ${jauge('Emploi', b.emploi, P.seuilsCritiques.emploi)}
     ${jauge('Produits manufacturés', b.produits, P.seuilsCritiques.produits)}
-    <div class="barometre" style="margin-top:10px">
-      <div class="tete"><span><b>Moyenne</b> — pivot à ${pct(P.pivot)}</span>
-        <span class="or"><b>${pct(moy)}</b></span></div>
-      <div class="piste"><div class="jauge2" style="width:${moy * 100}%;background:var(--or)"></div></div>
+    <div class="barometre" style="margin-top:8px">
+      <div class="tete"><span>Moyenne</span><span class="doux">${pct(moy)}</span></div>
+      <div class="piste"><div class="jauge2" style="width:${moy * 100}%;background:var(--doux)"></div></div>
     </div>
-    <div class="note">${tendance}</div>
+
+    <h3>Le pouvoir d'achat</h3>
+    <div class="grille">
+      <div class="fiche"><div class="etiq">Revenu du ménage</div>
+        <div class="v">${eur(revenu)}</div>
+        <div class="etiq" style="margin-top:2px">2 employés · emploi ${pct(b.emploi)}</div></div>
+      <div class="fiche"><div class="etiq">Panier</div>
+        <div class="v doux">${eur(panier)}</div>
+        <div class="etiq" style="margin-top:2px">ration + produit + loyer</div></div>
+      <div class="fiche"><div class="etiq">Pouvoir d'achat</div>
+        <div class="v" style="color:${rgb(echelle(echelleAisance(ais)))}">${(ais * 100).toFixed(0)} %</div>
+        <div class="etiq" style="margin-top:2px">borné à ${(P.aisanceMin*100).toFixed(0)}–${(P.aisanceMax*100).toFixed(0)} %</div></div>
+    </div>
+
+    <div class="barometre" style="margin-top:10px">
+      <div class="tete"><span><b>Attractivité</b> — pivot à ${pct(P.pivot)}</span>
+        <span class="or"><b>${pct(a)}</b></span></div>
+      <div class="piste"><div class="jauge2" style="width:${Math.min(100, a * 100)}%;background:var(--or)"></div></div>
+    </div>
+    <div class="note">${pct(moy)} de baromètres × ${(ais * 100).toFixed(0)} % de pouvoir d'achat
+      = <b>${pct(a)}</b>. ${v.enCrise
+        ? '<span class="rouge">Un seuil critique est franchi : la ville se vide de 5 % par mois, quels que soient les autres chiffres.</span>'
+        : a > P.pivot
+          ? 'Au-dessus du pivot : la ville tire des habitants du dehors.'
+          : 'Sous le pivot : elle en perd.'}</div>
     <div class="note">${palier}</div>
   `;
 }

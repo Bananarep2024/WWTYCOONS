@@ -289,3 +289,75 @@ Sur des villes volontairement étroites (rayon 12), **55 % de la population fini
 
 À 90 % la population croît encore à quarante ans au lieu de plafonner, et le salaire s'établit
 exactement sur les 20 $ du barème sans qu'on le lui ait demandé.
+
+---
+
+## L'attractivité : ce qui fait venir les habitants
+
+Correction du joueur, et elle portait sur le fond : **un immeuble n'ajoute aucun habitant, il
+ouvre des logements vides.** La population n'entre que par l'attractivité de la ville ; le
+logement en est le plafond, jamais le moteur. Le code faisait déjà cela — `ménages ←
+min(ménages × (1 + croissance), capacité)` — mais je l'avais décrit à l'envers, et la règle
+qui vérifiait l'emploi « après vingt ménages de plus » reposait sur cette erreur.
+
+### La formule
+
+```
+attractivité = ( nourriture + emploi + produits ) / 3  ×  pouvoir d'achat
+
+pouvoir d'achat = revenu du ménage ÷ panier local,  borné à [0,70 ; 1,20]
+revenu          = 2 employés × salaire × taux d'emploi
+panier          = ration la moins chère + produit manufacturé + loyer
+
+si nourriture < 80 % ou emploi < 50 % ou produits < 20 % :
+    croissance = −5 % / mois                    ← exode, quels que soient les autres
+sinon :
+    croissance = 0,35 × ( attractivité − 0,80 )  ← immigration du DEHORS, bornée à ±5 %/mois
+
+ménages ← min( ménages × (1 + croissance) , capacité de logement )
+```
+
+Le pouvoir d'achat vaut 1,00 quand le ménage boucle son mois au centime près. Les trois
+baromètres disent si les biens sont **là** ; le pouvoir d'achat dit si le ménage a les moyens
+de les prendre. Une ville peut avoir les étals pleins et ne rien valoir — c'est exactement ce
+qui arrivait quand le salaire tombait sous le panier.
+
+### Deux flux, et pas un seul
+
+| Flux | Ce que c'est | Poids mesuré |
+|---|---|---|
+| **Immigration extérieure** | Le moteur. Des gens qui n'étaient pas sur la carte viennent s'installer là où l'on vit bien. Jusqu'à 5 % de la population par mois. | jusqu'à **+5 %/mois** |
+| **Migration inter-villes** | L'appoint. 0,6 % de la population est mobile chaque mois et se redistribue entre les villes qu'un **rail achevé** relie, au prorata de leur attrait. Jeu à somme nulle. | **0,18 ménage/mois/ville** |
+
+Le second n'est pas là pour peupler la carte — ce serait un circuit fermé — mais pour donner
+au rail un second visage : une ligne n'apporte pas que des marchandises, elle ouvre aussi la
+porte aux gens, dans les deux sens. Une ville prospère grignote ses voisines à la marge ;
+elle ne les vide pas.
+
+### L'indicateur, dans l'onglet Villes
+
+Les cinq villes classées par attractivité, chacune avec **les quatre composantes** en jauges
+rouge → vert — nourriture, emploi, produits, pouvoir d'achat — le mouvement du mois
+(immigration extérieure et solde des échanges avec les villes reliées), le salaire et le
+panier. Une ville dont les logements sont pleins le dit : « l'attractivité ne peut plus se
+traduire en habitants ». Une ville aux logements vides le dit aussi. En dépliant une ville,
+le détail complet : revenu, panier, pouvoir d'achat, et la multiplication qui donne le
+chiffre final.
+
+### Le verrou qu'il a fallu desserrer
+
+Une fois l'emploi entré dans l'attractivité, la règle « on ne loge que si l'emploi dépasse
+90 % » faisait **doublon** : sur-loger se punit désormais tout seul, par la chute de
+l'attractivité. Le verrou tenait la population figée à 188 ménages dès le mois 120, avec
+100 % d'occupation et une attractivité de 100 % qui réclamait +5 % par mois.
+
+| Seuil | Ménages à 10 / 20 / 40 ans | Attractivité | Chômage | Produits | Occupation |
+|---|---|---|---|---|---|
+| 62 % | 482 / 496 / 496 | 80 % | 32 % | 64 % | 78 % |
+| 70 % | 462 / 473 / 472 | 81 % | 30 % | 66 % | 91 % |
+| 78 % | 397 / 404 / 404 | 86 % | 30 % | 75 % | 99 % |
+| **86 %** | **212 / 278 / 293** | **98 %** | **19 %** | **96 %** | 100 % |
+| 90 % | 181 / 186 / 186 | 99 % | 16 % | 95 % | 100 % |
+
+Retenu : **86 %**. C'est le seul réglage où la population croît **encore** à quarante ans au
+lieu de se figer, tout en gardant une attractivité proche de 100 % et un chômage à 19 %.

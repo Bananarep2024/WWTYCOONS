@@ -682,6 +682,7 @@ export class Monde {
 
     // --- 9. Démographie -----------------------------------------------------
     for (const v of this.villes) this.demographie(v);
+    this.migrations();
 
     // --- 10. Les chantiers achevés sortent de terre --------------------------
     for (const s of this.societes) {
@@ -793,10 +794,75 @@ export class Monde {
   // Hors seuil critique, c'est la moyenne des trois baromètres qui décide.
   // Au-dessus du pivot la ville attire, en dessous elle repousse. La cadence
   // est proportionnelle à l'écart.
-  demographie(v) {
+  // --- L'attractivité -------------------------------------------------------
+  //
+  // Ce qu'on vient chercher dans une ville : de quoi manger, du travail, de quoi
+  // s'équiper — et de quoi vivre au-dessus du strict nécessaire. Les trois
+  // baromètres disent si les biens sont LÀ ; l'aisance dit si le ménage a les
+  // moyens de les prendre. Une ville peut avoir des étals pleins et ne rien
+  // valoir : c'est exactement ce qui arrivait quand le salaire tombait sous le
+  // panier.
+  //
+  //   attractivité = moyenne des trois baromètres × aisance
+  //   aisance      = revenu du ménage ÷ panier local, bornée à [0,70 ; 1,20]
+  //
+  // L'aisance vaut 1,00 quand le ménage boucle son mois au centime près. Elle
+  // monte au-dessus quand il lui reste de quoi épargner — et l'épargne est ce
+  // qui bâtit la ville, si bien qu'une ville aisée s'équipe, donc attire encore.
+  panier(v) {
+    const m = v.marche;
+    return Math.min(m.prix.pain, m.prix.viande) + m.prix.produits + P.loyerBase;
+  }
+
+  aisance(v) {
+    const panier = this.panier(v);
+    if (panier <= 0) return 1;
+    const revenu = P.employesParMenage * v.salaire * v.barometres.emploi;
+    return Math.max(P.aisanceMin, Math.min(P.aisanceMax, revenu / panier));
+  }
+
+  attractivite(v) {
     const b = v.barometres;
     const moyenne = (b.nourriture + b.emploi + b.produits) / 3;
+    return moyenne * this.aisance(v);
+  }
+
+  // --- Les migrations entre villes reliées ----------------------------------
+  //
+  // L'appoint, jamais le moteur. Une part très faible de la population est
+  // mobile chaque mois et se redistribue entre les villes qu'un rail achevé
+  // relie, au prorata de leur attractivité. C'est un jeu à somme nulle — la
+  // vraie croissance vient du dehors — mais c'est ce qui donne au rail un
+  // second visage : une ligne n'apporte pas que des marchandises, elle ouvre
+  // aussi la porte aux gens, dans les deux sens.
+  migrations() {
+    for (const marche of this.marches) {
+      const villes = marche.villes.filter(v => !v.enCrise);
+      if (villes.length < 2) continue;
+
+      const attrait = villes.map(v => Math.max(0.01, this.attractivite(v)));
+      const total = attrait.reduce((s, a) => s + a, 0);
+      const mobiles = villes.reduce((s, v) => s + v.menages * P.partMobile, 0);
+
+      villes.forEach((v, i) => {
+        const recus = mobiles * (attrait[i] / total);
+        const partis = v.menages * P.partMobile;
+        v.migration = recus - partis;                 // pour la fiche de la ville
+        v.menages = Math.max(0, Math.min(v.menages + v.migration,
+                                         v.capaciteLogement || Infinity));
+      });
+      for (const v of villes) {
+        v.occupation = v.capaciteLogement > 0
+          ? clamp01(v.menages / v.capaciteLogement) : 0;
+      }
+    }
+  }
+
+  demographie(v) {
+    const b = v.barometres;
+    const moyenne = this.attractivite(v);
     v.moyenne = moyenne;
+    v.aisanceMenage = this.aisance(v);
 
     let taux;
     const critique = b.nourriture < P.seuilsCritiques.nourriture
@@ -817,15 +883,19 @@ export class Monde {
       v.enCrise = false;
     }
 
-    // La capacité de logement borne l'afflux : la croissance s'arrête même à
-    // 95 % de satisfaction si personne n'a bâti. C'est ce qui pousse à
-    // construire.
+    // La capacité de logement BORNE l'afflux ; elle ne l'appelle pas. Bâtir un
+    // immeuble ne fait venir personne : il ouvre vingt logements que
+    // l'attractivité de la ville remplira, ou pas. Une ville sans attrait qui
+    // bâtit n'obtient que des logements vides — et le taux d'occupation, commun
+    // à tous les propriétaires, tombe pour tout le monde.
     const capacite = this.tousBatiments(v)
       .filter(x => x.def.cat === 'loge')
       .reduce((s, x) => s + x.def.menages, 0);
 
     let nouveau = v.menages * (1 + taux);
     nouveau = Math.max(0, Math.min(nouveau, capacite));
+    v.immigration = nouveau - v.menages;      // ce qui est venu du dehors
+    v.tauxCroissance = taux;
     v.menages = nouveau;
     v.capaciteLogement = capacite;
     // Le taux d'occupation est commun à toute la ville, partagé par tous les

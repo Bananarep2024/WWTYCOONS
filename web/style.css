@@ -291,3 +291,39 @@ input[type=range] { width: 100%; accent-color: var(--or); }
   .ico { padding: 5px 1px; }
   .ico span { font-size: 8px; }
 }
+
+/* ---------- Les cartes de ville : l'attractivité et ses composantes ---------- */
+/* Le chiffre global ne dit rien d'actionnable seul. Les quatre composantes se
+   lisent côte à côte, sur la même échelle rouge → vert que le reste du jeu. */
+
+.listeCartesVilles { display: flex; flex-direction: column; gap: 7px; }
+
+.carteVille {
+  background: var(--fond3); border: 1px solid var(--bord); border-radius: 6px;
+  padding: 9px 11px; cursor: pointer;
+}
+.carteVille:hover { border-color: var(--or); }
+.carteVille.actif { border-color: var(--or); background: #2b2519; }
+
+.tetVille { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.tetVille .attrait {
+  font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums;
+  line-height: 1.05; text-align: right; flex: 0 0 auto;
+}
+
+.minis { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; margin: 8px 0 6px; }
+.mini .miniTete {
+  display: flex; justify-content: space-between; gap: 5px;
+  font-size: 10px; color: var(--doux); margin-bottom: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.mini .miniPiste {
+  height: 4px; border-radius: 2px; background: rgba(255,255,255,.08); overflow: hidden;
+}
+.mini .miniPiste > div { height: 100%; border-radius: 2px; }
+
+.carteVille .pied {
+  font-size: 10.5px; color: var(--doux); border-top: 1px solid #241f18;
+  padding-top: 5px; line-height: 1.5;
+}
+.carteVille .avert, .carteVille .note { margin-top: 5px; font-size: 10.5px; }

@@ -89,11 +89,11 @@ vingt ans de simulation sans joueur. Résultats attendus :
 | Marges par case | 4 / 16 / 22 $ | exactes |
 | Travail incorporé, un ménage | 0,900 case | 0,900 |
 | 30 % de production retenue, 5 mois | +19 % | +19,2 % |
-| Ville à 20 ans — ménages | 80 → 150 et plus | 136–213 |
-| Ville à 20 ans — emploi | 85–92 % | 86–90 % |
+| Ville à 20 ans — ménages | 80 → 250 et plus | 228–450 |
+| Ville à 20 ans — emploi | 75–90 % | 74–86 % |
 | Ville à 20 ans — nourriture | 100 % | 100 % |
-| Ville à 20 ans — produits | 90–100 % | 100 % |
-| Ville à 20 ans — moyenne | au-dessus du pivot | 95–97 % |
+| Ville à 20 ans — produits | 90–100 % | 95 % |
+| Ville à 20 ans — attractivité | au-dessus du pivot | 84–94 % |
 | Ville à 20 ans — salaire | ~20 $, le barème | 19,1–20,0 |
 | Amplitude des prix | 0,67–1,30 × réf. | 0,83–1,17 |
 
@@ -110,6 +110,8 @@ terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
   garantie, reliées par un réseau ferroviaire où les liaisons se chaînent
 - **Bâtiments dessinés** — toits, dents de scie, silos, chevalements — et quartiers de
   vocations distinctes : l'industrie ne cerne jamais l'habitation
+- **Attractivité par ville** — le seul chiffre qui décide de la population : moyenne des
+  trois baromètres × pouvoir d'achat, avec le détail des quatre composantes ville par ville
 - **Filtres** en dégradé rouge → vert : qualité du sol case par case, baromètres ville par
   ville, et le prix de chacune des douze marchandises sur les cinq villes
 - **Fiche complète au clic** : rentabilité, intrants reçus et manquants, production, marge,

@@ -26,10 +26,17 @@ export const P = {
   // Ville
   cibleProduits: 0.90,         // au-dessus, la ville cesse d'ajouter des manufactures
   menagesParBureaux: 40,       // un immeuble de bureaux pour tant de ménages
-  emploiPourLoger: 0.90,       // on ne loge que dans une ville qui a du travail
+  emploiPourLoger: 0.86,       // on ne loge que dans une ville qui a du travail
   densifierSous: 0.25,         // quartier d'habitation rempli au 3/4 : on bâtit haut
-  pivot: 0.80,                 // moyenne des baromètres au-dessus de laquelle on croît
-  cadenceDemo: 0.0035,          // 0,2 % de la population par mois et par point d'écart
+  pivot: 0.80,                 // attractivité au-dessus de laquelle la ville attire
+
+  // L'attractivité
+  // attractivité = moyenne des trois baromètres × facteur d'aisance
+  // aisance = revenu du ménage ÷ panier local — 1,00 = il boucle tout juste
+  aisanceMin: 0.70,            // une ville où l'on ne boucle pas repousse
+  aisanceMax: 1.20,            // une ville où l'on met de côté attire
+  partMobile: 0.006,           // ce qui bouge chaque mois entre villes reliées
+  cadenceDemo: 0.0035,         // % de population par mois et par point d'attractivité
   cadenceMax: 0.05,            // plafond ±5 % / mois
   exodeCritique: 0.05,         // seuil critique franchi -> -5 % / mois
   seuilsCritiques: { nourriture: 0.80, emploi: 0.50, produits: 0.20 },
