@@ -557,3 +557,38 @@ la relie à une ville qui manque de planches.
 | **La pastille « engorgé »** | Cours sous 0,90 × la référence **et** plus de 200 unités en stock : la signature d'une surproduction. C'est l'endroit où chiner. |
 | **La courbe des cours** | Toucher une marchandise déplie sa courbe sur 180 mois, avec le prix de référence en trait doré, le plus bas, le plus haut et le cours du jour. Un instantané ne dit rien : un cours à 0,85 peut être une filière qui s'effondre ou une pénurie qui se résorbe, et les deux appellent des décisions opposées. |
 | **L'historique** | `Marche.histoPrix` conserve 180 mois par marchandise, écrits à chaque fixation de prix. |
+
+---
+
+## Un bureau pour trente ménages
+
+Le cadran de la croissance, poussé de 1/40 à **1/30** sur décision du joueur. Les bureaux
+sont le seul argent qui vienne du dehors — vingt postes qu'aucune entreprise locale ne paie —
+donc le seul moyen d'employer une population que l'industrie locale ne peut pas absorber.
+
+Balayage sur six cartes et cent ans, avant les départs hétérogènes :
+
+| Bureaux | Ménages à 60 ans | Chômage | Nourriture | Attractivité | Cases libres | Niveaux |
+|---|---|---|---|---|---|---|
+| 1/40 | 349 | 18 % | 97 % | 99 % | 3 388 | Bourg, Ville |
+| 1/34 | 591 | 16 % | 100 % | 99 % | 2 672 | + Grandeville ×3 |
+| **1/30** | **1 300** | **15 %** | 100 % | 100 % | 1 772 | **Métropole ×3** |
+| 1/26 | 2 944 | 15 % | 99 % | 91 % | **158** | tout saturé |
+| 1/22 | 2 425 | **30 %** | **80 %** | 67 % | 716 | l'économie décroche |
+
+Le contre-intuitif : **le chômage baisse** quand on ajoute des bureaux. Un immeuble amène
+vingt postes et pas un seul habitant — c'est le logement qui amène les habitants, et il ne
+se construit qu'au-dessus de 86 % d'emploi. Passé 1/22 la chose se retourne : les bras
+partent tous au tertiaire, plus personne ne bâtit de ferme, le seuil critique de nourriture
+est franchi. Le garde-fou alimentaire — on ne bâtit un bureau que le ventre plein, et en
+gardant 15 % des bras — protège cette borne.
+
+Mesuré à 1/30 avec les départs hétérogènes et la carte agrandie :
+
+| | 20 ans | 40 ans | 60 ans |
+|---|---|---|---|
+| Ménages par ville | 612 | 814 | 874 |
+
+Chômage 16 %, nourriture 100 %, produits 94 %, attractivité 98 %, salaire 21,2 $ — et encore
+**2 538 cases libres** par territoire. Sur la partie de référence, les cinq villes passent
+de 55 ménages à 618–1 063 en vingt ans : quatre au niveau **Ville**, une **Grandeville**.

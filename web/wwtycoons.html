@@ -486,7 +486,25 @@ const P = {
 
   // Ville
   cibleProduits: 0.90,         // au-dessus, la ville cesse d'ajouter des manufactures
-  menagesParBureaux: 40,       // un immeuble de bureaux pour tant de ménages
+  // Un immeuble de bureaux pour tant de ménages.
+  //
+  // C'est le cadran de la croissance, et il est brutal. Les bureaux sont le seul
+  // argent qui vienne du dehors — vingt postes qu'aucune entreprise locale ne
+  // paie — donc le seul moyen d'employer une population que l'industrie locale
+  // ne peut pas absorber. Mesuré sur six cartes et cent ans :
+  //
+  //   1/40  →   349 ménages · 18 % de chômage · Bourgs et Villes
+  //   1/34  →   591 ménages · 16 % · quelques Grandevilles
+  //   1/30  →  1 300 ménages · 15 % · Villes, Grandevilles, Métropoles
+  //   1/26  →  2 944 ménages · 15 % · mais 158 cases libres : tout est saturé
+  //   1/22  →  l'économie décroche — 30 % de chômage, 80 % de nourriture
+  //
+  // À 1/30 les Métropoles deviennent atteignables et le chômage BAISSE — les
+  // bureaux emploient plus de bras qu'ils n'en amènent. Mesuré depuis, avec les
+  // départs hétérogènes : 612 ménages par ville à vingt ans, 814 à quarante,
+  // 874 à soixante, 16 % de chômage, nourriture à 100 %, et encore 2 538 cases
+  // libres par territoire — la partie n'est pas finie.
+  menagesParBureaux: 30,
   brasReservesAuxVivres: 0.15, // bras qu'on garde pour nourrir avant tout bureau
   emploiPourLoger: 0.86,       // on ne loge que dans une ville qui a du travail
   densifierSous: 0.25,         // quartier d'habitation rempli au 3/4 : on bâtit haut
@@ -538,7 +556,7 @@ const P = {
   aisanceUrbaine: 1.20,        // marge sur le rayon utile — d'où les trous
   porteeExploitations: 2.2,    // une ferme a le droit de s'éloigner
   margeFondation: 2.4,         // le rayon de fondation anticipe le parc complet
-  ampleurSurcapacite: 4.0,     // ×2,4 la surcapacité du tempérament, en excès d'offre
+  ampleurSurcapacite: 4.0,     // ×4 la surcapacité du tempérament, en excès d'offre
   dispersionVille: 18,         // et ensuite, quand la ville bâtit d'elle-même
   rendementMinimalPourBatir: 0.05,  // sous ce rendement attendu, on ne bâtit pas
 

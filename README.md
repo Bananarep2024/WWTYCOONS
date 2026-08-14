@@ -89,11 +89,12 @@ vingt ans de simulation sans joueur. Résultats attendus :
 | Marges par case | 4 / 16 / 22 $ | exactes |
 | Travail incorporé, un ménage | 0,900 case | 0,900 |
 | 30 % de production retenue, 5 mois | +19 % | +19,2 % |
-| Ville à 20 ans — ménages | 80 → 250 et plus | 228–450 |
-| Ville à 20 ans — emploi | 75–90 % | 74–86 % |
+| Ville à 20 ans — ménages | 55 → 500 et plus | 618–1 063 |
+| Ville à 20 ans — niveau | Ville ou mieux | Ville ×4, Grandeville ×1 |
+| Ville à 20 ans — emploi | 82–90 % | 84–89 % |
 | Ville à 20 ans — nourriture | 100 % | 100 % |
-| Ville à 20 ans — produits | 90–100 % | 95 % |
-| Ville à 20 ans — attractivité | au-dessus du pivot | 84–94 % |
+| Ville à 20 ans — produits | 90–100 % | 93 % |
+| Ville à 20 ans — salaire | ~20 $, le barème | 20,2–21,3 |
 | Ville à 20 ans — salaire | ~20 $, le barème | 19,1–20,0 |
 | Amplitude des prix | 0,67–1,30 × réf. | 0,83–1,17 |
 
