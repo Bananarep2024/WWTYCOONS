@@ -26,6 +26,7 @@ export const P = {
   // Ville
   cibleProduits: 0.90,         // au-dessus, la ville cesse d'ajouter des manufactures
   menagesParBureaux: 40,       // un immeuble de bureaux pour tant de ménages
+  brasReservesAuxVivres: 0.15, // bras qu'on garde pour nourrir avant tout bureau
   emploiPourLoger: 0.86,       // on ne loge que dans une ville qui a du travail
   densifierSous: 0.25,         // quartier d'habitation rempli au 3/4 : on bâtit haut
   pivot: 0.80,                 // attractivité au-dessus de laquelle la ville attire

@@ -455,3 +455,30 @@ territoire. La limite n'est donc plus spatiale : la ville cesse d'ouvrir des emp
 qu'aucun nouveau bâtiment ne franchit le seuil de rentabilité, l'emploi reste sous les 86 %
 qui autorisent à loger, et la population s'arrête là. La Métropole est désormais **possible**
 — il faudra un joueur, ou un levier de plus, pour l'atteindre.
+
+### Un bureau prend vingt bras et ne nourrit personne
+
+Le balayage de la densité de bureaux — le seul levier d'emploi fiable, puisqu'ils rapportent
+14 % et franchissent toujours le seuil de rentabilité — a révélé une falaise. Sur la carte de
+380 × 265, à cent ans :
+
+| Bureaux | 20 ans | 60 ans | 100 ans | Chômage | Attractivité | Cases libres | Niveaux |
+|---|---|---|---|---|---|---|---|
+| **1/40** (retenu) | 387 | 594 | 617 | 22 % | 99 % | 2 746 | Bourg, Ville |
+| 1/30 | 941 | 1 515 | 1 700 | 15 % | 98 % | 1 946 | Grandeville, **Métropole** |
+| 1/22 | 2 022 | 3 003 | 3 003 | 16 % | 80 % | 165 | Métropole — mais saturée et figée |
+| 1/16 | 0 | 0 | **0** | 100 % | 0 % | 3 952 | **l'économie meurt** |
+
+L'effondrement s'explique : un bureau mobilise vingt bras et ne produit aucune nourriture.
+Passé un certain seuil, tous les bras partent au tertiaire, plus personne ne bâtit de ferme,
+le seuil critique de nourriture est franchi et la population s'évapore à 5 % par mois.
+
+**Garde-fou, indépendant du réglage retenu** : on ne bâtit un bureau que le ventre plein
+(baromètre nourriture > 98 %) et en gardant **15 % des bras** disponibles pour armer la
+filière alimentaire. Mesuré après correction : à 1/16, la ville ne meurt plus — elle atteint
+1 788 ménages au lieu de zéro. La falaise recule sans disparaître, ce qui suffit : les
+réglages jouables en sont très loin.
+
+La densité reste à **1/40**. Passer à 1/30 rendrait les Métropoles atteignables par
+l'ordinateur seul et ferait *baisser* le chômage de 22 à 15 % — c'est un arbitrage de
+conception, en attente.

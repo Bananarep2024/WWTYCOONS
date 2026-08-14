@@ -181,7 +181,18 @@ function besoinsClasses(monde, ville, penchant) {
   const bureaux = monde.tousBatiments(ville)
     .filter(x => x.def.cat === 'bur').reduce((s, x) => s + x.def.postes, 0);
   const voulus = ville.menages / P.menagesParBureaux * BAT.bureaux.postes;
-  if (bureaux < voulus) {
+
+  // Un bureau prend vingt bras et ne nourrit personne. Poussée trop loin, la
+  // densité de bureaux tue la ville : les bras partent tous au tertiaire, plus
+  // personne ne bâtit de ferme, le seuil critique de nourriture est franchi et
+  // la population s'évapore à 5 % par mois. Mesuré : à un bureau pour seize
+  // ménages, les cinq villes tombent à ZÉRO habitant en moins de vingt ans.
+  //
+  // On ne bâtit donc de bureau que le ventre plein, et qu'à condition de garder
+  // de quoi armer la filière alimentaire.
+  const ventrePlein = b.nourriture > 0.98;
+  const marge = brasDisponibles(monde, ville) - BAT.bureaux.postes;
+  if (bureaux < voulus && ventrePlein && marge > ville.menages * P.brasReservesAuxVivres) {
     candidats.push({ score: 2.4 + (voulus - bureaux) / Math.max(1, voulus),
                      res: null, type: 'bureaux' });
   }
