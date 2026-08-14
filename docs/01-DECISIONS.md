@@ -681,3 +681,23 @@ calcule la moyenne pondérée réellement pratiquée dans la ville, et remplace 
 le panier, dans le budget et dans le salaire de subsistance. Mémorisé au mois : il est
 demandé cinq fois par ville et par mois, plus une fois par image quand le volet des villes
 est ouvert.
+
+---
+
+## Les emprises de voie, réservées et visibles
+
+La réservation existait déjà côté simulation : `tracerVoie` marquait `c.voie = true` sur tout
+le tracé, et `estAchetable`, `trouverEmplacement` et `empriseConstructible` refusaient ces
+cases. **Vérifié : 880 cases réservées, zéro bâtiment dessus au départ comme à soixante ans.**
+
+Ce qui manquait était le rendu. `dessinerVoies` tirait **un trait droit entre les deux
+gares** — alors que l'emprise réelle est un escalier doux qui passe à côté de la moitié de ce
+trait. Le joueur ne pouvait donc pas savoir quelles cases étaient réservées, ni acheter
+autour en connaissance de cause.
+
+| Point | Décision |
+|---|---|
+| **On dessine les cases, pas un trait** | `tracerVoie` renvoie désormais l'emprise **dans l'ordre**, de la gare de départ à celle d'arrivée, et la liaison la conserve. Le rendu peint chaque case. |
+| **La ligne se pose depuis les deux gares** | Chacune avance vers l'autre. Ce qui est posé est doré, ce qui reste est gris — on voit le chantier progresser, et l'on voit son propre investissement le faire avancer d'un coup. |
+| **Le gris doit se lire dès le premier mois** | C'est lui qui annonce où la ligne passera, donc où acheter avant tout le monde. Porté à 46 % d'opacité sur un gris clair. |
+| **Un plancher de largeur** | À la vue d'ensemble une case fait deux pixels ; une emprise dessinée à 62 % de cela disparaissait. Minimum 1,8 pixel. |

@@ -379,20 +379,43 @@ export class Rendu {
     return this.emprise ? !!this.emprise(c, this.pose) : false;
   }
 
+  // Les emprises de voie, case par case — et non plus un trait tiré entre deux
+  // gares.
+  //
+  // La différence n'est pas cosmétique : les cases sont RÉSERVÉES, personne ne
+  // peut y bâtir, et le joueur doit voir exactement lesquelles pour acheter
+  // autour. Un trait droit passait à côté de la moitié d'entre elles.
+  //
+  // La ligne se pose depuis les DEUX gares à la fois, chacune avançant vers
+  // l'autre : ce qui est posé est doré, ce qui reste à poser est gris. On voit
+  // ainsi le chantier progresser, et l'on voit son propre investissement le
+  // faire avancer d'un coup.
   dessinerVoies(ctx, p, ox, oy, x0, y0, x1, y1) {
     const m = this.monde;
-    // Une ligne achevée est un trait plein et doré ; une ligne en chantier
-    // reste grisée. Le joueur voit dès la première seconde où le rail passera.
+    // Un plancher de largeur : à la vue d'ensemble une case fait deux pixels,
+    // et une emprise dessinée à 62 % de cela ne se verrait plus.
+    const large = Math.max(1.8, p * 0.62), decal = (p - large) / 2;
+
     for (const l of m.liaisons) {
-      const a = m.villes[l.a].gare, b = m.villes[l.b].gare;
-      ctx.strokeStyle = l.achevee ? 'rgba(224,177,85,.85)' : 'rgba(120,112,96,.55)';
-      ctx.lineWidth = l.achevee ? Math.max(1.5, p * 0.30) : Math.max(1, p * 0.18);
-      ctx.setLineDash(l.achevee ? [] : [Math.max(3, p), Math.max(3, p)]);
-      ctx.beginPath();
-      ctx.moveTo(ox + (a.x + .5) * p, oy + (a.y + .5) * p);
-      ctx.lineTo(ox + (b.x + .5) * p, oy + (b.y + .5) * p);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      const e = l.emprise;
+      if (!e || !e.length) continue;
+
+      // Avancement : de l'ouverture du chantier à la date d'achèvement.
+      const avance = l.achevee ? 1
+        : Math.max(0, Math.min(1, l.date > 0 ? m.mois / l.date : 0));
+      const posees = Math.round(e.length * avance);
+      const parBout = posees / 2;
+
+      for (let i = 0; i < e.length; i++) {
+        const c = e[i];
+        if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
+        // Posée si elle est à moins de `parBout` cases de l'une des deux gares.
+        const posee = l.achevee || i < parBout || (e.length - 1 - i) < parBout;
+        // Le gris doit se lire dès le premier mois : c'est lui qui annonce où la
+        // ligne passera, et donc où il faut acheter avant tout le monde.
+        ctx.fillStyle = posee ? 'rgba(224,177,85,.90)' : 'rgba(186,180,166,.46)';
+        ctx.fillRect(ox + c.x * p + decal, oy + c.y * p + decal, large, large);
+      }
     }
   }
 

@@ -268,7 +268,11 @@ export function genererMonde(nbVilles, graine) {
   // s'y prête. Deux villes reliées par une chaîne d'autres villes sont reliées :
   // A–B et B–C valent A–C, sans troisième ligne à construire.
   const liaisons = construireReseau(villes, rnd);
-  for (const l of liaisons) tracerVoie(cases, L, H, villes[l.a].gare, villes[l.b].gare);
+  // L'emprise de chaque liaison est conservée : réservée dès la première
+  // seconde, inconstructible, et dessinée en train de se poser.
+  for (const l of liaisons) {
+    l.emprise = tracerVoie(cases, L, H, villes[l.a].gare, villes[l.b].gare);
+  }
 
   return { L, H, cases, villes, liaisons, graine };
 }
@@ -309,14 +313,16 @@ function construireReseau(villes, rnd) {
 // Trace l'emprise de la voie, en escalier doux entre deux gares. Elle est
 // réservée et visible dès la première seconde : le joueur sait où la ligne
 // aboutira, et peut acheter autour.
+// L'emprise est renvoyée DANS L'ORDRE, de la gare de départ à celle d'arrivée :
+// c'est ce qui permet de la dessiner en train de se construire, gare après gare,
+// au lieu d'un simple trait entre deux points.
 function tracerVoie(cases, L, H, d, f) {
+  const emprise = [];
   let x = d.x, y = d.y;
   const poser = () => {
-    for (let k = -0; k <= 0; k++) {
-      const c = cases[Math.max(0, Math.min(H - 1, y + k)) * L + Math.max(0, Math.min(L - 1, x))];
-      if (c.bat) continue;
-      c.voie = true;
-    }
+    const c = cases[Math.max(0, Math.min(H - 1, y)) * L + Math.max(0, Math.min(L - 1, x))];
+    c.voie = true;
+    emprise.push(c);
   };
   poser();
   let garde = 0;
@@ -328,6 +334,7 @@ function tracerVoie(cases, L, H, d, f) {
     else y += dy;
     poser();
   }
+  return emprise;
 }
 
 function melanger(a, rnd) {

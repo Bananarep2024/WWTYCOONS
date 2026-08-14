@@ -111,6 +111,8 @@ terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
 
 - **Une seule carte du monde** : cinq villes posées sur un relief, à distance minimale
   garantie, reliées par un réseau ferroviaire où les liaisons se chaînent
+- **Les emprises de voie sont réservées dès la première seconde** — grisées case par case,
+  inconstructibles, et se dégrisant depuis les deux gares à mesure que la ligne se pose
 - **Bâtiments dessinés** — toits, dents de scie, silos, chevalements — et quartiers de
   vocations distinctes : l'industrie ne cerne jamais l'habitation
 - **Cinq villes aux départs différents** — chacune fondée sur un tempérament tiré au sort :
