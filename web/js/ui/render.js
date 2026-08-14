@@ -439,13 +439,15 @@ export class Rendu {
         avance = Math.max(0, Math.min(1, (m.mois - l.debut) / (l.date - l.debut)));
       }
       const posees = Math.round(e.length * avance);
-      const parBout = posees / 2;
 
       for (let i = 0; i < e.length; i++) {
         const c = e[i];
         if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
-        // Posée si elle est à moins de `parBout` cases de l'une des deux gares.
-        const posee = l.achevee || i < parBout || (e.length - 1 - i) < parBout;
+        // La voie avance depuis UNE gare vers l'autre. Elle partait autrefois
+        // des deux bouts à la fois, ce qui allait deux fois plus vite et ne
+        // ressemblait à rien : une équipe pose du rail devant elle.
+        const rang = l.depuisB ? (e.length - 1 - i) : i;
+        const posee = l.achevee || rang < posees;
         // Le gris doit se lire dès le premier mois : c'est lui qui annonce où la
         // ligne passera, et donc où il faut acheter avant tout le monde.
         ctx.fillStyle = posee ? 'rgba(224,177,85,.90)' : 'rgba(186,180,166,.46)';

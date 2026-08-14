@@ -209,14 +209,14 @@ export const P = {
   margeMonde: 22,              // on ne fonde pas une ville au bord de la carte
   rayonVille: 44,              // rayon moyen d'un territoire, dévié par ville
   distanceMinVilles: 94,       // de centre à centre : sans quoi le rail n'a pas de sens
-  moisParCaseDeVoie: 0.12,     // durée d'un chantier, à la case de longueur
+  moisParCaseDeVoie: 0.24,     // durée d'un chantier, à la case de longueur
   // Elle valait 0,42 quand les cinq lignes se construisaient EN PARALLÈLE. La
   // compagnie n'en pose plus qu'une à la fois, si bien que les durées
   // s'additionnent au lieu de se recouvrir : le réseau ne s'achevait qu'au mois
   // 312 à 366, et une ville sur deux mourait d'être restée isolée vingt-cinq
-  // ans. À 0,12 le premier train roule vers le mois 25 et le réseau est complet
-  // vers le mois 110 — une ligne tous les vingt mois, ce qui fait du rail une
-  // affaire qu'on suit plutôt qu'un décor qui se déploie tout seul.     // une ligne longue demande plus de travail
+  // ans. Elle est ensuite passée de 0,12 à 0,24 quand la voie a cessé d'être
+  // posée par ses deux bouts : une équipe qui part d'une seule gare met deux
+  // fois plus longtemps à rejoindre l'autre, et le chiffre doit le dire.     // une ligne longue demande plus de travail
   menagesInitiaux: 55,         // avant le tempérament, qui l'étire de 0,80 à 1,20
 };
 

@@ -1,6 +1,7 @@
 // Banc d'essai : vérifie que le barème code bien ce que dit docs/00-BAREME.md,
 // puis fait tourner vingt ans de simulation sans joueur.
 import { P, BAT, RES, materiaux, coutRef, loyer, prixTerrain, potentielTerrain, facteurQualite } from './params.js';
+import { Marche } from './market.js';
 import { Monde } from './world.js';
 
 let ko = 0;
@@ -92,22 +93,35 @@ console.log('\n=== Le marché sert le local d\'abord ===');
   ok('le grand livre est conservatif', ecartMax < 1e-4 ? 0 : 1, 0, 0.01);
   ok('aucun stock local négatif', plusNegatif < -1e-6 ? 1 : 0, 0, 0.01);
 
-  // Sur un marché tendu, l'autosuffisante doit être mieux servie que celle qui
-  // manque : c'est toute la règle, et un service uniforme la trahirait.
-  let vus = 0, respectes = 0;
-  for (const mk of w.marches) {
-    if (mk.villes.length < 2) continue;
-    for (const r of Object.keys(mk.stock)) {
-      if (mk.service[r] > 0.98) continue;
-      const taux = [...mk.parVille.values()].map(l => l.serviceLocal[r]);
-      if (Math.max(...taux) - Math.min(...taux) < 0.01) continue;
-      vus++;
-      // celle qui produit assez est à 100 %, celle qui manque est en dessous
-      if (Math.max(...taux) > 0.999) respectes++;
-    }
-  }
-  ok('cas de tension observés', vus > 0 ? 1 : 0, 1, 0.01);
-  ok('la ville autosuffisante est servie en plein', vus ? respectes / vus : 1, 1, 0.001);
+}
+
+// La règle, vérifiée sur un marché fabriqué plutôt que sondée dans une partie.
+// Un sondage se prend forcément APRÈS la consommation, quand les besoins sont
+// soldés : il ne trouvait rien à observer et faisait échouer le contrôle sans
+// qu'aucune règle n'ait bougé.
+{
+  const A = { nom: 'A' }, B = { nom: 'B' };
+  const essai = (offreA, offreB, besoinA, besoinB) => {
+    const mk = new Marche([A, B]);
+    mk.offrir('pain', offreA, A); mk.offrir('pain', offreB, B);
+    mk.demander('pain', besoinA, A); mk.demander('pain', besoinB, B);
+    mk.ouvrirGuichet(); mk.calculerService();
+    return { a: mk.prendre('pain', besoinA, A), b: mk.prendre('pain', besoinB, B) };
+  };
+
+  // A se suffit tout juste, B ne produit rien : A est servie en plein, B a zéro.
+  let r = essai(100, 0, 100, 100);
+  ok('l\'autosuffisante est servie en plein', r.a, 100, 0.001);
+  ok('… même quand la voisine manque de tout', r.b, 0, 0.001);
+
+  // A produit la moitié de trop : son surplus part chez B, et pas un grain de plus.
+  r = essai(150, 0, 100, 100);
+  ok('elle garde ce qu\'il lui faut', r.a, 100, 0.001);
+  ok('… et n\'exporte que son surplus', r.b, 50, 0.001);
+
+  // Personne n'a assez : les deux sont rationnées, et rien ne se crée.
+  r = essai(60, 40, 100, 100);
+  ok('en disette, rien ne se crée', r.a + r.b, 100, 0.001);
 }
 
 console.log('\n=== Foncier ===');

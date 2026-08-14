@@ -917,14 +917,14 @@ const P = {
   margeMonde: 22,              // on ne fonde pas une ville au bord de la carte
   rayonVille: 44,              // rayon moyen d'un territoire, dévié par ville
   distanceMinVilles: 94,       // de centre à centre : sans quoi le rail n'a pas de sens
-  moisParCaseDeVoie: 0.12,     // durée d'un chantier, à la case de longueur
+  moisParCaseDeVoie: 0.24,     // durée d'un chantier, à la case de longueur
   // Elle valait 0,42 quand les cinq lignes se construisaient EN PARALLÈLE. La
   // compagnie n'en pose plus qu'une à la fois, si bien que les durées
   // s'additionnent au lieu de se recouvrir : le réseau ne s'achevait qu'au mois
   // 312 à 366, et une ville sur deux mourait d'être restée isolée vingt-cinq
-  // ans. À 0,12 le premier train roule vers le mois 25 et le réseau est complet
-  // vers le mois 110 — une ligne tous les vingt mois, ce qui fait du rail une
-  // affaire qu'on suit plutôt qu'un décor qui se déploie tout seul.     // une ligne longue demande plus de travail
+  // ans. Elle est ensuite passée de 0,12 à 0,24 quand la voie a cessé d'être
+  // posée par ses deux bouts : une équipe qui part d'une seule gare met deux
+  // fois plus longtemps à rejoindre l'autre, et le chiffre doit le dire.     // une ligne longue demande plus de travail
   menagesInitiaux: 55,         // avant le tempérament, qui l'étire de 0,80 à 1,20
 };
 
@@ -4495,6 +4495,12 @@ class Monde {
     if (l.date === null) {
       l.debut = this.mois;
       l.date = this.mois + l.dateInitiale;
+      // La voie part d'UNE gare et va vers l'autre — jamais des deux à la fois.
+      // On part de la ville déjà reliée quand il y en a une : le réseau
+      // s'étend depuis son noyau, ce qui se lit d'un coup d'œil sur la carte.
+      const relieeA = this.compagnie.lignes.some(x => x.a === l.a || x.b === l.a);
+      const relieeB = this.compagnie.lignes.some(x => x.a === l.b || x.b === l.b);
+      l.depuisB = relieeB && !relieeA;
       this.journal.push(`${this.mois} · ⚒ ${this.compagnie.nom} ouvre le chantier`
         + ` ${l.nom} — ${l.longueur} cases, livraison annoncée dans ${l.dateInitiale} mois`);
       return;
@@ -5363,13 +5369,15 @@ class Rendu {
         avance = Math.max(0, Math.min(1, (m.mois - l.debut) / (l.date - l.debut)));
       }
       const posees = Math.round(e.length * avance);
-      const parBout = posees / 2;
 
       for (let i = 0; i < e.length; i++) {
         const c = e[i];
         if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
-        // Posée si elle est à moins de `parBout` cases de l'une des deux gares.
-        const posee = l.achevee || i < parBout || (e.length - 1 - i) < parBout;
+        // La voie avance depuis UNE gare vers l'autre. Elle partait autrefois
+        // des deux bouts à la fois, ce qui allait deux fois plus vite et ne
+        // ressemblait à rien : une équipe pose du rail devant elle.
+        const rang = l.depuisB ? (e.length - 1 - i) : i;
+        const posee = l.achevee || rang < posees;
         // Le gris doit se lire dès le premier mois : c'est lui qui annonce où la
         // ligne passera, et donc où il faut acheter avant tout le monde.
         ctx.fillStyle = posee ? 'rgba(224,177,85,.90)' : 'rgba(186,180,166,.46)';

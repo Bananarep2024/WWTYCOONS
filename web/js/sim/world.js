@@ -1274,6 +1274,12 @@ export class Monde {
     if (l.date === null) {
       l.debut = this.mois;
       l.date = this.mois + l.dateInitiale;
+      // La voie part d'UNE gare et va vers l'autre — jamais des deux à la fois.
+      // On part de la ville déjà reliée quand il y en a une : le réseau
+      // s'étend depuis son noyau, ce qui se lit d'un coup d'œil sur la carte.
+      const relieeA = this.compagnie.lignes.some(x => x.a === l.a || x.b === l.a);
+      const relieeB = this.compagnie.lignes.some(x => x.a === l.b || x.b === l.b);
+      l.depuisB = relieeB && !relieeA;
       this.journal.push(`${this.mois} · ⚒ ${this.compagnie.nom} ouvre le chantier`
         + ` ${l.nom} — ${l.longueur} cases, livraison annoncée dans ${l.dateInitiale} mois`);
       return;
