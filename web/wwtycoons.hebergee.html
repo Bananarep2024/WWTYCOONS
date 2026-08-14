@@ -6646,6 +6646,11 @@ function ficheBatiment(monde, b, c) {
   const rdt = b.rendement;
   const vise = rendementVise(b.type);
   const seuil = b.seuilActivite(m);
+  // Un logement ne « tourne » pas : il se remplit. Ce que le reste du jeu
+  // appelle taux d'activité est ici le TAUX D'OCCUPATION, et c'est celui de la
+  // ville entière — tous les propriétaires le partagent, personne ne remplit ses
+  // murs avant ceux du voisin.
+  const loge = def.cat === 'loge';
 
   // --- Ce qu'il rapporte ---------------------------------------------------
   const exploitation = `
@@ -6657,7 +6662,12 @@ function ficheBatiment(monde, b, c) {
         <div class="v ${b.resultat >= 0 ? 'vert' : 'rouge'}">${eur(b.resultat)}</div></div>
       <div class="fiche"><div class="etiq">Profit sur 12 mois</div>
         <div class="v ${b.profitAnnuel >= 0 ? 'vert' : 'rouge'}">${eur(b.profitAnnuel)}</div></div>
-      <div class="fiche"><div class="etiq">Activité</div><div class="v">${pct(b.tauxReel)}</div></div>
+      ${loge
+        ? `<div class="fiche"><div class="etiq">Occupation</div>
+             <div class="v" style="color:${rgb(echelle(b.tauxReel))}">${pct(b.tauxReel)}</div>
+             <div class="etiq" style="margin-top:2px">${b.vacantePenurie ? 'vacant' : 'de la ville'}</div></div>`
+        : `<div class="fiche"><div class="etiq">Activité</div>
+             <div class="v">${pct(b.tauxReel)}</div></div>`}
       <div class="fiche"><div class="etiq">Entretien</div>
         <div class="v doux">${b.entretien.toFixed(2)} $</div></div>
       <div class="fiche"><div class="etiq">Valeur</div>
@@ -6665,7 +6675,10 @@ function ficheBatiment(monde, b, c) {
       <div class="fiche"><div class="etiq">Prix de revient</div>
         <div class="v doux">${eur(b.prixDeRevient)}</div></div>
     </div>
-    <div class="note">La rentabilité se mesure sur le prix de revient — terrain et matériaux
+    <div class="note">${loge ? `L'occupation est celle de la ville entière : tous les
+      logements se remplissent au même taux, personne n'a la priorité sur son voisin.
+      ${Math.round(b.ville.menages)} ménages pour ${Math.round(b.ville.capaciteLogement || 0)}
+      logements.<br><br>` : ''}La rentabilité se mesure sur le prix de revient — terrain et matériaux
       au prix du jour — et se compare au rendement que le barème assigne à son palier.
       ${rdt >= vise ? '<span class="vert">Ce bâtiment tient sa promesse.</span>'
         : rdt <= 0 ? '<span class="rouge">Il ne rapporte rien.</span>'
