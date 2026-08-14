@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node web/js/sim/selftest.js)",
+      "Bash(node verifier-page.mjs)"
+    ]
+  }
+}
