@@ -204,9 +204,11 @@ export function detailVille(monde, v) {
       ${Math.round(v.temperament.produits * 100)} % en produits manufacturés,
       ${v.temperament.bureaux >= 1.2 ? 'une belle dotation de bureaux'
         : v.temperament.bureaux <= 0.6 ? 'presque pas de bureaux' : 'des bureaux en nombre moyen'},
-      et ${v.temperament.malchance >= 0.25 ? 'beaucoup d\'affaires'
-        : v.temperament.malchance <= 0.06 ? 'très peu d\'affaires' : 'quelques affaires'}
-      plantées sur du mauvais sol — celles qu'on rachète pour le prix de leur terre.</div>` : ''}
+      et ${v.filieresEngorgees && v.filieresEngorgees.length
+        ? `<b>${v.filieresEngorgees.map(f => RES[f].nom.toLowerCase()).join(' et ')}</b> en
+           surproduction — cours effondré, stock qui s'entasse, ateliers déficitaires en bloc :
+           c'est là qu'on ramasse une filière entière pour le prix de sa terre`
+        : 'aucune filière en surproduction'}.</div>` : ''}
     <div class="grille">
       <div class="fiche"><div class="etiq">Ménages</div><div class="v">${Math.round(v.menages)}</div></div>
       <div class="fiche"><div class="etiq">Logements</div>
@@ -256,33 +258,88 @@ export function detailVille(monde, v) {
 
 // --- Marché -----------------------------------------------------------------
 
-export function voletMarche(monde, rendu) {
-  return monde.marches.map(m => {
-    const lignes = RESSOURCES.map(r => {
-      const i = m.indice(r);
-      const classe = i > 1.35 ? 'rouge' : i < 0.8 ? 'vert' : 'doux';
-      return `<tr class="ligneRes" data-prix="${r}">
-        <td><span class="puce" style="background:${RES[r].couleur}"></span>${RES[r].nom}</td>
-        <td class="n">${m.prix[r].toFixed(2)} $</td>
-        <td class="n ${classe}">${i.toFixed(2)}×</td>
-        <td class="n ${m.service[r] < 0.95 ? 'rouge' : 'doux'}">${pct(m.service[r])}</td>
-      </tr>`;
-    }).join('');
-    return `<h3>${m.nom}${m.villes.length > 1 ? ' — marché fusionné' : ''}</h3>
-      <table>
-        <tr><th>Marchandise</th><th class="n">Prix</th><th class="n">/ réf.</th><th class="n">Servi</th></tr>
-        ${lignes}
-      </table>`;
-  }).join('') + `
-    <div class="note">
-      Touchez une marchandise pour la voir sur la carte, ville par ville.<br><br>
-      Le prix suit les <b>flux</b>, jamais le stock : il monte quand les besoins du mois
-      dépassent ce qui entre sur le marché. Rafler un stock ne fait pas bouger le cours —
-      cela vide le matelas, et les usines s'arrêtent au premier accroc.
-    </div>`;
+// Le cours d'une marchandise, en courbe.
+//
+// Un instantané ne dit rien : un cours à 0,85 peut être une filière qui
+// s'effondre ou une pénurie qui se résorbe, et les deux appellent des décisions
+// opposées. La courbe tranche d'un coup d'œil.
+function graphiqueCours(h, couleur) {
+  if (!h || h.length < 2) {
+    return '<div class="note">Pas encore assez de mois pour tracer une courbe.</div>';
+  }
+  const L = 300, H = 96, marge = 4;
+  const bas = Math.min(0.9, Math.min(...h)), haut = Math.max(1.1, Math.max(...h));
+  const y = (v) => marge + (haut - v) / (haut - bas) * (H - 2 * marge);
+  const x = (i) => i / (h.length - 1) * L;
+  const trace = h.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const aire = `${trace} L${L},${H} L0,${H} Z`;
+  const dernier = h[h.length - 1];
+
+  return `<svg viewBox="0 0 ${L} ${H}" class="cours" preserveAspectRatio="none">
+      <line x1="0" y1="${y(1).toFixed(1)}" x2="${L}" y2="${y(1).toFixed(1)}"
+            stroke="rgba(224,177,85,.45)" stroke-width="1" stroke-dasharray="4 4"/>
+      <path d="${aire}" fill="${couleur}" opacity=".14"/>
+      <path d="${trace}" fill="none" stroke="${couleur}" stroke-width="2"
+            stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    </svg>
+    <div class="legendeCours">
+      <span>${h.length} mois</span>
+      <span class="doux">bas ${bas.toFixed(2)}× · haut ${haut.toFixed(2)}×</span>
+      <span class="or">aujourd'hui ${dernier.toFixed(2)}×</span>
+    </div>
+    <div class="note">Le trait doré est le <b>prix de référence</b> — celui qui s'établit
+      quand la demande égale l'offre. Sous ce trait, la filière produit plus que le marché
+      n'absorbe : le stock s'entasse et les ateliers perdent de l'argent, tous à la fois.</div>`;
 }
 
-// --- Société ----------------------------------------------------------------
+export function voletMarche(monde, rendu) {
+  const ouvert = rendu.coursOuvert || null;
+
+  return monde.marches.map(m => {
+    const cartes = RESSOURCES.map(r => {
+      const i = m.indice(r);
+      const servi = m.service[r] === undefined ? 1 : m.service[r];
+      const stock = m.stock[r] || 0;
+      // La jauge dit ce qu'on peut OBTENIR : rouge, la marchandise manque et les
+      // ateliers s'arrêtent ; vert, on en trouve autant qu'on en demande.
+      const teinte = rgb(echelle(servi));
+      const classePrix = i > 1.35 ? 'rouge' : i < 0.85 ? 'vert' : 'doux';
+      const engorge = i < 0.9 && stock > 200;
+
+      return `<div class="carteRes ${ouvert === r ? 'actif' : ''}" data-cours="${r}">
+        <div class="tetRes">
+          <span><span class="puce" style="background:${RES[r].couleur}"></span>${RES[r].nom}</span>
+          <span class="prixRes ${classePrix}">${m.prix[r].toFixed(2)} $
+            <span class="etiq" style="display:block;text-align:right">${i.toFixed(2)} × réf.</span></span>
+        </div>
+        <div class="miniPiste" style="margin:5px 0 4px">
+          <div style="width:${(servi * 100).toFixed(0)}%;background:${teinte}"></div>
+        </div>
+        <div class="piedRes">
+          <span>stock <b>${Math.round(stock).toLocaleString('fr-FR')}</b></span>
+          <span class="${servi < 0.95 ? 'rouge' : 'doux'}">${pct(servi)} servi</span>
+          ${engorge ? '<span class="vert">engorgé</span>' : ''}
+        </div>
+        ${ouvert === r ? graphiqueCours(m.histoPrix[r], RES[r].couleur)
+            + `<div class="actions" style="margin-top:6px">
+                 <button data-prix="${r}">Voir sur la carte</button>
+               </div>` : ''}
+      </div>`;
+    }).join('');
+
+    return `<h3>${m.nom}${m.villes.length > 1 ? ' — marché fusionné' : ''}</h3>
+      <div class="listeRes">${cartes}</div>`;
+  }).join('') + `
+    <div class="note">
+      Touchez une marchandise pour <b>ouvrir sa courbe</b>, et le bouton pour la voir ville
+      par ville sur la carte.<br><br>
+      La jauge dit ce qu'on peut <b>obtenir</b> : rouge, la marchandise manque et les ateliers
+      s'arrêtent au premier accroc ; vert, on en trouve autant qu'on en demande. Le prix, lui,
+      suit les <b>flux</b> et jamais le stock — il monte quand les besoins du mois dépassent ce
+      qui entre sur le marché. Rafler un stock ne fait pas bouger le cours : cela vide le
+      matelas, et c'est tout.
+    </div>`;
+}
 
 export function voletSociete(monde) {
   const s = monde.joueur;

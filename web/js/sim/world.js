@@ -189,58 +189,60 @@ export class Monde {
     return Math.max(plancher, k);
   }
 
-  // Poser une affaire vouée à perdre de l'argent, délibérément.
+  // Surconstruire une filière, délibérément.
   //
-  // C'est ce qui fabrique les bâtiments déficitaires du premier mois — ceux
-  // qu'on rachète pour le prix de leur terre, à charge de les redresser ou de
-  // les raser. Sans eux, toutes les villes ouvrent avec un parc également sain
-  // et il n'y a rien à chiner.
+  // C'est ainsi qu'on fabrique des bâtiments déficitaires — pas en les plantant
+  // sur de la caillasse. Trop de scieries pour la demande, et le prix des
+  // planches tombe au plancher pendant que le stock s'entasse : les scieries
+  // perdent toutes de l'argent à la fois, alors qu'aucune n'est mal placée.
+  // C'est une crise de surproduction, et elle se lit sur le marché — le cours
+  // s'effondre, la jauge passe au vert vif, le stock enfle — au lieu de rester
+  // une propriété cachée du sol que rien n'annonçait.
   //
-  // On ne choisit PAS un métier pour lui chercher ensuite un mauvais sol : la
-  // première version faisait cela et posait deux bâtiments sur huit, parce que
-  // la bande de qualité recherchée était étroite et le métier tiré d'avance.
-  // On cherche à l'inverse la plus mauvaise terre disponible, tous métiers
-  // confondus, et l'on y met celui qui y perdra le plus.
-  //
-  // La ferme et le ranch sont privilégiés : deux cases, donc deux salaires
-  // pleins pour une production que le sol divise par trois. Un ranch sur de la
-  // caillasse encaisse 31 $ et en verse 40 — il perd quoi que fasse le marché.
-  // Une coupe forestière, elle, redevient rentable dès que le bois se raréfie.
-  poserAffaireBancale(v) {
-    const METIERS = [
-      { type: 'ranch',       poids: 1.00 },
-      { type: 'ferme',       poids: 1.00 },
-      { type: 'mineCharbon', poids: 0.55 },
-      { type: 'mineFer',     poids: 0.55 },
-      { type: 'coupe',       poids: 0.50 },
-      { type: 'carriere',    poids: 0.50 },
-    ];
-    let choix = null, pire = Infinity;
-
-    for (const { type, poids } of METIERS) {
+  // Le joueur y trouve un vrai gisement : une scierie déficitaire dans une ville
+  // qui en compte deux fois trop vaut le prix de sa terre, et redevient
+  // excellente le jour où le rail la relie à une ville qui manque de planches.
+  surconstruire(v, filiere, facteur) {
+    const AMONT = {
+      planches: ['scierie', 'coupe'],
+      briques:  ['briqueterie', 'carriere'],
+      pain:     ['minoterie', 'ferme'],
+      viande:   ['abattoir', 'ranch'],
+      acier:    ['acierie', 'mineCharbon', 'mineFer'],
+      produits: ['manufacture'],
+    };
+    const chaine = AMONT[filiere];
+    if (!chaine) return;
+    for (const type of chaine) {
       const def = BAT[type];
-      for (const depart of v.cases) {
-        const cases = [];
-        let ok = true;
-        for (let dy = 0; dy < def.h && ok; dy++) for (let dx = 0; dx < def.w && ok; dx++) {
-          const c = this.caseAt(depart.x + dx, depart.y + dy);
-          if (!c || c.ville !== v || c.voie || c.bat || c.chantier || c.proprio) { ok = false; break; }
-          cases.push(c);
-        }
-        if (!ok || cases.length !== def.cases) continue;
-        const moy = cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length;
-        // Le score mêle la qualité du sol et la sévérité du métier : à sol égal,
-        // un ranch fera une affaire plus catastrophique qu'une coupe.
-        const score = moy / poids;
-        if (score < pire) { pire = score; choix = { type, cases }; }
+      // Le surplus se mesure en cases installées : on ajoute de quoi porter la
+      // filière à `facteur` fois ce qu'elle produit déjà.
+      const enPlace = this.tousBatiments(v).filter(b => b.type === type)
+        .reduce((s2, b) => s2 + b.n, 0);
+      const aAjouter = Math.round(enPlace * (facteur - 1) / def.cases);
+      for (let k = 0; k < aAjouter; k++) {
+        const cases = this.trouverEmplacement(v, type, null, P.dispersionDepart);
+        if (!cases) break;
+        this.poser(type, v, cases, null);
       }
     }
-    return choix ? this.poser(choix.type, v, choix.cases, null) : null;
   }
 
   parcDeDepart(v) {
     const M = v.menages;
-    const t = v.temperament || { emploi: 1, vivres: 1, produits: 1, bureaux: 1, malchance: 0 };
+    const t = v.temperament
+      || { emploi: 1, vivres: 1, produits: 1, bureaux: 1, surcapacite: 0 };
+
+    // On donne d'emblée à la ville le rayon de ce qu'elle va devenir.
+    //
+    // Le rayon utile se calcule sur la population, et la population n'est fixée
+    // qu'À LA FIN — une fois les postes comptés. Le parc de départ se serait donc
+    // bâti dans le rayon d'un hameau : la surcapacité voulue ne trouvait pas un
+    // pouce de terre libre et ne se posait tout simplement pas. On amorce donc
+    // le rayon sur ce que la ville va peser, surcapacité comprise.
+    v.rayonAtteint = Math.max(6, Math.min(v.rayon * 1.15,
+      Math.sqrt(Math.max(40, M * P.casesParMenage * P.margeFondation) / Math.PI)
+        * P.aisanceUrbaine));
     const dBois = this.dotation(v, 'bois');
     const dArgile = this.dotation(v, 'argile');
     const dCharbon = this.dotation(v, 'charbon');
@@ -293,13 +295,20 @@ export class Monde {
     // villes identiques. On compte donc les postes une fois le parc posé, et on
     // ajuste jusqu'à la cible. Une friche industrielle ouvre à 58 % — un tiers
     // de chômeurs dès la première seconde — une cité ouvrière au plein emploi.
-    // Les affaires mal parties, avant le recensement : elles s'arrêteront dès le
-    // premier mois — marge brute négative — et cesseront donc de demander des
-    // bras. C'est voulu, et c'est précisément pour cela qu'elles doivent être
-    // comptées AVANT qu'on fixe la population.
-    const productifs = this.tousBatiments(v).filter(b => b.def.sort).length;
-    const bancals = Math.round(productifs * t.malchance * P.partBancale);
-    for (let k = 0; k < bancals; k++) this.poserAffaireBancale(v);
+    // La ou les filières surconstruites, avant le recensement des postes : leurs
+    // ateliers travailleront — ils demandent donc des bras — mais à un prix
+    // effondré, donc à perte. C'est la crise de surproduction, et c'est ce qui
+    // met sur le marché les affaires que le joueur viendra ramasser.
+    const FILIERES = ['planches', 'briques', 'pain', 'viande', 'acier', 'produits'];
+    const combien = t.surcapacite >= 0.30 ? 2 : t.surcapacite >= 0.12 ? 1 : 0;
+    const tirees = [];
+    for (let k = 0; k < combien; k++) {
+      const libres = FILIERES.filter(f => !tirees.includes(f));
+      const f = libres[Math.floor(Math.random() * libres.length)];
+      tirees.push(f);
+      this.surconstruire(v, f, 1 + t.surcapacite * P.ampleurSurcapacite);
+    }
+    v.filieresEngorgees = tirees;
 
     // LE CHÔMAGE, en dernier — et par la population, jamais par la démolition.
     //

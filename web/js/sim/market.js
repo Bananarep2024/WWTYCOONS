@@ -28,6 +28,10 @@ export class Marche {
       this.service[r] = 1;
       this.prixRevient[r] = Infinity;
     }
+    // L'historique des cours : sans lui, le joueur ne voit qu'un instantané et
+    // ne peut pas distinguer une pénurie qui s'installe d'un accident d'un mois.
+    this.histoPrix = {};
+    for (const r of RESSOURCES) this.histoPrix[r] = [];
   }
 
   get nom() { return this.villes.map(v => v.nom).join(' + '); }
@@ -77,6 +81,10 @@ export class Marche {
       const bas = Math.max(ref * P.prixPlancher, revient);
       this.prix[r] = Math.max(bas, Math.min(ref * P.prixPlafond, this.prix[r]));
       this.prixRevient[r] = Infinity;
+
+      const h = this.histoPrix[r];
+      h.push(this.prix[r] / ref);
+      if (h.length > P.histoireDesCours) h.shift();
     }
   }
 

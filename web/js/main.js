@@ -111,8 +111,14 @@ function brancherVolet(corps) {
     appliquerFiltre(b.dataset.filtre || null, null);
     rafraichirVolet();
   });
-  corps.querySelectorAll('[data-prix]').forEach(b => b.onclick = () => {
+  corps.querySelectorAll('[data-prix]').forEach(b => b.onclick = (e) => {
+    e.stopPropagation();               // sinon la carte se replie aussitôt
     appliquerFiltre(null, b.dataset.prix);
+    rafraichirVolet();
+  });
+  // Toucher une marchandise déplie sa courbe ; la retoucher la replie.
+  corps.querySelectorAll('[data-cours]').forEach(b => b.onclick = () => {
+    rendu.coursOuvert = rendu.coursOuvert === b.dataset.cours ? null : b.dataset.cours;
     rafraichirVolet();
   });
   corps.querySelectorAll('[data-rdt]').forEach(b => b.onclick = () => {

@@ -69,8 +69,9 @@ const PROFILS = [
 //   vivres     couverture alimentaire
 //   produits   couverture en produits manufacturés
 //   bureaux    dotation en immeubles de bureaux, l'argent qui vient du dehors
-//   malchance  part des exploitations plantées sur un sol médiocre — donc
-//              déficitaires dès le premier mois, donc à racheter pour rien
+//   surcapacite  ampleur de la ou des filières SURCONSTRUITES — trop d'offre,
+//                donc un cours effondré, un stock qui s'entasse et des ateliers
+//                déficitaires en bloc : de quoi ramasser une filière entière
 //   taille     population de départ, en multiple de la base
 // Les bornes ne sont pas libres : sous 50 % d'emploi ou 80 % de nourriture, un
 // seuil critique est franchi et la ville se vide de 5 % par mois quoi qu'il
@@ -81,15 +82,15 @@ const PROFILS = [
 // 20 % seulement : c'est là qu'on peut vraiment creuser l'écart.
 const TEMPERAMENTS = [
   { nom: 'cité ouvrière',       emploi: 1.00, vivres: 0.90, produits: 0.60,
-    bureaux: 0.45, malchance: 0.12, taille: 1.20 },
+    bureaux: 0.45, surcapacite: 0.14, taille: 1.20 },
   { nom: 'ville de rentiers',   emploi: 0.72, vivres: 1.08, produits: 1.15,
-    bureaux: 1.85, malchance: 0.05, taille: 0.95 },
+    bureaux: 1.85, surcapacite: 0.04, taille: 0.95 },
   { nom: 'comptoir affamé',     emploi: 0.86, vivres: 0.88, produits: 0.55,
-    bureaux: 0.80, malchance: 0.26, taille: 0.80 },
+    bureaux: 0.80, surcapacite: 0.30, taille: 0.80 },
   { nom: 'bourg prospère',      emploi: 0.95, vivres: 1.12, produits: 1.10,
-    bureaux: 1.25, malchance: 0.04, taille: 1.10 },
+    bureaux: 1.25, surcapacite: 0.06, taille: 1.10 },
   { nom: 'friche industrielle', emploi: 0.68, vivres: 0.95, produits: 0.75,
-    bureaux: 0.55, malchance: 0.36, taille: 0.90 },
+    bureaux: 0.55, surcapacite: 0.42, taille: 0.90 },
 ];
 
 // Les vocations de quartier. Un quartier est une tache de Voronoï à l'intérieur

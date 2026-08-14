@@ -59,6 +59,7 @@ export const P = {
   multipleCrise: 5,
   malusPerte: 3,               // une perte se répare : -3 × perte annuelle
   fenetreProfit: 12,           // mois glissants
+  histoireDesCours: 180,       // mois de cours conservés par marchandise
 
   // Foncier
   facteurNiveau: [1.0, 1.3, 1.8, 2.6, 4.0],
@@ -75,8 +76,8 @@ export const P = {
   casesParMenage: 3.0,         // logement + postes : ce qu'un ménage occupe
   aisanceUrbaine: 1.20,        // marge sur le rayon utile — d'où les trous
   porteeExploitations: 2.2,    // une ferme a le droit de s'éloigner
-  partBancale: 0.9,            // part du parc productif replantée sur mauvais sol
-  solBancal: 1.5,              // au-dessus, le marché rendrait l'affaire viable
+  margeFondation: 2.4,         // le rayon de fondation anticipe le parc complet
+  ampleurSurcapacite: 4.0,     // ×2,4 la surcapacité du tempérament, en excès d'offre
   dispersionVille: 18,         // et ensuite, quand la ville bâtit d'elle-même
   rendementMinimalPourBatir: 0.05,  // sous ce rendement attendu, on ne bâtit pas
 

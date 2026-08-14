@@ -524,3 +524,36 @@ d'habitation encore libres**.
 
 Le tempérament est affiché dans l'onglet Villes — « fondée comme friche industrielle » — et
 détaillé au dépli.
+
+---
+
+## La surproduction plutôt que le mauvais sol
+
+Correction du joueur sur la fabrication des affaires déficitaires : ce n'est pas en plantant
+des exploitations sur de la caillasse qu'on les obtient, c'est en **surconstruisant une
+filière**. Si l'offre dépasse la demande, le prix tombe et le stock s'accumule — et tous les
+ateliers de la filière perdent de l'argent à la fois, alors qu'aucun n'est mal placé.
+
+Il avait raison sur les deux plans. Le mauvais sol était une propriété **cachée** que rien
+n'annonçait, et il ne marchait qu'à moitié : une coupe forestière sur de la caillasse
+redevient rentable dès que le bois se raréfie, si bien que les affaires voulues bancales ne
+l'étaient plus. La surproduction, elle, se lit sur le marché — cours effondré, stock qui
+enfle — et donne au joueur un vrai gisement : une scierie déficitaire dans une ville qui en
+compte deux fois trop vaut le prix de sa terre, et redevient excellente le jour où le rail
+la relie à une ville qui manque de planches.
+
+| Point | Décision |
+|---|---|
+| **Une ou deux filières engorgées par ville** | Selon le tempérament : rien pour un bourg prospère, deux pour une friche industrielle. On surconstruit la filière **et son amont** — trop de scieries ne sert à rien sans trop de coupes. |
+| **Le rayon de fondation anticipe le parc** | Défaut trouvé au test : le rayon utile se calcule sur la population, et la population n'est fixée qu'à la fin, une fois les postes comptés. Le parc se bâtissait donc dans le rayon d'un hameau, la surcapacité ne trouvait pas un pouce de terre libre et **ne se posait tout simplement pas** — zéro effet mesuré. On amorce le rayon sur ce que la ville va peser. |
+| **Mesuré** | Filières engorgées à 18 mois : cours de **0,75 à 0,93 ×** la référence, stocks de **338 à 1 401**, et jusqu'à **3 aciéries sur 3** en perte. Les filières saines restent entre 0,96 et 1,25. |
+
+## Le marché, marchandise par marchandise
+
+| Point | Décision |
+|---|---|
+| **Une carte par marchandise** | Le tableau à quatre colonnes disait tout et ne montrait rien. Chaque marchandise a maintenant sa carte : nom, prix, cours rapporté à la référence, **jauge rouge → vert**, stock disponible, taux de service. |
+| **Ce que mesure la jauge** | Ce qu'on peut **obtenir** — le taux de service. Rouge : la marchandise manque et les ateliers s'arrêteront au premier accroc. Vert : on en trouve autant qu'on en demande. C'est la seule lecture qui commande une décision ; le prix, lui, est donné en chiffre à côté. |
+| **La pastille « engorgé »** | Cours sous 0,90 × la référence **et** plus de 200 unités en stock : la signature d'une surproduction. C'est l'endroit où chiner. |
+| **La courbe des cours** | Toucher une marchandise déplie sa courbe sur 180 mois, avec le prix de référence en trait doré, le plus bas, le plus haut et le cours du jour. Un instantané ne dit rien : un cours à 0,85 peut être une filière qui s'effondre ou une pénurie qui se résorbe, et les deux appellent des décisions opposées. |
+| **L'historique** | `Marche.histoPrix` conserve 180 mois par marchandise, écrits à chaque fixation de prix. |

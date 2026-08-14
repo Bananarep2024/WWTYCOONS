@@ -327,3 +327,33 @@ input[type=range] { width: 100%; accent-color: var(--or); }
   padding-top: 5px; line-height: 1.5;
 }
 .carteVille .avert, .carteVille .note { margin-top: 5px; font-size: 10.5px; }
+
+/* ---------- Le marché : une carte par marchandise ---------- */
+
+.listeRes { display: flex; flex-direction: column; gap: 5px; }
+
+.carteRes {
+  background: var(--fond3); border: 1px solid var(--bord); border-radius: 5px;
+  padding: 8px 10px; cursor: pointer;
+}
+.carteRes:hover { border-color: var(--or); }
+.carteRes.actif { border-color: var(--or); background: #2b2519; }
+
+.tetRes { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.tetRes .prixRes {
+  font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums;
+  text-align: right; flex: 0 0 auto; line-height: 1.15;
+}
+.piedRes {
+  display: flex; gap: 10px; justify-content: space-between;
+  font-size: 10.5px; color: var(--doux); font-variant-numeric: tabular-nums;
+}
+
+svg.cours {
+  width: 100%; height: 96px; display: block; margin: 9px 0 2px;
+  background: rgba(0,0,0,.20); border-radius: 4px;
+}
+.legendeCours {
+  display: flex; justify-content: space-between; gap: 8px;
+  font-size: 10px; font-variant-numeric: tabular-nums; color: var(--faible);
+}

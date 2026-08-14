@@ -114,10 +114,14 @@ terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
   vocations distinctes : l'industrie ne cerne jamais l'habitation
 - **Cinq villes aux départs différents** — chacune fondée sur un tempérament tiré au sort :
   cité ouvrière, ville de rentiers, comptoir affamé, bourg prospère, friche industrielle.
-  Chômage de 25 à 48 %, couverture des besoins, dotation en bureaux et nombre d'affaires
-  déficitaires varient de l'une à l'autre
+  Chômage de 25 à 48 %, couverture des besoins, dotation en bureaux — et une ou deux
+  filières **en surproduction** selon la ville : cours effondré, stock qui s'entasse,
+  ateliers déficitaires en bloc
 - **Attractivité par ville** — le seul chiffre qui décide de la population : moyenne des
   trois baromètres × pouvoir d'achat, avec le détail des quatre composantes ville par ville
+- **Le marché, marchandise par marchandise** : jauge rouge → vert de ce qu'on peut obtenir,
+  stock disponible, cours rapporté à la référence, et la **courbe des cours sur 180 mois**
+  en touchant la marchandise
 - **Filtres** en dégradé rouge → vert : qualité du sol case par case, baromètres ville par
   ville, et le prix de chacune des douze marchandises sur les cinq villes
 - **Fiche complète au clic** : rentabilité, intrants reçus et manquants, production, marge,

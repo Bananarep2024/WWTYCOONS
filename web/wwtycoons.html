@@ -339,6 +339,36 @@ input[type=range] { width: 100%; accent-color: var(--or); }
 }
 .carteVille .avert, .carteVille .note { margin-top: 5px; font-size: 10.5px; }
 
+/* ---------- Le marché : une carte par marchandise ---------- */
+
+.listeRes { display: flex; flex-direction: column; gap: 5px; }
+
+.carteRes {
+  background: var(--fond3); border: 1px solid var(--bord); border-radius: 5px;
+  padding: 8px 10px; cursor: pointer;
+}
+.carteRes:hover { border-color: var(--or); }
+.carteRes.actif { border-color: var(--or); background: #2b2519; }
+
+.tetRes { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.tetRes .prixRes {
+  font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums;
+  text-align: right; flex: 0 0 auto; line-height: 1.15;
+}
+.piedRes {
+  display: flex; gap: 10px; justify-content: space-between;
+  font-size: 10.5px; color: var(--doux); font-variant-numeric: tabular-nums;
+}
+
+svg.cours {
+  width: 100%; height: 96px; display: block; margin: 9px 0 2px;
+  background: rgba(0,0,0,.20); border-radius: 4px;
+}
+.legendeCours {
+  display: flex; justify-content: space-between; gap: 8px;
+  font-size: 10px; font-variant-numeric: tabular-nums; color: var(--faible);
+}
+
 </style>
 </head>
 <body>
@@ -490,6 +520,7 @@ const P = {
   multipleCrise: 5,
   malusPerte: 3,               // une perte se répare : -3 × perte annuelle
   fenetreProfit: 12,           // mois glissants
+  histoireDesCours: 180,       // mois de cours conservés par marchandise
 
   // Foncier
   facteurNiveau: [1.0, 1.3, 1.8, 2.6, 4.0],
@@ -506,8 +537,8 @@ const P = {
   casesParMenage: 3.0,         // logement + postes : ce qu'un ménage occupe
   aisanceUrbaine: 1.20,        // marge sur le rayon utile — d'où les trous
   porteeExploitations: 2.2,    // une ferme a le droit de s'éloigner
-  partBancale: 0.9,            // part du parc productif replantée sur mauvais sol
-  solBancal: 1.5,              // au-dessus, le marché rendrait l'affaire viable
+  margeFondation: 2.4,         // le rayon de fondation anticipe le parc complet
+  ampleurSurcapacite: 4.0,     // ×2,4 la surcapacité du tempérament, en excès d'offre
   dispersionVille: 18,         // et ensuite, quand la ville bâtit d'elle-même
   rendementMinimalPourBatir: 0.05,  // sous ce rendement attendu, on ne bâtit pas
 
@@ -760,8 +791,9 @@ const PROFILS = [
 //   vivres     couverture alimentaire
 //   produits   couverture en produits manufacturés
 //   bureaux    dotation en immeubles de bureaux, l'argent qui vient du dehors
-//   malchance  part des exploitations plantées sur un sol médiocre — donc
-//              déficitaires dès le premier mois, donc à racheter pour rien
+//   surcapacite  ampleur de la ou des filières SURCONSTRUITES — trop d'offre,
+//                donc un cours effondré, un stock qui s'entasse et des ateliers
+//                déficitaires en bloc : de quoi ramasser une filière entière
 //   taille     population de départ, en multiple de la base
 // Les bornes ne sont pas libres : sous 50 % d'emploi ou 80 % de nourriture, un
 // seuil critique est franchi et la ville se vide de 5 % par mois quoi qu'il
@@ -772,15 +804,15 @@ const PROFILS = [
 // 20 % seulement : c'est là qu'on peut vraiment creuser l'écart.
 const TEMPERAMENTS = [
   { nom: 'cité ouvrière',       emploi: 1.00, vivres: 0.90, produits: 0.60,
-    bureaux: 0.45, malchance: 0.12, taille: 1.20 },
+    bureaux: 0.45, surcapacite: 0.14, taille: 1.20 },
   { nom: 'ville de rentiers',   emploi: 0.72, vivres: 1.08, produits: 1.15,
-    bureaux: 1.85, malchance: 0.05, taille: 0.95 },
+    bureaux: 1.85, surcapacite: 0.04, taille: 0.95 },
   { nom: 'comptoir affamé',     emploi: 0.86, vivres: 0.88, produits: 0.55,
-    bureaux: 0.80, malchance: 0.26, taille: 0.80 },
+    bureaux: 0.80, surcapacite: 0.30, taille: 0.80 },
   { nom: 'bourg prospère',      emploi: 0.95, vivres: 1.12, produits: 1.10,
-    bureaux: 1.25, malchance: 0.04, taille: 1.10 },
+    bureaux: 1.25, surcapacite: 0.06, taille: 1.10 },
   { nom: 'friche industrielle', emploi: 0.68, vivres: 0.95, produits: 0.75,
-    bureaux: 0.55, malchance: 0.36, taille: 0.90 },
+    bureaux: 0.55, surcapacite: 0.42, taille: 0.90 },
 ];
 
 // Les vocations de quartier. Un quartier est une tache de Voronoï à l'intérieur
@@ -1071,6 +1103,10 @@ class Marche {
       this.service[r] = 1;
       this.prixRevient[r] = Infinity;
     }
+    // L'historique des cours : sans lui, le joueur ne voit qu'un instantané et
+    // ne peut pas distinguer une pénurie qui s'installe d'un accident d'un mois.
+    this.histoPrix = {};
+    for (const r of RESSOURCES) this.histoPrix[r] = [];
   }
 
   get nom() { return this.villes.map(v => v.nom).join(' + '); }
@@ -1120,6 +1156,10 @@ class Marche {
       const bas = Math.max(ref * P.prixPlancher, revient);
       this.prix[r] = Math.max(bas, Math.min(ref * P.prixPlafond, this.prix[r]));
       this.prixRevient[r] = Infinity;
+
+      const h = this.histoPrix[r];
+      h.push(this.prix[r] / ref);
+      if (h.length > P.histoireDesCours) h.shift();
     }
   }
 
@@ -2400,58 +2440,60 @@ class Monde {
     return Math.max(plancher, k);
   }
 
-  // Poser une affaire vouée à perdre de l'argent, délibérément.
+  // Surconstruire une filière, délibérément.
   //
-  // C'est ce qui fabrique les bâtiments déficitaires du premier mois — ceux
-  // qu'on rachète pour le prix de leur terre, à charge de les redresser ou de
-  // les raser. Sans eux, toutes les villes ouvrent avec un parc également sain
-  // et il n'y a rien à chiner.
+  // C'est ainsi qu'on fabrique des bâtiments déficitaires — pas en les plantant
+  // sur de la caillasse. Trop de scieries pour la demande, et le prix des
+  // planches tombe au plancher pendant que le stock s'entasse : les scieries
+  // perdent toutes de l'argent à la fois, alors qu'aucune n'est mal placée.
+  // C'est une crise de surproduction, et elle se lit sur le marché — le cours
+  // s'effondre, la jauge passe au vert vif, le stock enfle — au lieu de rester
+  // une propriété cachée du sol que rien n'annonçait.
   //
-  // On ne choisit PAS un métier pour lui chercher ensuite un mauvais sol : la
-  // première version faisait cela et posait deux bâtiments sur huit, parce que
-  // la bande de qualité recherchée était étroite et le métier tiré d'avance.
-  // On cherche à l'inverse la plus mauvaise terre disponible, tous métiers
-  // confondus, et l'on y met celui qui y perdra le plus.
-  //
-  // La ferme et le ranch sont privilégiés : deux cases, donc deux salaires
-  // pleins pour une production que le sol divise par trois. Un ranch sur de la
-  // caillasse encaisse 31 $ et en verse 40 — il perd quoi que fasse le marché.
-  // Une coupe forestière, elle, redevient rentable dès que le bois se raréfie.
-  poserAffaireBancale(v) {
-    const METIERS = [
-      { type: 'ranch',       poids: 1.00 },
-      { type: 'ferme',       poids: 1.00 },
-      { type: 'mineCharbon', poids: 0.55 },
-      { type: 'mineFer',     poids: 0.55 },
-      { type: 'coupe',       poids: 0.50 },
-      { type: 'carriere',    poids: 0.50 },
-    ];
-    let choix = null, pire = Infinity;
-
-    for (const { type, poids } of METIERS) {
+  // Le joueur y trouve un vrai gisement : une scierie déficitaire dans une ville
+  // qui en compte deux fois trop vaut le prix de sa terre, et redevient
+  // excellente le jour où le rail la relie à une ville qui manque de planches.
+  surconstruire(v, filiere, facteur) {
+    const AMONT = {
+      planches: ['scierie', 'coupe'],
+      briques:  ['briqueterie', 'carriere'],
+      pain:     ['minoterie', 'ferme'],
+      viande:   ['abattoir', 'ranch'],
+      acier:    ['acierie', 'mineCharbon', 'mineFer'],
+      produits: ['manufacture'],
+    };
+    const chaine = AMONT[filiere];
+    if (!chaine) return;
+    for (const type of chaine) {
       const def = BAT[type];
-      for (const depart of v.cases) {
-        const cases = [];
-        let ok = true;
-        for (let dy = 0; dy < def.h && ok; dy++) for (let dx = 0; dx < def.w && ok; dx++) {
-          const c = this.caseAt(depart.x + dx, depart.y + dy);
-          if (!c || c.ville !== v || c.voie || c.bat || c.chantier || c.proprio) { ok = false; break; }
-          cases.push(c);
-        }
-        if (!ok || cases.length !== def.cases) continue;
-        const moy = cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length;
-        // Le score mêle la qualité du sol et la sévérité du métier : à sol égal,
-        // un ranch fera une affaire plus catastrophique qu'une coupe.
-        const score = moy / poids;
-        if (score < pire) { pire = score; choix = { type, cases }; }
+      // Le surplus se mesure en cases installées : on ajoute de quoi porter la
+      // filière à `facteur` fois ce qu'elle produit déjà.
+      const enPlace = this.tousBatiments(v).filter(b => b.type === type)
+        .reduce((s2, b) => s2 + b.n, 0);
+      const aAjouter = Math.round(enPlace * (facteur - 1) / def.cases);
+      for (let k = 0; k < aAjouter; k++) {
+        const cases = this.trouverEmplacement(v, type, null, P.dispersionDepart);
+        if (!cases) break;
+        this.poser(type, v, cases, null);
       }
     }
-    return choix ? this.poser(choix.type, v, choix.cases, null) : null;
   }
 
   parcDeDepart(v) {
     const M = v.menages;
-    const t = v.temperament || { emploi: 1, vivres: 1, produits: 1, bureaux: 1, malchance: 0 };
+    const t = v.temperament
+      || { emploi: 1, vivres: 1, produits: 1, bureaux: 1, surcapacite: 0 };
+
+    // On donne d'emblée à la ville le rayon de ce qu'elle va devenir.
+    //
+    // Le rayon utile se calcule sur la population, et la population n'est fixée
+    // qu'À LA FIN — une fois les postes comptés. Le parc de départ se serait donc
+    // bâti dans le rayon d'un hameau : la surcapacité voulue ne trouvait pas un
+    // pouce de terre libre et ne se posait tout simplement pas. On amorce donc
+    // le rayon sur ce que la ville va peser, surcapacité comprise.
+    v.rayonAtteint = Math.max(6, Math.min(v.rayon * 1.15,
+      Math.sqrt(Math.max(40, M * P.casesParMenage * P.margeFondation) / Math.PI)
+        * P.aisanceUrbaine));
     const dBois = this.dotation(v, 'bois');
     const dArgile = this.dotation(v, 'argile');
     const dCharbon = this.dotation(v, 'charbon');
@@ -2504,13 +2546,20 @@ class Monde {
     // villes identiques. On compte donc les postes une fois le parc posé, et on
     // ajuste jusqu'à la cible. Une friche industrielle ouvre à 58 % — un tiers
     // de chômeurs dès la première seconde — une cité ouvrière au plein emploi.
-    // Les affaires mal parties, avant le recensement : elles s'arrêteront dès le
-    // premier mois — marge brute négative — et cesseront donc de demander des
-    // bras. C'est voulu, et c'est précisément pour cela qu'elles doivent être
-    // comptées AVANT qu'on fixe la population.
-    const productifs = this.tousBatiments(v).filter(b => b.def.sort).length;
-    const bancals = Math.round(productifs * t.malchance * P.partBancale);
-    for (let k = 0; k < bancals; k++) this.poserAffaireBancale(v);
+    // La ou les filières surconstruites, avant le recensement des postes : leurs
+    // ateliers travailleront — ils demandent donc des bras — mais à un prix
+    // effondré, donc à perte. C'est la crise de surproduction, et c'est ce qui
+    // met sur le marché les affaires que le joueur viendra ramasser.
+    const FILIERES = ['planches', 'briques', 'pain', 'viande', 'acier', 'produits'];
+    const combien = t.surcapacite >= 0.30 ? 2 : t.surcapacite >= 0.12 ? 1 : 0;
+    const tirees = [];
+    for (let k = 0; k < combien; k++) {
+      const libres = FILIERES.filter(f => !tirees.includes(f));
+      const f = libres[Math.floor(Math.random() * libres.length)];
+      tirees.push(f);
+      this.surconstruire(v, f, 1 + t.surcapacite * P.ampleurSurcapacite);
+    }
+    v.filieresEngorgees = tirees;
 
     // LE CHÔMAGE, en dernier — et par la population, jamais par la démolition.
     //
@@ -4344,9 +4393,11 @@ function detailVille(monde, v) {
       ${Math.round(v.temperament.produits * 100)} % en produits manufacturés,
       ${v.temperament.bureaux >= 1.2 ? 'une belle dotation de bureaux'
         : v.temperament.bureaux <= 0.6 ? 'presque pas de bureaux' : 'des bureaux en nombre moyen'},
-      et ${v.temperament.malchance >= 0.25 ? 'beaucoup d\'affaires'
-        : v.temperament.malchance <= 0.06 ? 'très peu d\'affaires' : 'quelques affaires'}
-      plantées sur du mauvais sol — celles qu'on rachète pour le prix de leur terre.</div>` : ''}
+      et ${v.filieresEngorgees && v.filieresEngorgees.length
+        ? `<b>${v.filieresEngorgees.map(f => RES[f].nom.toLowerCase()).join(' et ')}</b> en
+           surproduction — cours effondré, stock qui s'entasse, ateliers déficitaires en bloc :
+           c'est là qu'on ramasse une filière entière pour le prix de sa terre`
+        : 'aucune filière en surproduction'}.</div>` : ''}
     <div class="grille">
       <div class="fiche"><div class="etiq">Ménages</div><div class="v">${Math.round(v.menages)}</div></div>
       <div class="fiche"><div class="etiq">Logements</div>
@@ -4396,33 +4447,88 @@ function detailVille(monde, v) {
 
 // --- Marché -----------------------------------------------------------------
 
-function voletMarche(monde, rendu) {
-  return monde.marches.map(m => {
-    const lignes = RESSOURCES.map(r => {
-      const i = m.indice(r);
-      const classe = i > 1.35 ? 'rouge' : i < 0.8 ? 'vert' : 'doux';
-      return `<tr class="ligneRes" data-prix="${r}">
-        <td><span class="puce" style="background:${RES[r].couleur}"></span>${RES[r].nom}</td>
-        <td class="n">${m.prix[r].toFixed(2)} $</td>
-        <td class="n ${classe}">${i.toFixed(2)}×</td>
-        <td class="n ${m.service[r] < 0.95 ? 'rouge' : 'doux'}">${pct(m.service[r])}</td>
-      </tr>`;
-    }).join('');
-    return `<h3>${m.nom}${m.villes.length > 1 ? ' — marché fusionné' : ''}</h3>
-      <table>
-        <tr><th>Marchandise</th><th class="n">Prix</th><th class="n">/ réf.</th><th class="n">Servi</th></tr>
-        ${lignes}
-      </table>`;
-  }).join('') + `
-    <div class="note">
-      Touchez une marchandise pour la voir sur la carte, ville par ville.<br><br>
-      Le prix suit les <b>flux</b>, jamais le stock : il monte quand les besoins du mois
-      dépassent ce qui entre sur le marché. Rafler un stock ne fait pas bouger le cours —
-      cela vide le matelas, et les usines s'arrêtent au premier accroc.
-    </div>`;
+// Le cours d'une marchandise, en courbe.
+//
+// Un instantané ne dit rien : un cours à 0,85 peut être une filière qui
+// s'effondre ou une pénurie qui se résorbe, et les deux appellent des décisions
+// opposées. La courbe tranche d'un coup d'œil.
+function graphiqueCours(h, couleur) {
+  if (!h || h.length < 2) {
+    return '<div class="note">Pas encore assez de mois pour tracer une courbe.</div>';
+  }
+  const L = 300, H = 96, marge = 4;
+  const bas = Math.min(0.9, Math.min(...h)), haut = Math.max(1.1, Math.max(...h));
+  const y = (v) => marge + (haut - v) / (haut - bas) * (H - 2 * marge);
+  const x = (i) => i / (h.length - 1) * L;
+  const trace = h.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const aire = `${trace} L${L},${H} L0,${H} Z`;
+  const dernier = h[h.length - 1];
+
+  return `<svg viewBox="0 0 ${L} ${H}" class="cours" preserveAspectRatio="none">
+      <line x1="0" y1="${y(1).toFixed(1)}" x2="${L}" y2="${y(1).toFixed(1)}"
+            stroke="rgba(224,177,85,.45)" stroke-width="1" stroke-dasharray="4 4"/>
+      <path d="${aire}" fill="${couleur}" opacity=".14"/>
+      <path d="${trace}" fill="none" stroke="${couleur}" stroke-width="2"
+            stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    </svg>
+    <div class="legendeCours">
+      <span>${h.length} mois</span>
+      <span class="doux">bas ${bas.toFixed(2)}× · haut ${haut.toFixed(2)}×</span>
+      <span class="or">aujourd'hui ${dernier.toFixed(2)}×</span>
+    </div>
+    <div class="note">Le trait doré est le <b>prix de référence</b> — celui qui s'établit
+      quand la demande égale l'offre. Sous ce trait, la filière produit plus que le marché
+      n'absorbe : le stock s'entasse et les ateliers perdent de l'argent, tous à la fois.</div>`;
 }
 
-// --- Société ----------------------------------------------------------------
+function voletMarche(monde, rendu) {
+  const ouvert = rendu.coursOuvert || null;
+
+  return monde.marches.map(m => {
+    const cartes = RESSOURCES.map(r => {
+      const i = m.indice(r);
+      const servi = m.service[r] === undefined ? 1 : m.service[r];
+      const stock = m.stock[r] || 0;
+      // La jauge dit ce qu'on peut OBTENIR : rouge, la marchandise manque et les
+      // ateliers s'arrêtent ; vert, on en trouve autant qu'on en demande.
+      const teinte = rgb(echelle(servi));
+      const classePrix = i > 1.35 ? 'rouge' : i < 0.85 ? 'vert' : 'doux';
+      const engorge = i < 0.9 && stock > 200;
+
+      return `<div class="carteRes ${ouvert === r ? 'actif' : ''}" data-cours="${r}">
+        <div class="tetRes">
+          <span><span class="puce" style="background:${RES[r].couleur}"></span>${RES[r].nom}</span>
+          <span class="prixRes ${classePrix}">${m.prix[r].toFixed(2)} $
+            <span class="etiq" style="display:block;text-align:right">${i.toFixed(2)} × réf.</span></span>
+        </div>
+        <div class="miniPiste" style="margin:5px 0 4px">
+          <div style="width:${(servi * 100).toFixed(0)}%;background:${teinte}"></div>
+        </div>
+        <div class="piedRes">
+          <span>stock <b>${Math.round(stock).toLocaleString('fr-FR')}</b></span>
+          <span class="${servi < 0.95 ? 'rouge' : 'doux'}">${pct(servi)} servi</span>
+          ${engorge ? '<span class="vert">engorgé</span>' : ''}
+        </div>
+        ${ouvert === r ? graphiqueCours(m.histoPrix[r], RES[r].couleur)
+            + `<div class="actions" style="margin-top:6px">
+                 <button data-prix="${r}">Voir sur la carte</button>
+               </div>` : ''}
+      </div>`;
+    }).join('');
+
+    return `<h3>${m.nom}${m.villes.length > 1 ? ' — marché fusionné' : ''}</h3>
+      <div class="listeRes">${cartes}</div>`;
+  }).join('') + `
+    <div class="note">
+      Touchez une marchandise pour <b>ouvrir sa courbe</b>, et le bouton pour la voir ville
+      par ville sur la carte.<br><br>
+      La jauge dit ce qu'on peut <b>obtenir</b> : rouge, la marchandise manque et les ateliers
+      s'arrêtent au premier accroc ; vert, on en trouve autant qu'on en demande. Le prix, lui,
+      suit les <b>flux</b> et jamais le stock — il monte quand les besoins du mois dépassent ce
+      qui entre sur le marché. Rafler un stock ne fait pas bouger le cours : cela vide le
+      matelas, et c'est tout.
+    </div>`;
+}
 
 function voletSociete(monde) {
   const s = monde.joueur;
@@ -5239,8 +5345,14 @@ function brancherVolet(corps) {
     appliquerFiltre(b.dataset.filtre || null, null);
     rafraichirVolet();
   });
-  corps.querySelectorAll('[data-prix]').forEach(b => b.onclick = () => {
+  corps.querySelectorAll('[data-prix]').forEach(b => b.onclick = (e) => {
+    e.stopPropagation();               // sinon la carte se replie aussitôt
     appliquerFiltre(null, b.dataset.prix);
+    rafraichirVolet();
+  });
+  // Toucher une marchandise déplie sa courbe ; la retoucher la replie.
+  corps.querySelectorAll('[data-cours]').forEach(b => b.onclick = () => {
+    rendu.coursOuvert = rendu.coursOuvert === b.dataset.cours ? null : b.dataset.cours;
     rafraichirVolet();
   });
   corps.querySelectorAll('[data-rdt]').forEach(b => b.onclick = () => {
