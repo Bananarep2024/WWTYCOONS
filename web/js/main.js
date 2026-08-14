@@ -180,6 +180,7 @@ function brancherVolet(corps) {
     const meme = rendu.pose === b.dataset.batir;
     rendu.pose = meme ? null : b.dataset.batir;
     rendu.survol = null;
+    posesDeSuite = 0;              // on change de bâtiment : le compte repart
     // Et le volet s'efface — sur téléphone il couvre les trois quarts de
     // l'écran, si bien que le doigt tendu vers la carte retombait sur la liste
     // et changeait de bâtiment au lieu d'en poser un. Le bandeau du haut suffit
@@ -227,18 +228,27 @@ function appliquerFiltre(nom, prix, rdt) {
 
 // Le bandeau du haut sert aussi de rappel de mode : on ne doit jamais pouvoir
 // toucher la carte sans savoir ce qui va s'y passer.
+// Combien de bâtiments de suite on a posés sans quitter le mode. Remis à zéro
+// dès qu'on change de bâtiment.
+let posesDeSuite = 0;
+
 function majBandeauPose() {
   const b = $('#bandeauFiltre');
   $('#btnQuitterFiltre').textContent = 'Voir les bâtiments';
   if (!rendu.pose) {
+    posesDeSuite = 0;
     if (!rendu.filtre && !rendu.filtrePrix && !rendu.filtreRdt) b.classList.add('cachee');
     else appliquerFiltre(rendu.filtre, rendu.filtrePrix, rendu.filtreRdt);
     return;
   }
   b.classList.remove('cachee');
-  $('#bandeauNom').textContent = `Poser — ${BAT[rendu.pose].nom} · touchez la carte`;
-  $('#bandeauEchelle').style.display = 'none';
-  $('#btnQuitterFiltre').textContent = 'Annuler';
+  $('#bandeauNom').textContent = `Poser — ${BAT[rendu.pose].nom}`
+    + (posesDeSuite ? ` · ${posesDeSuite} posé${posesDeSuite > 1 ? 's' : ''}, continuez`
+                    : ' · touchez la carte');
+  // La mesure entière disparaît, pas seulement son dégradé : ses deux libellés
+  // seraient restés seuls en l'air.
+  $('#bandeauMesure').style.display = 'none';
+  $('#btnQuitterFiltre').textContent = 'Terminer';
 }
 
 // Poser un bâtiment : on achète le foncier manquant et on ouvre le chantier
@@ -256,7 +266,15 @@ function poser(c) {
   // `ouvrirChantier` lui-même ; il ne reste qu'à les rendre acquérables.
   if (!monde.ouvrirChantier(rendu.pose, c.ville, d.cases, joueur)) return false;
   rendu.rafraichirIndex();
-  rendu.pose = null; rendu.survol = null;
+
+  // ON RESTE EN MODE POSE.
+  //
+  // Bâtir dix coupes forestières ne doit pas demander dix allers-retours par le
+  // menu : on pose, et le mode attend le geste suivant. Seul `survol` se remet à
+  // zéro, pour qu'un bâtiment de plus d'une case se prévisualise à nouveau avant
+  // d'être validé. Le bandeau compte les poses et porte le bouton pour sortir.
+  rendu.survol = null;
+  posesDeSuite++;
   majBandeauPose();
   rafraichirTout();
   return true;
@@ -420,7 +438,9 @@ cv.addEventListener('pointerup', (e) => {
     const px = e.clientX - r.left, py = e.clientY - r.top;
 
     // Deux touchers rapprochés : on approche, plutôt que d'ouvrir une fiche.
-    if (t - dernierToucher < 320) {
+    // Sauf en mode pose : poser plusieurs bâtiments d'affilée, c'est justement
+    // toucher la carte coup sur coup, et le zoom volait un geste sur deux.
+    if (t - dernierToucher < 320 && !rendu.pose) {
       rendu.zoomerVers(px, py, 2.0);
     } else {
       const c = rendu.caseSous(px, py);
