@@ -999,3 +999,45 @@ et la population croît de ×3,18 à ×3,79 entre quinze et trente ans.
 villes malades mais des épisodes de croissance : la population dépasse ses vivres, le baromètre
 plonge, la ville se vide un peu, puis les fermes rattrapent. Une économie qui ne connaîtrait
 jamais ce cycle n'aurait rien à arbitrer.
+
+
+---
+
+## Un bâtiment en perte vaut ses murs
+
+Signalé en jouant : « je peux racheter un bâtiment de 4 cases en déficit au prix total d'une case
+de terrain ».
+
+C'était exact, et la faute était une sur-correction de ma part. Pour fermer l'arbitrage « acheter
+une affaire en perte, démolir, revendre le terrain plus cher qu'on ne l'a payé », le prix avait
+été écrit `terrain + max(0, 3 × profit)`. Le plancher à zéro fermait bien l'arbitrage — il le
+ramenait à exactement 0 $ — mais il introduisait une aberration plus grosse : **dès que le profit
+passait sous zéro, le bâti disparaissait du bilan.**
+
+Une aciérie déficitaire contient toujours ses 3 240 $ de planches, de briques et d'acier, et un
+simple retournement de cours la remet à flot. La céder pour son seul sol, c'est l'offrir.
+
+Le plancher est désormais la **valeur résiduelle des murs**, 45 % du coût de reconstruction :
+
+    prix = terrain + max(0,45 × coût de reconstruction, 3 × profit annuel)
+
+Une affaire vaut le meilleur de ses deux destins — exploitation ou liquidation. Prendre le
+maximum des deux est la seule formule qui ne casse ni dans un sens ni dans l'autre.
+
+L'arbitrage ne se rouvre pas, il se referme **plus largement** : on paie terrain + résiduelle, on
+ne récupère que le terrain en démolissant, donc l'opération perd exactement la résiduelle.
+Mesuré sur les 38 bâtiments en perte d'une partie de dix ans, le meilleur arbitrage possible est
+de −58,50 $ ; il valait 0,00 $ auparavant.
+
+Le taux de 45 % est un choix de jeu autant que de comptabilité : une filière surconstruite doit
+rester une occasion à ramasser — c'est le mécanisme même des tempéraments de départ — sans que
+l'occasion soit un cadeau.
+
+### Une asymétrie qui subsiste, et qui est assumée
+
+Le terrain d'un bâtiment racheté se paie au cours du jour, tandis qu'une case nue achetée à un
+indépendant coûte 20 % de plus (`surprixIndependants`). Passer par un bâtiment reste donc une
+façon légèrement moins chère d'acquérir du sol. Corriger cela demanderait un écart entre prix
+d'achat et prix de vente, c'est-à-dire une taxe — ce que le modèle refuse par ailleurs. La
+différence est de 20 % sur le seul terme foncier, et la valeur résiduelle la couvre désormais
+largement.

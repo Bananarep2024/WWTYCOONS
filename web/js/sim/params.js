@@ -141,6 +141,17 @@ export const P = {
   partIndependants: 0.30,
   surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
   anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
+  // Ce que valent les murs quand l'exploitation ne vaut plus rien.
+  //
+  // Sans ce plancher, un bâtiment déficitaire se cédait à son SEUL terrain : on
+  // ramassait une aciérie de 3 240 $ pour le prix de quatre cases de sol. Le
+  // bâti disparaissait du bilan à la seconde où le profit passait sous zéro,
+  // alors qu'il contient toujours ses planches, ses briques et son acier, et
+  // qu'un simple retournement de cours le remet à flot.
+  //
+  // Il reste très en dessous du coût de reconstruction : une affaire en perte
+  // DOIT être une affaire, c'est tout l'intérêt des filières surconstruites.
+  valeurResiduelle: 0.45,      // part du coût de reconstruction que valent les murs
   // — le plancher est le terrain lui-même : voir prixRachatIndependant
 
   chantiersVilleParMois: 6,       // ce qu'une ville peut lancer en un mois

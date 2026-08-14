@@ -293,6 +293,30 @@ marge au risque de perdre ses employés. *(formats 30 et 60 min)*
 
 ---
 
+### 6 quater. Ce que vaut un bâtiment
+
+`prix = terrain au cours du jour + max(valeur résiduelle des murs, 3 années de profit)`
+
+Une affaire vaut **le meilleur de ses deux destins** : ce qu'elle rapporte si on la garde, ou ce
+que valent ses murs si on l'arrête. La valeur résiduelle est de **45 % du coût de
+reconstruction** — assez bas pour qu'une affaire en perte reste une affaire, ce qui est tout
+l'intérêt des filières surconstruites, assez haut pour que le bâti ne s'évapore pas.
+
+Le prix est **le même à l'achat et à la vente** : un marché où l'on achèterait cher pour
+revendre bon marché serait une taxe, pas un marché.
+
+Le plancher valait auparavant **zéro**. Dès que le profit passait sous zéro, les murs ne valaient
+plus rien et l'on rachetait une aciérie de 3 240 $ pour le seul prix de ses quatre cases de sol.
+Mesuré au mois 120 : un immeuble de bureaux déficitaire se cédait à 338 $ — son terrain — alors
+qu'il porte 2 000 $ de bâti. Il en vaut désormais 1 238 $.
+
+**L'arbitrage reste fermé, et plus largement qu'avant.** Acheter, démolir, revendre le terrain
+faisait exactement 0 $ ; l'opération perd maintenant la valeur résiduelle — mesuré, au mieux
+−58,50 $ sur les 38 bâtiments en perte d'une partie de dix ans. Trois contrôles du banc d'essai
+le garantissent.
+
+---
+
 ### 6 ter. Le sol se paie ce qu'il rend
 
 Le prix d'une case vaut `100 $ × facteur de niveau × facteur de distance × facteur de richesse`,

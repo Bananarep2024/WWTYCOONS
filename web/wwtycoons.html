@@ -837,6 +837,17 @@ const P = {
   partIndependants: 0.30,
   surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
   anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
+  // Ce que valent les murs quand l'exploitation ne vaut plus rien.
+  //
+  // Sans ce plancher, un bâtiment déficitaire se cédait à son SEUL terrain : on
+  // ramassait une aciérie de 3 240 $ pour le prix de quatre cases de sol. Le
+  // bâti disparaissait du bilan à la seconde où le profit passait sous zéro,
+  // alors qu'il contient toujours ses planches, ses briques et son acier, et
+  // qu'un simple retournement de cours le remet à flot.
+  //
+  // Il reste très en dessous du coût de reconstruction : une affaire en perte
+  // DOIT être une affaire, c'est tout l'intérêt des filières surconstruites.
+  valeurResiduelle: 0.45,      // part du coût de reconstruction que valent les murs
   // — le plancher est le terrain lui-même : voir prixRachatIndependant
 
   chantiersVilleParMois: 6,       // ce qu'une ville peut lancer en un mois
@@ -2340,8 +2351,24 @@ class Batiment {
   // bâtiment, ce qui empilait autant de goodwills qu'il y avait de murs ; il
   // s'applique désormais une seule fois, au niveau de la société. Un bâtiment,
   // lui, ne se cote pas : il se vend.
+  // Ce que vaut le bâtiment, à l'achat comme à la vente.
+  //
+  // Une affaire vaut le meilleur de ses deux destins : ce qu'elle rapporte si on
+  // la garde, ou ce que valent ses murs si on l'arrête. Prendre le maximum des
+  // deux est la seule formule qui ne casse ni dans un sens ni dans l'autre.
+  //
+  // Le plancher à zéro qu'il y avait ici fermait bien l'arbitrage — acheter à
+  // perte, démolir, revendre le terrain plus cher — mais au prix d'une aberration
+  // plus grosse : dès que le profit passait sous zéro, les murs ne valaient plus
+  // RIEN. On rachetait une aciérie à quatre cases pour le prix de son sol, soit
+  // 3 240 $ de bâti offerts.
+  //
+  // L'arbitrage reste fermé, et plus largement qu'avant : on paie désormais
+  // terrain + résiduelle, on ne récupère que le terrain en démolissant, donc
+  // l'opération perd exactement la valeur résiduelle.
   get valeurDeCession() {
-    return this.terrainCourant + Math.max(0, P.anneesDeProfit * this.profitAnnuel);
+    return this.terrainCourant + Math.max(P.valeurResiduelle * this.valeurBatie,
+                                          P.anneesDeProfit * this.profitAnnuel);
   }
 
   // Ce que le bâtiment demande au marché du travail ce mois-ci.
