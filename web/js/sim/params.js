@@ -179,6 +179,22 @@ export const P = {
   hausseExigee: 0.14,          // ce que la grève réclame sur le salaire
   boomMin: 0.35,       boomMax: 0.90,         // l'épargne gonflée par des capitaux du dehors
 
+  // Les vocations : ce qui fait des zones plutôt qu'une carte uniforme
+  //
+  // Chaque ville reçoit un plafond de qualité par ressource. Deux ressources
+  // montent à 5, une à 3 ou 4, deux plafonnent à 1 ou 2 — de sorte qu'aucune
+  // ville ne se suffit à elle-même et que le rail transporte enfin autre chose
+  // que des marchandises que l'autre bout produisait déjà.
+  vocationRiche: 5,
+  vocationMoyenMin: 3, vocationMoyenMax: 4,
+  vocationPauvreMin: 1, vocationPauvreMax: 2,
+  // La portée de la vocation, en cases : l'écart-type de la gaussienne qui
+  // mélange les plafonds de deux villes voisines. À peu près le rayon d'une
+  // ville, de sorte qu'un territoire lit sa propre vocation presque pure et que
+  // le dégradé se joue dans l'entre-deux, sur la terre que personne n'occupe
+  // encore.
+  porteeVocation: 30,
+
   // Amorçage
   stockAmorcage: { planches: 800, briques: 400 },
 

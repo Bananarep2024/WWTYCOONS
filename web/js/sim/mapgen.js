@@ -141,15 +141,20 @@ export function genererMonde(nbVilles, graine) {
   // --- 2. Les qualités, gouvernées par le relief --------------------------
   // Le minerai et le charbon sont dans la roche, la fertilité dans les
   // plaines : ce n'est pas décoratif, c'est ce qui oblige à relier les villes.
+  // On garde ici la valeur CONTINUE, sans l'arrondir : le champ de vocation
+  // (étape 3 bis) va la remodeler, et arrondir deux fois de suite écraserait les
+  // nuances qu'on vient de calculer.
   for (const c of cases) {
     const biais = RELIEFS[c.relief].biais;
-    const q = {};
+    const brut = {};
     for (const nom of QUALITES) {
-      let v = bQ[nom](c.x, c.y) * 4.2 + 0.9;
-      v *= biais[nom];
-      q[nom] = Math.max(1, Math.min(5, Math.round(v)));
+      // Le biais de relief s'applique AVANT la borne, jamais après : une montagne
+      // multiplie le minerai par 1,6, et borner d'abord laissait passer des
+      // valeurs brutes à 8 que l'étirement ramenait ensuite à 5 sous n'importe
+      // quel plafond — les vocations pauvres ne tenaient pas.
+      brut[nom] = Math.max(1, Math.min(5, (bQ[nom](c.x, c.y) * 4.2 + 0.9) * biais[nom]));
     }
-    c.q = q;
+    c.qBrut = brut;
   }
 
   // --- 3. Les sites de ville ----------------------------------------------
@@ -179,13 +184,46 @@ export function genererMonde(nbVilles, graine) {
       for (let dy = -9; dy <= 9; dy += 3) for (let dx = -9; dx <= 9; dx += 3) {
         const v = cases[Math.max(0, Math.min(H - 1, y + dy)) * L
                       + Math.max(0, Math.min(L - 1, x + dx))];
-        score += v.q[profil.pred]; n++;
+        score += v.qBrut[profil.pred]; n++;
       }
       score = score / n - Math.abs(c.alt - profil.penteVoulue) * 4;
       if (score > meilleurScore) { meilleurScore = score; meilleur = { x, y }; }
     }
     if (meilleur) sites.push(meilleur);
   }
+
+  // --- 3 bis. Les vocations : ce qui fait des ZONES ------------------------
+  //
+  // Jusqu'ici la vocation d'une ville ne servait qu'à CHOISIR SON SITE. Le sol,
+  // lui, sortait du même bruit fractal partout, et le champ `rares` des profils
+  // était déclaré sans être lu une seule fois. Résultat mesuré sur 200 villes :
+  // 81 % d'entre elles avaient au moins une case excellente dans les cinq
+  // ressources à la fois. Aucune ne manquait de rien, donc aucune n'avait de
+  // raison d'échanger — et le rail ne transportait que des marchandises que
+  // l'autre bout produisait déjà.
+  //
+  // Chaque ville reçoit maintenant un PLAFOND par ressource : deux à 5, une à 3
+  // ou 4, deux à 1 ou 2. La prédominance du profil prend l'un des deux 5, et les
+  // `rares` — enfin employées — prennent les deux plafonds bas.
+  //
+  // Le plafond lui-même est appliqué plus bas (étape 4 bis), une fois les
+  // territoires découpés : c'est l'appartenance qui décide, pas la distance.
+  const vocations = profils.map(profil => {
+    const autres = QUALITES.filter(q => q !== profil.pred && !profil.rares.includes(q));
+    const melange = melanger(autres.slice(), rnd);
+    const plafond = {};
+    plafond[profil.pred] = P.vocationRiche;
+    if (melange[0]) plafond[melange[0]] = P.vocationRiche;
+    for (const q of melange.slice(1)) {
+      plafond[q] = P.vocationMoyenMin
+        + Math.floor(rnd() * (P.vocationMoyenMax - P.vocationMoyenMin + 1));
+    }
+    for (const q of profil.rares) {
+      plafond[q] = P.vocationPauvreMin
+        + Math.floor(rnd() * (P.vocationPauvreMax - P.vocationPauvreMin + 1));
+    }
+    return plafond;
+  });
 
   // --- 4. Les territoires, les quartiers ----------------------------------
   const villes = sites.map((site, i) => {
@@ -262,6 +300,56 @@ export function genererMonde(nbVilles, graine) {
 
     return v;
   });
+
+  // --- 4 bis. Le sol prend la vocation de sa ville --------------------------
+  //
+  // Le plafond s'applique par APPARTENANCE, et non par distance. Essayé d'abord
+  // en pondérant les cinq villes par l'inverse de la distance, puis par une
+  // gaussienne : dans les deux cas la voisine pesait encore assez en lisière
+  // pour remonter les plafonds bas, et une ville sur dix seulement respectait sa
+  // vocation. Le territoire est déjà découpé à ce stade — autant s'en servir.
+  //
+  // Il ne reste à mélanger que la terre vierge, celle de l'entre-deux que les
+  // villes atteindront en grandissant : elle vaut la moyenne de ses voisines,
+  // pondérée par la distance, ce qui donne le dégradé entre deux zones.
+  const s2 = P.porteeVocation * P.porteeVocation;
+  const parId = new Map(villes.map((v, i) => [v.id, vocations[i]]));
+
+  for (const c of cases) {
+    const sienne = c.ville ? parId.get(c.ville.id) : null;
+
+    let plafonds = sienne;
+    if (!plafonds) {
+      let dmin2 = Infinity;
+      const d2 = sites.map(s => {
+        const v = (s.x - c.x) * (s.x - c.x) + (s.y - c.y) * (s.y - c.y);
+        if (v < dmin2) dmin2 = v;
+        return v;
+      });
+      // On retranche le carré de la plus courte distance avant d'exponentier :
+      // le résultat est le même après normalisation, mais la plus proche vaut 1
+      // au lieu d'un nombre minuscule, et rien ne s'annule au loin.
+      let somme = 0;
+      const poids = d2.map(v => { const p = Math.exp(-(v - dmin2) / s2); somme += p; return p; });
+      plafonds = {};
+      for (const nom of QUALITES) {
+        let t = 0;
+        for (let i = 0; i < vocations.length; i++) t += poids[i] * vocations[i][nom];
+        plafonds[nom] = somme > 0 ? t / somme : P.vocationRiche;
+      }
+    }
+
+    const q = {};
+    for (const nom of QUALITES) {
+      // On ÉTIRE la valeur brute sous son plafond au lieu de la couper : une case
+      // médiocre reste médiocre, une case excellente atteint tout juste le
+      // plafond, et le relief continue de se lire à l'intérieur de la zone.
+      const v = 1 + (c.qBrut[nom] - 1) * (plafonds[nom] - 1) / (P.vocationRiche - 1);
+      q[nom] = Math.max(1, Math.min(5, Math.round(v)));
+    }
+    c.q = q;
+    c.qBrut = null;
+  }
 
   // --- 5. Le réseau ferroviaire -------------------------------------------
   // On relie les villes en arbre couvrant minimal, plus une boucle si la carte

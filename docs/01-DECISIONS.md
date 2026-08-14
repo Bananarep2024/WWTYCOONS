@@ -868,3 +868,71 @@ Chaque pastille ouvre le volet **Ce qui arrive** : pour chaque événement en co
 d'avancement, son texte, et surtout **le canal exact par lequel il touche l'économie** — un
 événement qu'on subit sans comprendre ce qu'il fait n'apprend rien. Le volet garde ensuite la
 chronique des quatorze derniers, et reste accessible depuis l'onglet Villes.
+
+---
+
+## Des zones, enfin : la vocation cesse d'être décorative
+
+`PROFILS` déclarait depuis toujours, pour chaque ville, une prédominance et **deux raretés**.
+La prédominance servait à choisir le site. Les raretés n'étaient lues **nulle part** — un champ
+mort dans une table qu'on relisait sans le voir.
+
+Conséquence mesurée sur 200 villes tirées sur 40 cartes : **81 % avaient au moins une case
+excellente dans les cinq ressources à la fois**, et 96 % pour le charbon seul. Le sol sortait
+du même bruit fractal partout ; le choix du site garantissait un bon score sur la vocation, et
+le bruit offrait les quatre autres par-dessus le marché.
+
+Une carte où personne ne manque de rien est une carte où personne n'a de raison d'échanger. Le
+rail y transportait des marchandises que l'autre bout produisait déjà.
+
+### La règle
+
+Deux ressources à 5, une à 3 ou 4, deux à 1 ou 2 — barème §6 bis. Les `rares` prennent enfin
+les deux plafonds bas.
+
+### Trois essais pour trouver la bonne application
+
+1. **Pondération en 1/d^2,2 depuis les cinq villes.** À la lisière d'un territoire — 44 cases
+   du centre, 50 de la ville d'à côté — la voisine pesait encore 43 %. Tous les plafonds bas
+   remontaient. Conformité : 8 %.
+2. **Pondération gaussienne.** Mieux, pas assez : 10 %.
+3. **Appartenance au territoire.** Le découpage existe déjà à ce stade du générateur — autant
+   s'en servir. Plafond net à l'intérieur, dégradé gaussien seulement sur la terre vierge de
+   l'entre-deux, celle que les villes atteindront en grandissant. Conformité : **99 %.**
+
+La leçon : quand une donnée exacte existe (l'appartenance), interpoler une approximation
+continue (la distance) est un contresens, même quand l'interpolation semble plus « naturelle ».
+
+### Le défaut qui a coûté les deux premiers essais
+
+Le vrai coupable n'était pas la pondération. En extrayant la valeur brute du calcul des
+qualités, la borne et le biais de relief avaient été **intervertis** :
+
+```js
+Math.max(1, Math.min(5, bruit) * biais)      // faux : borne d'abord
+Math.max(1, Math.min(5, bruit * biais))      // juste : biais d'abord
+```
+
+Une montagne multiplie le minerai par 1,6. Borner d'abord laissait donc passer des valeurs
+brutes jusqu'à 8, que l'étirement sous plafond ramenait à 5 quel que soit le plafond. Les
+vocations pauvres ne pouvaient pas tenir. Corrigé, la conformité est passée de 10 % à 99 % sans
+toucher à la pondération — les deux premiers essais avaient diagnostiqué la mauvaise cause.
+
+### Le plafond étire, il ne coupe pas
+
+`q = 1 + (brut − 1) × (plafond − 1) / 4`. Une case médiocre reste médiocre, une case excellente
+atteint tout juste le plafond, et le relief continue de se lire à l'intérieur de la zone. Une
+coupe franche aurait donné des plateaux uniformes.
+
+### Ce que ça coûte
+
+La croissance des vingt premières années ralentit — le temps que les marchés fusionnent, entre
+les mois 50 et 54. Sur 8 cartes : 256 ménages par ville à 10 ans, 813 à 20 ans, 1 425 à 30 ans.
+Aucune ville en crise, aucune ville morte, le palier de Métropole atteint. Le prix des denrées
+monte de 7 à 31 % selon la marchandise : la rareté est enfin réelle.
+
+C'est le prix voulu. Une ville pauvre en minerai fabrique quand même son acier — elle creuse
+trois à six fois plus de trous pour le même résultat, et souffre jusqu'à ce que le rail arrive.
+Après quoi elle se spécialise : mesuré, une ville pauvre en minerai finit à 0 mine, 12 aciéries
+et 20 manufactures — elle importe et transforme. Sa voisine fait l'inverse. Personne n'a
+programmé cet avantage comparatif ; il sort du seul jeu des prix.

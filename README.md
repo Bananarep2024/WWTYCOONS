@@ -115,6 +115,10 @@ terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
   inconstructibles, et se dégrisant depuis les deux gares à mesure que la ligne se pose
 - **Bâtiments dessinés** — toits, dents de scie, silos, chevalements — et quartiers de
   vocations distinctes : l'industrie ne cerne jamais l'habitation
+- **Des zones de ressources à l'échelle de la carte** — chaque ville plafonne à deux
+  ressources excellentes, une moyenne et deux pauvres, appliquées par territoire avec un
+  dégradé sur la terre vierge. Aucune ville ne se suffit à elle-même, et le rail transporte
+  enfin autre chose que ce que l'autre bout produisait déjà
 - **Cinq villes aux départs différents** — chacune fondée sur un tempérament tiré au sort :
   cité ouvrière, ville de rentiers, comptoir affamé, bourg prospère, friche industrielle.
   Chômage de 25 à 48 %, couverture des besoins, dotation en bureaux — et une ou deux

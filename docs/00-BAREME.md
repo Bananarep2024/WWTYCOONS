@@ -293,6 +293,42 @@ marge au risque de perdre ses employés. *(formats 30 et 60 min)*
 
 ---
 
+### 6 bis. Les vocations : deux riches, une moyenne, deux pauvres
+
+Chaque ville reçoit un **plafond de qualité par ressource**, sur les cinq matières premières
+(fertilité, argile, bois, charbon, minerai) :
+
+| Rang | Plafond | Combien par ville |
+|---|---|---|
+| riche | **5** | 2 ressources |
+| moyenne | **3 ou 4** | 1 ressource |
+| pauvre | **1 ou 2** | 2 ressources |
+
+La prédominance du profil prend l'un des deux 5 ; les deux `rares` du profil prennent les
+plafonds bas. Mesuré sur 200 villes : **99 % respectent exactement cette répartition.**
+
+Le plafond s'applique par **appartenance au territoire**, pas par distance. Deux pondérations
+par distance ont été essayées — inverse de la distance, puis gaussienne — et dans les deux cas
+la ville voisine pesait encore assez en lisière pour remonter les plafonds bas : une ville sur
+dix seulement respectait sa vocation. Seule la terre vierge de l'entre-deux est mélangée, ce
+qui donne le dégradé entre deux zones.
+
+Le plafond **étire** la valeur brute au lieu de la couper : une case médiocre reste médiocre,
+une case excellente atteint tout juste le plafond, et le relief continue de se lire à
+l'intérieur de la zone.
+
+**Ce que cela change.** Avant, 81 % des villes avaient au moins une case excellente dans les
+cinq ressources à la fois : aucune ne manquait de rien, donc aucune n'avait de raison
+d'échanger, et le rail ne transportait que des marchandises que l'autre bout produisait déjà.
+Désormais aucune ville ne se suffit à elle-même.
+
+Le coût est réel et assumé : la croissance des vingt premières années ralentit, le temps que
+les marchés fusionnent (mois 50 à 54). Mesuré sur 8 cartes — 256 ménages par ville à 10 ans,
+813 à 20 ans, 1 425 à 30 ans, **aucune ville en crise, aucune ville morte**, et le palier de
+Métropole atteint.
+
+---
+
 ## 7. Le chemin de fer
 
 - Chaque ville a **une gare au centre**, présente dès le début.
