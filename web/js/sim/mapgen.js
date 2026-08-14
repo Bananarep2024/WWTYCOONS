@@ -305,7 +305,12 @@ function construireReseau(villes, rnd) {
       a: e.a, b: e.b, longueur: Math.round(e.d),
       nom: `${villes[e.a].nom} — ${villes[e.b].nom}`,
       dateInitiale: mois, date: mois,
+      // Une liaison EST une société. Capital nominal proportionnel à la longueur
+      // — poser du rail coûte au kilomètre — souscrit par les joueurs pendant
+      // les travaux, le reste étant porté par un consortium extérieur.
       capital: 0, achevee: false, cotee: false, parts: {},
+      actions: 0, recette: 0, charges: 0, resultat: 0,
+      histoResultat: [], histoCours: [],
     };
   });
 }

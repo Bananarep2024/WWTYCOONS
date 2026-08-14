@@ -123,6 +123,10 @@ terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
 - **Potentiel de valorisation** — une jauge rouge → vert sur chaque case, bâtie ou non, et
   un filtre de carte : le sol du centre peut encore quadrupler quand celui de la lisière
   gagnera 49 %. Le rendement, lui, est le même partout à tout instant
+- **La bourse** : un PER endogène, formé comme un prix par la tension entre les capitaux que
+  l'épargne dirige vers le marché et les bénéfices qu'on peut acheter — avec sa courbe sur
+  180 mois. Les cinq **compagnies de chemin de fer** y sont cotées : on souscrit pendant les
+  travaux, elles entrent en bourse le jour de l'ouverture et vivent d'un péage sur le trafic
 - **Attractivité par ville** — le seul chiffre qui décide de la population : moyenne des
   trois baromètres × pouvoir d'achat, avec le détail des quatre composantes ville par ville
 - **Le marché, marchandise par marchandise** : jauge rouge → vert de ce qu'on peut obtenir,
@@ -153,8 +157,8 @@ terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
 
 ## Ce qui reste à faire
 
-Emprunt bancaire · prises de contrôle · crises économiques · directeurs · enchères sur les
-salaires et les matières · débauchage · offres sur les bâtiments d'un rival · multijoueur ·
+Emprunt bancaire · émission d'actions · prises de contrôle · crises économiques ·
+directeurs · enchères sur les salaires et les matières · débauchage · multijoueur ·
 portage Unity.
 
 Voir `docs/02-QUESTIONS-OUVERTES.md`.

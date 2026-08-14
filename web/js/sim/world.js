@@ -32,6 +32,10 @@ export class Monde {
     this.mois = 0;
     this.duree = duree;                 // null = la partie ne s'arrête jamais
     this.climat = 'normal';             // normal | euphorie | crise
+    this.per = P.perReference;          // le multiple de marché, endogène
+    this.histoPER = [];
+    this.capitauxBourse = 0;            // épargne dirigée vers la bourse ce mois
+    this.tensionBourse = 1;
     this.journal = [];
     this.offresDuMois = new Map();
 
@@ -58,9 +62,39 @@ export class Monde {
     return this.cases[y * this.L + x];
   }
 
-  get multiple() {
-    return this.climat === 'crise' ? P.multipleCrise
-         : this.climat === 'euphorie' ? P.multipleEuphorie : P.multipleNormal;
+  // Le multiple de marché — le PER. Voir `fixerPER`.
+  get multiple() { return this.per; }
+
+  // Le PER se forme comme un prix : par une tension entre les capitaux qui
+  // cherchent un placement et les bénéfices qu'on peut acheter.
+  //
+  //   tension = capitaux annuels ÷ bénéfices annuels des sociétés COTÉES
+  //
+  // Les deux côtés sont bornés aux sociétés cotées : compter des bénéfices qu'on
+  // ne peut pas acheter fausserait le rapport.
+  //
+  // Le cycle en découle sans qu'on ait rien à forcer. L'épargne des ménages est
+  // la grandeur la plus volatile du modèle — mesurée entre 0 et 21 % du revenu
+  // selon la conjoncture — parce qu'elle est un RÉSIDU : ce qui reste une fois
+  // le panier payé. Elle monte donc bien plus vite que les bénéfices en haut de
+  // cycle, et s'évapore bien plus vite en bas. Le multiple suit.
+  fixerPER() {
+    let benefices = 0;
+    for (const s of this.societes) if (s.cotee !== false) benefices += Math.max(0, s.profitAnnuel);
+    for (const l of this.liaisons) if (l.cotee) benefices += Math.max(0, this.beneficeAnnuelRail(l));
+    benefices = Math.max(P.beneficePlancher, benefices);
+
+    const capitaux = this.capitauxBourse * 12;      // le flux du mois, annualisé
+    const tension = Math.max(P.tensionMin, Math.min(P.tensionMax, capitaux / benefices));
+    const cible = P.perReference * Math.pow(tension, P.exposantPrix);
+
+    this.per += P.lissageBourse * (cible - this.per);
+    this.per = Math.max(P.perPlancher, Math.min(P.perPlafond, this.per));
+
+    this.tensionBourse = tension;
+    this.beneficesCotes = benefices;
+    this.histoPER.push(this.per);
+    if (this.histoPER.length > P.histoireDesCours) this.histoPER.shift();
   }
 
   // --- Marchés --------------------------------------------------------------
@@ -547,9 +581,7 @@ export class Monde {
   // positives — et une affaire ruinée se paie au prix de sa terre, ni plus, ni
   // moins. L'intérêt de la ramasser reste entier : on prend le bâtiment pour
   // rien, à charge de le redresser.
-  prixRachatIndependant(b) {
-    return b.terrainCourant + Math.max(0, P.anneesDeProfit * b.profitAnnuel);
-  }
+  prixRachatIndependant(b) { return b.valeurDeCession; }
 
   // Le même prix, vu du vendeur. C'est délibérément la même formule : un marché
   // où l'on achèterait cher pour revendre bon marché ne serait pas un marché,
@@ -635,7 +667,7 @@ export class Monde {
     // acceptée — sauf par quelqu'un qui a besoin d'argent. Le système devient
     // ainsi un mécanisme de prédation contre les sociétés en difficulté.
     const cible = b.societe;
-    const valeur = b.valeur(this.multiple);
+    const valeur = b.valeurDeCession;
     const auxAbois = cible.tresorerie < 800 || cible.faillite;
     const seuil = auxAbois ? valeur * 0.85 : valeur * 1.08;
 
@@ -681,8 +713,14 @@ export class Monde {
     if (this.duree && this.mois >= this.duree) return false;
     this.mois++;
     this.offresDuMois.clear();   // une offre par mois et par adversaire
+    this.capitauxBourse = 0;     // l'épargne dirigée vers la bourse se recompte
 
-    for (const m of this.marches) m.reinitialiser();
+    for (const m of this.marches) {
+      m.reinitialiser();
+      // Un marché fusionné est desservi par au moins une ligne : c'est elle qui
+      // le rend possible, et c'est elle qui se fait payer.
+      m.peage = m.villes.length > 1 ? P.peageRail : 0;
+    }
 
     // --- 1. Tout le monde déclare ses besoins ------------------------------
     for (const v of this.villes) {
@@ -880,7 +918,13 @@ export class Monde {
                         * Math.min(m.prix.pain, m.prix.viande)
                     + v.prodObtenue / Math.max(1, v.menages) * m.prix.produits
                     + (v.loyer === undefined ? P.loyerBase : v.loyer);
-      v.epargne += Math.max(0, revenu - depense) * v.menages;
+      // L'épargne se partage entre la brique et le titre. Ce qui part en bourse
+      // ne bâtit plus la ville — c'est le prix à payer pour avoir un marché, et
+      // c'est aux sociétés des joueurs de prendre le relais de la construction.
+      const surplus = Math.max(0, revenu - depense) * v.menages;
+      const enBourse = surplus * P.partEnBourse;
+      v.epargne += surplus - enBourse;
+      this.capitauxBourse += enBourse;
 
       // Ce que le ménage gagne, ce qu'il dépense, ce qu'il met de côté. Trois
       // chiffres que le joueur doit pouvoir lire depuis n'importe quel logement :
@@ -942,7 +986,9 @@ export class Monde {
     for (const s of this.societes) if (!s.estJoueur) piloterSociete(this, s);
 
     // --- 14. Finance --------------------------------------------------------
-    for (const s of this.societes) s.enregistrerCours(this.multiple);
+    this.exploiterRail();
+    this.fixerPER();
+    for (const s of this.societes) s.enregistrerCours(this.per);
     for (const v of this.villes) {
       v.niveau = niveauVille(v.menages);
       v.histo.push({ mois: this.mois, menages: v.menages, salaire: v.salaire,
@@ -1157,19 +1203,115 @@ export class Monde {
       if (l.achevee) continue;
       if (this.mois >= l.date) {
         l.achevee = true;
+        // L'INTRODUCTION EN BOURSE. Le consortium extérieur complète le capital
+        // nominal — les joueurs en gardent la part qu'ils ont souscrite — et la
+        // compagnie passe d'une valeur comptable à une valeur de rendement.
+        const manquant = Math.max(0, this.capitalNominal(l) - l.capital);
+        l.actions += manquant / P.prixNominalAction;
+        l.capital += manquant;
         l.cotee = true;
-        l.actions = Math.max(1000, l.capital);
-        this.journal.push(`${this.mois} · ★ Liaison ouverte : ${l.nom} — les marchés fusionnent`);
+        l.introduiteLe = this.mois;
+        this.journal.push(`${this.mois} · ★ ${l.nom} ouverte — les marchés fusionnent,`
+          + ` la compagnie entre en bourse à ${this.coursRail(l).toFixed(2)} $ l'action`);
         this.recomposerMarches();
       }
     }
+  }
+
+  // ==========================================================================
+  //  LES COMPAGNIES DE CHEMIN DE FER
+  //
+  //  Une liaison a deux vies. Pendant les travaux elle n'est pas cotée : on y
+  //  souscrit au franc le franc, et chaque tranche avance la date d'ouverture.
+  //  Le jour où la ligne s'ouvre, elle entre en bourse — elle acquiert d'un coup
+  //  tout son goodwill, et le souscripteur de la première heure encaisse le pari
+  //  qu'il avait pris en aveugle, cinquante mois plus tôt, sur les villes qui
+  //  allaient grandir.
+  //
+  //  Elle vit ensuite d'un péage sur le trafic qu'elle porte : un pour cent du
+  //  chiffre d'affaires du marché qu'elle dessert, au prorata de la longueur de
+  //  rail qu'elle a posée. C'est la valeur de croissance du jeu — son bénéfice
+  //  monte mécaniquement avec les villes, sans que son porteur ait rien à faire.
+  // ==========================================================================
+
+  capitalNominal(l) { return l.longueur * P.capitalParCaseDeVoie; }
+
+  // Les liaisons achevées qui desservent un marché donné.
+  liaisonsDe(marche) {
+    const dedans = new Set(marche.villes.map(v => v.id));
+    return this.liaisons.filter(l => l.achevee && dedans.has(this.villes[l.a].id)
+                                              && dedans.has(this.villes[l.b].id));
+  }
+
+  // Le mois d'une compagnie : elle encaisse son péage, paie sa voie, et verse
+  // le reste à ses porteurs.
+  exploiterRail() {
+    for (const l of this.liaisons) { l.recette = 0; l.charges = 0; l.resultat = 0; }
+
+    for (const m of this.marches) {
+      const desservantes = this.liaisonsDe(m);
+      if (!desservantes.length) continue;
+      const total = desservantes.reduce((s, l) => s + l.longueur, 0);
+      // Le péage a été prélevé sur les producteurs au moment de la vente : on ne
+      // fait ici que le répartir. Rien n'est créé.
+      for (const l of desservantes) {
+        l.recette += (m.peageCollecte || 0) * (l.longueur / total);
+      }
+    }
+
+    for (const l of this.liaisons) {
+      if (!l.achevee) continue;
+      l.charges = this.capitalNominal(l) * P.entretienVoie / 12;
+      l.resultat = l.recette - l.charges;
+      l.histoResultat.push(l.resultat);
+      if (l.histoResultat.length > P.fenetreProfit) l.histoResultat.shift();
+
+      // Le dividende part à ceux qui ont souscrit. La part du consortium sort du
+      // modèle, comme les salaires que les bureaux reçoivent du dehors.
+      if (l.resultat > 0 && l.actions > 0) {
+        for (const s of this.societes) {
+          const n = l.parts[s.id] || 0;
+          if (n > 0) s.encaisser(l.resultat * n / l.actions);
+        }
+      }
+      l.cours = this.coursRail(l);      // mémorisé : la société le lit pour son actif
+      l.histoCours.push(l.cours);
+      if (l.histoCours.length > P.histoireDesCours) l.histoCours.shift();
+    }
+  }
+
+  beneficeAnnuelRail(l) {
+    const h = l.histoResultat;
+    return h.length ? h.reduce((a, b) => a + b, 0) * 12 / h.length : 0;
+  }
+
+  // Non cotée : la part vaut ce qu'on a souscrit, au franc le franc.
+  // Cotée : capital nominal + PER × bénéfice, divisé par les actions.
+  coursRail(l) {
+    if (!l.actions) return P.prixNominalAction;
+    if (!l.cotee) return P.prixNominalAction;
+    const b = Math.max(0, this.beneficeAnnuelRail(l));
+    return Math.max(0.01, (this.capitalNominal(l) + b * this.per) / l.actions);
+  }
+
+  capitalisationRail(l) { return this.coursRail(l) * l.actions; }
+
+  valeurPartRail(l, societe) {
+    return (l.parts[societe.id] || 0) * this.coursRail(l);
   }
 
   investirRail(liaison, societe, montant) {
     if (liaison.achevee || !societe.peutPayer(montant)) return false;
     societe.payer(montant);
     liaison.capital += montant;
-    liaison.parts[societe.id] = (liaison.parts[societe.id] || 0) + montant;
+    // La souscription se compte en ACTIONS, pas en dollars : c'est ce qui permet
+    // à la part de valoir autre chose que son prix d'achat une fois la compagnie
+    // introduite en bourse.
+    const titres = montant / P.prixNominalAction;
+    liaison.parts[societe.id] = (liaison.parts[societe.id] || 0) + titres;
+    liaison.actions += titres;
+    if (!societe.rails) societe.rails = [];
+    if (!societe.rails.includes(liaison)) societe.rails.push(liaison);
     // Une tranche = un mois d'avance, dans la limite de 40 % du délai initial.
     const tranche = 800;
     const avanceMax = Math.floor(liaison.dateInitiale * 0.40);

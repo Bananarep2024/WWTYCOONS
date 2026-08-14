@@ -72,6 +72,38 @@ export const P = {
   apportJoueur: 1500,
   partFondateur: 0.10,
   actionsInitiales: 15000,
+  // --- La bourse ---
+  //
+  // Le PER n'est pas un réglage, c'est un PRIX — et il se forme comme tous les
+  // autres prix du jeu, par une tension entre une demande et une offre :
+  //
+  //   tension = capitaux cherchant un placement ÷ bénéfices annuels offerts
+  //   PER ← PER + lissage × ( PER de référence × tension^exposant − PER )
+  //
+  // Il était jusqu'ici une fonction en escalier sur un `climat` qui n'était
+  // jamais réassigné : une constante déguisée. Désormais le cycle ÉMERGE —
+  // beaucoup de cash et peu de bénéfices à acheter, le multiple monte et les
+  // cours montent plus vite que les profits ; économie molle, l'épargne
+  // s'évapore et le multiple s'effondre.
+  perReference: 10,
+  perPlancher: 4,
+  perPlafond: 22,
+  lissageBourse: 0.04,         // un multiple de marché se déplace en années, pas en mois
+  partEnBourse: 0.30,          // part de l'épargne des ménages dirigée vers la bourse
+  beneficePlancher: 4000,      // sous ce total, la tension divergerait — et au premier
+                               // mois aucune société n'a encore douze mois d'historique
+
+  // --- Les compagnies de chemin de fer ---
+  //
+  // Une liaison EST une société : on y souscrit pendant les travaux, elle entre
+  // en bourse le jour où la ligne s'ouvre, et elle vit ensuite d'un péage sur le
+  // trafic qu'elle porte. C'est la valeur de croissance du jeu : son bénéfice
+  // monte mécaniquement avec les villes qu'elle dessert.
+  capitalParCaseDeVoie: 150,   // capital nominal d'une ligne, par case de longueur
+  prixNominalAction: 10,       // une action de compagnie ferroviaire
+  peageRail: 0.010,            // 1 % du chiffre d'affaires du marché desservi
+  entretienVoie: 0.04,         // 4 % / an du capital nominal
+
   multipleNormal: 10,
   multipleEuphorie: 15,
   multipleCrise: 5,

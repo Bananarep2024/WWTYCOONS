@@ -29,20 +29,49 @@ export class Societe {
 
     // Le porteur détient 10 % ; les 90 % restants sont au public.
     this.parts = { [this.id + ':fondateur']: P.actionsInitiales * P.partFondateur };
+    this.histoResultat = [];
+    this.rails = [];                    // compagnies ferroviaires détenues
+    this.cotee = true;                  // les sociétés des joueurs le sont d'emblée
   }
 
   partDe(qui) { return (this.parts[qui] || 0) / this.actions; }
 
   // --- Patrimoine ----------------------------------------------------------
 
-  actifNet(multiple) {
+  // L'ACTIF NET, au prix de revient — sans goodwill.
+  //
+  // Le multiple s'appliquait bâtiment par bâtiment, ce qui empilait autant de
+  // goodwills qu'il y avait de murs. Une société se valorise une fois, et
+  // globalement : son patrimoine d'un côté, ce que rapporte son exploitation de
+  // l'autre. C'est aussi ce qui permet au PER d'être un vrai multiple de marché
+  // plutôt qu'un coefficient interne à chaque immeuble.
+  actifNet() {
     let v = this.tresorerie - this.dette;
-    for (const b of this.batiments) v += b.valeur(multiple);
+    for (const b of this.batiments) v += b.terrainCourant + b.valeurBatie;
     for (const c of this.chantiers) v += c.engage;   // le cash immobilisé dans les trous
+    for (const l of this.rails || []) v += (l.parts[this.id] || 0) * (l.cours || 0);
     return v;
   }
 
-  cours(multiple) { return Math.max(0.01, this.actifNet(multiple) / this.actions); }
+  get profitAnnuel() {
+    const s = this.histoResultat.reduce((a, b) => a + b, 0);
+    return this.histoResultat.length
+      ? s * 12 / this.histoResultat.length : 0;
+  }
+
+  // La cotation : patrimoine + ce que le marché paie pour les bénéfices.
+  //
+  //   cours = ( actif net + PER × bénéfice annuel ) ÷ actions
+  //
+  // Une société qui perd de l'argent ne tombe pas sous son actif net : on ne
+  // paie pas moins que ce qu'elle possède, à une décote près qui est déjà dans
+  // la valeur des bâtiments.
+  cours(per) {
+    const p = this.profitAnnuel;
+    return Math.max(0.01, (this.actifNet() + Math.max(0, p) * per) / this.actions);
+  }
+
+  capitalisation(per) { return this.cours(per) * this.actions; }
 
   // Le cours retenu pour le décompte final est la moyenne des douze derniers
   // mois, jamais celui de la dernière seconde : sans cette précaution la partie
@@ -52,8 +81,10 @@ export class Societe {
     return this.histoCours.reduce((a, b) => a + b, 0) / this.histoCours.length;
   }
 
-  enregistrerCours(multiple) {
-    this.histoCours.push(this.cours(multiple));
+  enregistrerCours(per) {
+    this.histoResultat.push(this.resultatMensuel);
+    if (this.histoResultat.length > P.fenetreProfit) this.histoResultat.shift();
+    this.histoCours.push(this.cours(per));
     if (this.histoCours.length > P.fenetreProfit) this.histoCours.shift();
   }
 

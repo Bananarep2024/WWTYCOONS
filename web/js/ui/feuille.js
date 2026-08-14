@@ -391,7 +391,7 @@ function ficheBatiment(monde, b, c) {
       <div class="fiche"><div class="etiq">Entretien</div>
         <div class="v doux">${b.entretien.toFixed(2)} $</div></div>
       <div class="fiche"><div class="etiq">Valeur</div>
-        <div class="v">${eur(b.valeur(monde.multiple))}</div></div>
+        <div class="v">${eur(b.valeurDeCession)}</div></div>
       <div class="fiche"><div class="etiq">Prix de revient</div>
         <div class="v doux">${eur(b.prixDeRevient)}</div></div>
     </div>

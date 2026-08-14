@@ -701,3 +701,87 @@ autour en connaissance de cause.
 | **La ligne se pose depuis les deux gares** | Chacune avance vers l'autre. Ce qui est posé est doré, ce qui reste est gris — on voit le chantier progresser, et l'on voit son propre investissement le faire avancer d'un coup. |
 | **Le gris doit se lire dès le premier mois** | C'est lui qui annonce où la ligne passera, donc où acheter avant tout le monde. Porté à 46 % d'opacité sur un gris clair. |
 | **Un plancher de largeur** | À la vue d'ensemble une case fait deux pixels ; une emprise dessinée à 62 % de cela disparaissait. Minimum 1,8 pixel. |
+
+---
+
+## La bourse : un PER endogène et des compagnies de chemin de fer
+
+### Le PER est un prix, formé comme tous les autres
+
+`get multiple()` renvoyait 5, 10 ou 15 selon un `climat` qui n'était **jamais réassigné** :
+une constante déguisée en fonction en escalier. Le multiple se forme désormais par la même
+tension que tous les prix du jeu :
+
+```
+tension = capitaux cherchant un placement ÷ bénéfices annuels des sociétés COTÉES
+PER ← PER + 0,04 × ( 10 × tension^0,6 − PER )        borné à [4 ; 22]
+```
+
+Les capitaux viennent de l'épargne des ménages, dont **30 %** sont désormais dirigés vers le
+marché au lieu de bâtir la ville. C'est le prix à payer pour avoir une bourse, et c'est aux
+sociétés des joueurs de prendre le relais de la construction.
+
+Le cycle **émerge** sans qu'aucun drapeau ne soit piloté, et pour une raison précise :
+l'épargne est un **résidu** — ce qui reste une fois le panier payé — donc la grandeur la plus
+volatile du modèle, mesurée entre 0 et 21 % du revenu selon la conjoncture. Elle monte bien
+plus vite que les bénéfices en haut de cycle et s'évapore bien plus vite en bas.
+
+Mesuré sur trois parties, du mois 60 au mois 480 : **minimum 7,3 · médiane 9,8 · maximum
+19,4**. Le lissage à 0,04 fait qu'un multiple de marché se déplace en années, pas en mois.
+
+### Le multiple quitte le bâtiment pour la société
+
+Il s'appliquait **bâtiment par bâtiment**, ce qui empilait autant de goodwills qu'il y avait
+de murs. Une société se valorise une fois, globalement :
+
+```
+actif net = trésorerie − dette + Σ (terrain + valeur bâtie) + chantiers + parts ferroviaires
+cours     = ( actif net + PER × bénéfice annuel ) ÷ actions
+```
+
+Et `Batiment.valeur(multiple)` devient `valeurDeCession` — terrain plus trois années de
+profit — c'est-à-dire exactement le prix auquel un indépendant cède son bien. Un bâtiment ne
+se cote pas : il se vend.
+
+### Une liaison EST une société
+
+| | Pendant les travaux | Après l'ouverture |
+|---|---|---|
+| **État** | non cotée | **cotée** |
+| **Action** | 10 $, au franc le franc | `(capital nominal + PER × bénéfice) ÷ actions` |
+| **Recette** | aucune | péage sur le trafic |
+| **Ce qu'on fait** | souscrire — chaque tranche avance la date | encaisser le dividende |
+
+Le capital nominal vaut **150 $ la case de longueur** ; ce que les joueurs ne souscrivent pas
+est porté par un consortium extérieur, apporté le jour de l'introduction. La compagnie vit
+ensuite d'un **péage de 1 %** sur le chiffre d'affaires du marché qu'elle dessert, au prorata
+de la longueur de rail qu'elle a posée — ce qui règle proprement la connexité transitive :
+A–B et B–C forment un seul marché, et les deux compagnies s'en partagent le trafic.
+
+Le péage est **prélevé sur les producteurs** à la vente, comme un frais de port : rien n'est
+créé. Un marché d'une seule ville ne paie rien, n'étant desservi par aucune ligne.
+
+Mesuré sur une ligne de 136 cases : capital nominal 20 400 $, recette 182 $/mois, entretien
+68 $, bénéfice **1 512 $/an — 7,4 % du nominal**, délibérément sous les 15 à 25 % d'un
+bâtiment. Le rail est l'actif sûr : régulé, monopolistique, sans loi du minimum ni pénurie
+d'intrants.
+
+**Une souscription de 5 000 $ à la première ligne vaut ×2,48 au bout de quarante ans** — et
+l'on souscrit en aveugle, cinquante mois avant l'ouverture, sans savoir lesquelles des cinq
+villes auront grandi.
+
+### Deux défauts trouvés au test
+
+- `l.beneficeAnnuel` et `l.cours` étaient référencés sans jamais être définis : tout le PER
+  passait à `NaN` dès la première introduction en bourse.
+- Une ligne préexistante — `l.actions = Math.max(1000, l.capital)` — écrasait le calcul des
+  actions juste après l'introduction, donnant dix fois trop de titres. La part d'un
+  souscripteur de 6 000 $ tombait à 1 428 $ au lieu de monter à 14 672 $.
+
+### Ce que le joueur voit
+
+Un onglet **Bourse** : le PER du marché avec sa courbe sur 180 mois, les capitaux dirigés
+vers le marché ce mois-ci, les bénéfices cotés et la tension — puis une carte par société et
+une carte par compagnie ferroviaire, avec cours, capitalisation, bénéfice, part détenue et
+sa valeur. En travaux, la carte porte le bouton de souscription et le compte à rebours ;
+cotée, elle porte la courbe du cours.

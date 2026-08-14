@@ -9,7 +9,7 @@ import { P, RES, BAT } from './sim/params.js';
 import { Monde } from './sim/world.js';
 import { Rendu, FILTRES_CASE, FILTRES_VILLE } from './ui/render.js';
 import { $, eur, pct, voletFiltres, voletVilles, voletMarche, voletSociete, voletRail,
-         voletBatir }
+         voletBatir, voletBourse }
   from './ui/panneaux.js';
 import { contenuFeuille, empriseDepuis, empriseConstructible, devis }
   from './ui/feuille.js';
@@ -73,7 +73,8 @@ function rafraichirBarre() {
 // --- Volet ------------------------------------------------------------------
 
 const TITRES = { filtres: 'Filtres', villes: 'Les villes', marche: 'Le marché',
-                 societe: 'Ma société', rail: 'Le chemin de fer', batir: 'Bâtir' };
+                 societe: 'Ma société', rail: 'Le chemin de fer', batir: 'Bâtir',
+                 bourse: 'La bourse' };
 
 function ouvrirVolet(vue) {
   vueVolet = vue;
@@ -101,6 +102,7 @@ function rafraichirVolet() {
     : vueVolet === 'marche'  ? voletMarche(monde, rendu)
     : vueVolet === 'societe' ? voletSociete(monde)
     : vueVolet === 'batir'   ? voletBatir(monde, rendu)
+    : vueVolet === 'bourse'  ? voletBourse(monde, rendu)
     : voletRail(monde);
   corps.scrollTop = haut;
   brancherVolet(corps);
@@ -290,7 +292,7 @@ function brancherFeuille(c) {
     const majMontant = () => {
       const prix = monde.prixOffre(c.bat, +cur2.value);
       $('#montantOffre').textContent = eur(prix);
-      const valeur = c.bat.valeur(monde.multiple);
+      const valeur = c.bat.valeurDeCession;
       const ecart = prix / valeur;
       $('#lectureOffre').innerHTML = c.bat.profitAnnuel > 0
         ? `×${cur2.value} le profit, soit ${eur(prix)} — `

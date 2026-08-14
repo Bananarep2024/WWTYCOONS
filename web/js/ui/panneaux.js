@@ -383,7 +383,7 @@ export function voletSociete(monde) {
       <tr><td>Immobilisé en chantiers</td>
           <td class="n doux">${eur(s.chantiers.reduce((a, c) => a + c.engage, 0))}</td></tr>
       <tr><td>Valeur des bâtiments</td>
-          <td class="n">${eur(s.batiments.reduce((a, b) => a + b.valeur(monde.multiple), 0))}</td></tr>
+          <td class="n">${eur(s.batiments.reduce((a, b) => a + b.valeurDeCession, 0))}</td></tr>
       <tr><td><b>Actif net réévalué</b></td><td class="n"><b>${eur(s.actifNet(monde.multiple))}</b></td></tr>
     </table>
 
@@ -408,10 +408,124 @@ export function voletSociete(monde) {
 
 // --- Rail -------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// La bourse.
+//
+// Le PER n'est pas un réglage : c'est un prix, formé comme tous les autres par
+// une tension entre une demande — les capitaux que l'épargne des ménages dirige
+// vers le marché — et une offre : les bénéfices qu'on peut acheter. C'est de là
+// que vient le cycle, sans qu'aucun « climat » n'ait à être piloté.
+// ---------------------------------------------------------------------------
+
+export function voletBourse(monde, rendu) {
+  const per = monde.per;
+  const ouvert = rendu.coursOuvert || null;
+
+  const tension = monde.tensionBourse || 1;
+  const chaud = tension > 1.3, froid = tension < 0.7;
+
+  const entete = `
+    <div class="grille">
+      <div class="fiche"><div class="etiq">PER du marché</div>
+        <div class="v or">${per.toFixed(1)}</div>
+        <div class="etiq" style="margin-top:2px">référence ${P.perReference}</div></div>
+      <div class="fiche"><div class="etiq">Capitaux vers la bourse</div>
+        <div class="v">${eur(monde.capitauxBourse || 0)}</div>
+        <div class="etiq" style="margin-top:2px">par mois · ${pct(P.partEnBourse)} de l'épargne</div></div>
+      <div class="fiche"><div class="etiq">Bénéfices cotés</div>
+        <div class="v doux">${eur(monde.beneficesCotes || 0)}</div>
+        <div class="etiq" style="margin-top:2px">par an</div></div>
+    </div>
+    <div class="carteRes ${ouvert === '__per' ? 'actif' : ''}" data-cours="__per">
+      <div class="tetRes"><span><b>Le multiple de marché</b>
+        <span class="cv"><br>${chaud ? 'les capitaux se pressent — les cours montent plus vite que les profits'
+          : froid ? 'les capitaux se retirent — les cours montent moins vite que les profits'
+          : 'le marché est à sa valeur'}</span></span>
+        <span class="prixRes ${chaud ? 'vert' : froid ? 'rouge' : 'doux'}">${tension.toFixed(2)}
+          <span class="etiq" style="display:block;text-align:right">tension</span></span></div>
+      ${ouvert === '__per' ? graphiqueCours(monde.histoPER.map(x => x / P.perReference), '#e0b155')
+        + `<div class="note">La courbe est rapportée au PER de référence (${P.perReference}).
+             Elle monte quand l'épargne des ménages afflue plus vite que les bénéfices — c'est
+             le haut de cycle — et retombe quand l'économie rentre.</div>` : ''}
+    </div>`;
+
+  const societes = monde.societes.map(s => {
+    const cours = s.cours(per), cap = cours * s.actions;
+    const part = s.partDe(s === monde.joueur ? s.id + ':fondateur' : '__');
+    const b = s.profitAnnuel;
+    return `<div class="carteRes ${ouvert === 'S' + s.id ? 'actif' : ''}" data-cours="S${s.id}">
+      <div class="tetRes">
+        <span><b>${s.nom}</b>${s === monde.joueur ? ' <span class="or">— vous</span>' : ''}
+          <span class="cv"><br>${s.batiments.length} bâtiments · actif net ${eur(s.actifNet())}</span></span>
+        <span class="prixRes">${cours.toFixed(2)} $
+          <span class="etiq" style="display:block;text-align:right">l'action</span></span>
+      </div>
+      <div class="piedRes">
+        <span>capitalisation <b>${eur(cap)}</b></span>
+        <span class="${b >= 0 ? 'vert' : 'rouge'}">bénéfice ${eur(b)}/an</span>
+        ${s === monde.joueur ? `<span class="or">vos ${pct(P.partFondateur)} : ${eur(cap * P.partFondateur)}</span>` : ''}
+      </div>
+      ${ouvert === 'S' + s.id ? graphiqueCours(s.histoCours.map(x => x / Math.max(0.01, s.histoCours[0])), '#e0b155') : ''}
+    </div>`;
+  }).join('');
+
+  const rails = monde.liaisons.map((l, i) => {
+    const mien = l.parts[monde.joueur.id] || 0;
+    const partPct = l.actions > 0 ? mien / l.actions : 0;
+    const cours = monde.coursRail(l);
+    const benef = monde.beneficeAnnuelRail(l);
+    const reste = l.date - monde.mois;
+
+    const corps = l.cotee ? `
+      <div class="piedRes">
+        <span>capitalisation <b>${eur(monde.capitalisationRail(l))}</b></span>
+        <span class="${benef >= 0 ? 'vert' : 'rouge'}">${eur(benef)}/an</span>
+        ${mien > 0 ? `<span class="or">votre part ${pct(partPct)} · ${eur(mien * cours)}</span>` : ''}
+      </div>` : `
+      <div class="piedRes">
+        <span>ouverture dans <b>${Math.max(0, reste)} mois</b></span>
+        <span class="doux">souscrit ${eur(l.capital)} / ${eur(monde.capitalNominal(l))}</span>
+        ${mien > 0 ? `<span class="or">vous : ${eur(mien * P.prixNominalAction)}</span>` : ''}
+      </div>
+      <div class="actions" style="margin-top:6px">
+        <button class="miniInvest" data-liaison="${i}">Souscrire 800 $</button>
+      </div>`;
+
+    return `<div class="carteRes ${ouvert === 'L' + i ? 'actif' : ''}" data-cours="L${i}">
+      <div class="tetRes">
+        <span><b>${l.nom}</b>
+          <span class="cv"><br>${l.longueur} cases · ${l.cotee ? 'cotée' : 'en travaux — non cotée'}</span></span>
+        <span class="prixRes ${l.cotee ? '' : 'doux'}">${cours.toFixed(2)} $
+          <span class="etiq" style="display:block;text-align:right">l'action</span></span>
+      </div>
+      ${corps}
+      ${ouvert === 'L' + i && l.cotee && l.histoCours.length > 1
+        ? graphiqueCours(l.histoCours.map(x => x / P.prixNominalAction), '#e0b155') : ''}
+    </div>`;
+  }).join('');
+
+  return entete
+    + `<h3>Les sociétés</h3><div class="listeRes">${societes}</div>`
+    + `<h3>Les compagnies de chemin de fer</h3><div class="listeRes">${rails}</div>`
+    + `<div class="note">
+        Une liaison <b>est</b> une société. Pendant les travaux elle n'est pas cotée : on y
+        souscrit au franc le franc — ${eur(P.prixNominalAction)} l'action — et chaque tranche
+        avance la date d'ouverture. Le jour où la ligne s'ouvre, le consortium extérieur
+        complète le capital, la compagnie <b>entre en bourse</b> et acquiert d'un coup tout
+        son goodwill.<br><br>
+        Elle vit ensuite d'un péage de ${pct(P.peageRail)} sur le chiffre d'affaires du marché
+        qu'elle dessert, au prorata du rail qu'elle a posé, et verse son bénéfice à ses
+        porteurs. C'est la valeur de croissance du jeu : son profit monte avec les villes,
+        sans que vous ayez rien à faire — mais vous souscrivez en aveugle, des années avant
+        de savoir lesquelles auront grandi.
+      </div>`;
+}
+
 export function voletRail(monde) {
   const lignes = monde.liaisons.map((l, i) => {
     const reste = l.date - monde.mois;
-    const part = l.capital > 0 ? (l.parts[monde.joueur.id] || 0) / l.capital : 0;
+    const mien = l.parts[monde.joueur.id] || 0;
+    const part = l.actions > 0 ? mien / l.actions : 0;
     return `<tr>
       <td>${l.nom}<br><span class="faible">${l.longueur} cases</span></td>
       <td class="n ${l.achevee ? 'vert' : reste <= 3 ? 'or' : 'doux'}">
@@ -422,7 +536,6 @@ export function voletRail(monde) {
     </tr>`;
   }).join('');
 
-  // Ce que voit le joueur : quelles villes partagent déjà un marché.
   const reseaux = monde.marches.map(m => m.villes.map(v => v.nom).join(' + ')).join('<br>');
 
   return `
@@ -433,83 +546,17 @@ export function voletRail(monde) {
     </table>
     <div class="note">
       Chaque tranche de 800 $ avance la date d'un mois, dans la limite de 40 % du délai
-      initial : on peut avancer le rendez-vous, jamais le supprimer.
+      initial : on peut avancer le rendez-vous, jamais le supprimer. La souscription vous
+      donne des actions de la compagnie — voir l'onglet <b>Bourse</b>.
     </div>
 
     <h3>Marchés en présence</h3>
     <div class="note">${reseaux}<br><br>
       Les liaisons ne s'additionnent pas, elles se chaînent : si A rejoint B et B rejoint C,
       alors A et C partagent déjà le même marché, sans qu'aucune ligne supplémentaire ait
-      été posée.</div>
+      été posée. Un marché desservi paie ${pct(P.peageRail)} de péage à ses compagnies.</div>
 
     <h3>Journal</h3>
     <div class="note">${monde.journal.slice(-8).reverse().join('<br>') || 'Rien à signaler.'}</div>
   `;
-}
-
-
-// ---------------------------------------------------------------------------
-// Bâtir. Le volet qui manquait.
-//
-// Le joueur commence sans un pouce de terre. Pour bâtir il fallait deviner
-// qu'une case libre de la frontière était achetable, l'acheter, puis la
-// re-cliquer — deux gestes que rien n'annonçait, sur une case que la carte ne
-// distinguait pas des autres. On choisit maintenant le bâtiment d'abord, et la
-// carte montre elle-même où il peut aller.
-// ---------------------------------------------------------------------------
-
-const MENU_BATIR = [
-  ['Logement', ['maison', 'immeuble']],
-  ['Exploitation', ['coupe', 'carriere', 'mineCharbon', 'mineFer', 'ferme', 'ranch']],
-  ['Transformation', ['scierie', 'briqueterie', 'minoterie', 'abattoir', 'acierie']],
-  ['Manufacture', ['manufacture']],
-  ['Rapport et négoce', ['bureaux', 'entrepot']],
-];
-
-export function voletBatir(monde, rendu) {
-  const joueur = monde.joueur;
-  // Le devis se chiffre dans la ville qu'on regarde : les matériaux n'ont pas
-  // le même prix d'un marché à l'autre tant que le rail ne les a pas réunis.
-  const v = monde.villeChoisie || rendu.villeAuCentre() || monde.villes[0];
-  const m = v.marche;
-
-  const groupes = MENU_BATIR.map(([titre, types]) => {
-    const lignes = types.map(t => {
-      const def = BAT[t];
-      let materiel = 0;
-      for (const [r, q] of Object.entries(materiaux(t))) materiel += q * m.prix[r];
-      const cher = materiel / coutRef(t);
-      const choisi = rendu.pose === t;
-      const abordable = joueur.tresorerie >= materiel;
-      const vise = rendementVise(t);
-      return `<button class="ligneBatir ${choisi ? 'actif' : ''}" data-batir="${t}"
-                ${abordable ? '' : 'disabled'}>
-        <span class="puce" style="background:${COULEURS[t]}"></span>
-        <span class="nomBat">${def.nom}</span>
-        <span class="sousBat">${def.w}×${def.h}${vise ? ' · visé ' + Math.round(vise * 100) + ' %' : ''}</span>
-        <span class="prixBat ${cher > 1.25 ? 'rouge' : cher < 0.85 ? 'vert' : 'doux'}">${eur(materiel)}</span>
-      </button>`;
-    }).join('');
-    return `<h3>${titre}</h3><div class="listeBatir">${lignes}</div>`;
-  }).join('');
-
-  const enCours = rendu.pose
-    ? `<div class="avertBatir">Posez la <b>${BAT[rendu.pose].nom}</b> — touchez la carte.
-         Les cases possibles sont cerclées d'or.
-         <button id="btnAnnulerPose">Annuler</button></div>`
-    : `<div class="note">Choisissez un bâtiment, puis touchez la carte à l'endroit voulu.
-         Le terrain qui vous manque est acheté dans le même geste — on ne peut prendre
-         qu'une terre vierge touchant la frontière urbaine, ou celle d'un indépendant,
-         jamais celle d'un rival.</div>`;
-
-  return `<div class="grille">
-      <div class="fiche"><div class="etiq">Trésorerie</div>
-        <div class="v or">${eur(joueur.tresorerie)}</div></div>
-      <div class="fiche"><div class="etiq">Devis établi à</div>
-        <div class="v" style="font-size:12px">${v.nom}</div></div>
-    </div>
-    ${enCours}${groupes}
-    <div class="note">Le prix affiché est celui des <b>matériaux au marché du jour</b> ;
-      le foncier s'y ajoute selon l'endroit et vous est annoncé avant de valider. Le cash
-      part immédiatement, le chantier ne sort de terre qu'à la dernière brique livrée.</div>`;
 }

@@ -245,7 +245,13 @@ export class Batiment {
     }
 
     const prixSortie = marche.prix[this.def.sort];
-    const recette = this.production * prixSortie;
+    const brut = this.production * prixSortie;
+    // Le péage ferroviaire se prélève à la vente, comme un frais de port. Il ne
+    // pèse que sur les marchés desservis par une ligne — un marché isolé n'a
+    // rien à payer, mais il n'a rien non plus à vendre au-dehors.
+    const peage = brut * (marche.peage || 0);
+    marche.peageCollecte += peage;
+    const recette = brut - peage;
     const salaires = this.masseSalarialePleine * taux;
 
     this.resultat = recette - achats - salaires - ent;
@@ -325,12 +331,16 @@ export class Batiment {
 
   // Valeur : un profit se projette sur la durée, une perte se répare — les deux
   // multiplicateurs ne sont pas les mêmes, et ce n'est pas arbitraire.
-  valeur(multiple) {
-    const base = this.terrainCourant + this.valeurBatie;
-    const p = this.profitAnnuel;
-    const v = p >= 0 ? base + multiple * p : base - P.malusPerte * p * -1;
-    const plancher = base - P.malusPerte * this.entretien * 12;
-    return Math.max(plancher, v);
+  // Ce que ce bâtiment vaut à la vente : son terrain, plus trois années de profit
+  // lorsqu'il en fait. C'est exactement le prix auquel un indépendant le cède et
+  // celui auquel on le lui rachète — voir Monde.prixRachatIndependant.
+  //
+  // Le multiple de marché ne s'applique plus ici. Il s'appliquait bâtiment par
+  // bâtiment, ce qui empilait autant de goodwills qu'il y avait de murs ; il
+  // s'applique désormais une seule fois, au niveau de la société. Un bâtiment,
+  // lui, ne se cote pas : il se vend.
+  get valeurDeCession() {
+    return this.terrainCourant + Math.max(0, P.anneesDeProfit * this.profitAnnuel);
   }
 
   // Ce que le bâtiment demande au marché du travail ce mois-ci.

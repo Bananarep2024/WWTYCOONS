@@ -28,6 +28,11 @@ export class Marche {
       this.service[r] = 1;
       this.prixRevient[r] = Infinity;
     }
+    // Le péage ferroviaire : nul sur un marché d'une seule ville, puisque
+    // aucune ligne ne le dessert. Il est prélevé sur les producteurs au moment
+    // de la vente et reversé aux compagnies — rien n'est créé.
+    this.peage = 0;
+    this.peageCollecte = 0;
     // L'historique des cours : sans lui, le joueur ne voit qu'un instantané et
     // ne peut pas distinguer une pénurie qui s'installe d'un accident d'un mois.
     this.histoPrix = {};
@@ -132,6 +137,7 @@ export class Marche {
     // fiable de ce qu'une filière est capable de livrer, le stock de début de
     // mois ne disant rien quand la consommation se fait en juste-à-temps.
     this.entreesPrec = { ...this.entrees };
+    this.peageCollecte = 0;
     for (const r of RESSOURCES) { this.besoins[r] = 0; this.entrees[r] = 0; }
   }
 
