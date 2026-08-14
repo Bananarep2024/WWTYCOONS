@@ -120,17 +120,27 @@ function ficheTerrain(monde, v, c) {
 // distingue le centre, c'est la PENTE — bâtir contre la gare au premier mois,
 // c'est acheter un loyer qui quadruplera ; bâtir en lisière, un loyer qui
 // gagnera 11 %. Sans cette jauge, rien à l'écran ne le dirait.
-function jaugePotentiel(v, c, bat) {
-  const richesse = qualiteMax(c);
-  const p = potentielTerrain(v.niveau, c.distanceGare, richesse);
+// `cases` est l'emprise entière quand on inspecte un bâtiment, et la seule case
+// touchée quand on inspecte un terrain nu. Les sommes portent donc toujours sur
+// ce que le joueur a effectivement sélectionné — un bâtiment de quatre cases
+// annonçait auparavant le foncier d'une seule, celle qu'on avait touchée.
+function jaugePotentiel(v, cases, bat) {
+  const liste = Array.isArray(cases) ? cases : [cases];
+  const somme = (niveau) => liste.reduce(
+    (s, k) => s + prixTerrain(niveau, k.distanceGare, qualiteMax(k)), 0);
+
+  const auj = somme(v.niveau);
+  const bout = somme(P.facteurNiveau.length);
+  const suivant = v.niveau < 5 ? somme(v.niveau + 1) : null;
+  // Le potentiel est le rapport des deux sommes : il vaut le potentiel d'une
+  // case quand l'emprise n'en compte qu'une, et la moyenne pondérée sinon.
+  const p = auj > 0 ? bout / auj : 1;
   const t = Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[4] - 1)));
-  const auj = prixTerrain(v.niveau, c.distanceGare, richesse);
-  const suivant = v.niveau < 5 ? prixTerrain(v.niveau + 1, c.distanceGare, richesse) : null;
-  const bout = prixTerrain(5, c.distanceGare, richesse);
 
   // Le même mouvement du sol enrichit une résidence et appauvrit un atelier :
   // le loyer suit le foncier, la recette d'un atelier n'en dépend pas.
-  let dit = `Le sol de cette case peut encore <b>${p.toFixed(2)} ×</b> sa valeur.`;
+  const quoi = liste.length > 1 ? `Le sol de ces <b>${liste.length} cases</b>` : 'Le sol de cette case';
+  let dit = `${quoi} peut encore <b>${p.toFixed(2)} ×</b> sa valeur.`;
   if (bat && bat.def.cat === 'loge') {
     dit += ' Le loyer étant indexé sur le foncier, <span class="vert">votre loyer suivra</span> —'
          + ' et votre rendement montera d\'autant, puisqu\'il se calcule sur ce que vous avez payé.';
@@ -475,7 +485,7 @@ function ficheBatiment(monde, b, c) {
       <div class="fiche"><div class="etiq">Quartier</div>
         <div class="v doux" style="font-size:12px">${NOMS_QUARTIER[b.cases[0].quartier] || '—'}</div></div>
     </div>
-    ${jaugePotentiel(b.ville, b.cases[0], b)}
+    ${jaugePotentiel(b.ville, b.cases, b)}
     ${def.qual ? `<div class="note">Sol de qualité <b>${b.qualite.toFixed(1)} / 5</b> : cette
       exploitation sort ${facteurQualite(b.qualite).toFixed(2)}× ce que sortirait la même sur une terre
       moyenne. Un handicap de terrain ne fait aucun bruit — il se lit uniquement dans la

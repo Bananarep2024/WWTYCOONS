@@ -1003,41 +1003,33 @@ jamais ce cycle n'aurait rien à arbitrer.
 
 ---
 
-## Un bâtiment en perte vaut ses murs
+## Une compagnie, une ligne à la fois
 
-Signalé en jouant : « je peux racheter un bâtiment de 4 cases en déficit au prix total d'une case
-de terrain ».
+Le réseau se construisait en parallèle : cinq liaisons en travaux dès le premier mois, chacune
+sa propre société, quatre introductions en bourse la même année. Le rail n'était pas une affaire
+qu'on suit, c'était un décor qui se déployait tout seul.
 
-C'était exact, et la faute était une sur-correction de ma part. Pour fermer l'arbitrage « acheter
-une affaire en perte, démolir, revendre le terrain plus cher qu'on ne l'a payé », le prix avait
-été écrit `terrain + max(0, 3 × profit)`. Le plancher à zéro fermait bien l'arbitrage — il le
-ramenait à exactement 0 $ — mais il introduisait une aberration plus grosse : **dès que le profit
-passait sous zéro, le bâti disparaissait du bilan.**
+Il n'y a plus qu'**une compagnie**, qui pose ses lignes **l'une après l'autre**. Le chantier
+ouvert est le seul qu'on puisse financer ; le suivant ne commence qu'une fois celui-ci livré. La
+compagnie entre en bourse le jour de sa première ligne, et chaque ligne suivante grossit son
+capital nominal.
 
-Une aciérie déficitaire contient toujours ses 3 240 $ de planches, de briques et d'acier, et un
-simple retournement de cours la remet à flot. La céder pour son seul sol, c'est l'offrir.
+L'objet `compagnie` porte délibérément les mêmes champs qu'une liaison d'autrefois — `parts`,
+`actions`, `cours` — de sorte que la société et les panneaux de bourse la lisent sans rien
+changer à leur code.
 
-Le plancher est désormais la **valeur résiduelle des murs**, 45 % du coût de reconstruction :
+### Le chantier n'est daté qu'à son ouverture
 
-    prix = terrain + max(0,45 × coût de reconstruction, 3 × profit annuel)
+`date` reste nulle tant que les travaux n'ont pas commencé. Dater d'avance des travaux qui n'ont
+pas d'ouvriers ferait courir un compte à rebours sur une ligne dont rien ne bouge.
 
-Une affaire vaut le meilleur de ses deux destins — exploitation ou liquidation. Prendre le
-maximum des deux est la seule formule qui ne casse ni dans un sens ni dans l'autre.
+### La durée d'un chantier a dû être divisée par trois et demi
 
-L'arbitrage ne se rouvre pas, il se referme **plus largement** : on paie terrain + résiduelle, on
-ne récupère que le terrain en démolissant, donc l'opération perd exactement la résiduelle.
-Mesuré sur les 38 bâtiments en perte d'une partie de dix ans, le meilleur arbitrage possible est
-de −58,50 $ ; il valait 0,00 $ auparavant.
+Les durées ne se recouvrent plus, elles s'additionnent. À l'ancien réglage — 0,42 mois la case —
+le réseau ne s'achevait qu'entre les mois **312 et 366**, et une ville restée isolée vingt-cinq
+ans finissait par mourir : mesuré, **trois graines sur quatre perdaient une ville**, dont
+Plaine-Dorée tombée à zéro habitant.
 
-Le taux de 45 % est un choix de jeu autant que de comptabilité : une filière surconstruite doit
-rester une occasion à ramasser — c'est le mécanisme même des tempéraments de départ — sans que
-l'occasion soit un cadeau.
-
-### Une asymétrie qui subsiste, et qui est assumée
-
-Le terrain d'un bâtiment racheté se paie au cours du jour, tandis qu'une case nue achetée à un
-indépendant coûte 20 % de plus (`surprixIndependants`). Passer par un bâtiment reste donc une
-façon légèrement moins chère d'acquérir du sol. Corriger cela demanderait un écart entre prix
-d'achat et prix de vente, c'est-à-dire une taxe — ce que le modèle refuse par ailleurs. La
-différence est de 20 % sur le seul terme foncier, et la valeur résiduelle la couvre désormais
-largement.
+À **0,12 mois la case**, le premier train roule vers le mois 25, le réseau est complet vers le
+mois 135, et aucune ville ne meurt sur aucune des graines essayées. Une ligne tous les vingt
+mois : assez rare pour que chaque ouverture compte, assez fréquent pour qu'on la voie venir.

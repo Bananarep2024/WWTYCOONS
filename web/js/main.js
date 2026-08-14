@@ -194,7 +194,7 @@ function brancherVolet(corps) {
   };
 
   corps.querySelectorAll('.miniInvest').forEach(btn => btn.onclick = () => {
-    monde.investirRail(monde.liaisons[+btn.dataset.liaison], monde.joueur, 800);
+    monde.investirRail(monde.joueur, 800);
     rafraichirTout();
   });
 }

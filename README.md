@@ -134,8 +134,9 @@ terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
   chacun touche l'économie. Un événement ne mute rien : il expire et tout revient de soi-même
 - **La bourse** : un PER endogène, formé comme un prix par la tension entre les capitaux que
   l'épargne dirige vers le marché et les bénéfices qu'on peut acheter — avec sa courbe sur
-  180 mois. Les cinq **compagnies de chemin de fer** y sont cotées : on souscrit pendant les
-  travaux, elles entrent en bourse le jour de l'ouverture et vivent d'un péage sur le trafic
+  180 mois. L'unique **compagnie de chemin de fer** y est cotée : elle pose ses lignes une à une,
+  on souscrit au chantier en cours, elle entre en bourse le jour de sa première ligne et vit
+  d'un péage sur le trafic
 - **Attractivité par ville** — le seul chiffre qui décide de la population : moyenne des
   trois baromètres × pouvoir d'achat, avec le détail des quatre composantes ville par ville
 - **Le marché, marchandise par marchandise** : jauge rouge → vert de ce qu'on peut obtenir,

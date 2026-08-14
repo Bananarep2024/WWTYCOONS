@@ -837,17 +837,6 @@ const P = {
   partIndependants: 0.30,
   surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
   anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
-  // Ce que valent les murs quand l'exploitation ne vaut plus rien.
-  //
-  // Sans ce plancher, un bâtiment déficitaire se cédait à son SEUL terrain : on
-  // ramassait une aciérie de 3 240 $ pour le prix de quatre cases de sol. Le
-  // bâti disparaissait du bilan à la seconde où le profit passait sous zéro,
-  // alors qu'il contient toujours ses planches, ses briques et son acier, et
-  // qu'un simple retournement de cours le remet à flot.
-  //
-  // Il reste très en dessous du coût de reconstruction : une affaire en perte
-  // DOIT être une affaire, c'est tout l'intérêt des filières surconstruites.
-  valeurResiduelle: 0.45,      // part du coût de reconstruction que valent les murs
   // — le plancher est le terrain lui-même : voir prixRachatIndependant
 
   chantiersVilleParMois: 6,       // ce qu'une ville peut lancer en un mois
@@ -916,7 +905,14 @@ const P = {
   margeMonde: 22,              // on ne fonde pas une ville au bord de la carte
   rayonVille: 44,              // rayon moyen d'un territoire, dévié par ville
   distanceMinVilles: 94,       // de centre à centre : sans quoi le rail n'a pas de sens
-  moisParCaseDeVoie: 0.42,     // une ligne longue demande plus de travail
+  moisParCaseDeVoie: 0.12,     // durée d'un chantier, à la case de longueur
+  // Elle valait 0,42 quand les cinq lignes se construisaient EN PARALLÈLE. La
+  // compagnie n'en pose plus qu'une à la fois, si bien que les durées
+  // s'additionnent au lieu de se recouvrir : le réseau ne s'achevait qu'au mois
+  // 312 à 366, et une ville sur deux mourait d'être restée isolée vingt-cinq
+  // ans. À 0,12 le premier train roule vers le mois 25 et le réseau est complet
+  // vers le mois 110 — une ligne tous les vingt mois, ce qui fait du rail une
+  // affaire qu'on suit plutôt qu'un décor qui se déploie tout seul.     // une ligne longue demande plus de travail
   menagesInitiaux: 55,         // avant le tempérament, qui l'étire de 0,80 à 1,20
 };
 
@@ -1502,20 +1498,19 @@ function construireReseau(villes, rnd) {
   }
   if (rejetees.length && villes.length >= 4) retenues.push(rejetees[0]);
 
-  return retenues.map(e => {
+  return retenues.map((e) => {
     // La date d'achèvement est proportionnelle à la longueur : une ligne longue
     // demande plus de travail, et le joueur le voit dès la première seconde.
     const mois = Math.round(8 + e.d * P.moisParCaseDeVoie + rnd() * 6);
+    // Une liaison n'est plus une société : il n'y a qu'UNE compagnie de chemin
+    // de fer, et elle pose ses lignes l'une après l'autre. La liaison ne porte
+    // donc plus que sa géométrie et son calendrier. `date` reste nulle tant que
+    // le chantier n'a pas commencé — on ne date pas des travaux qui n'ont pas
+    // d'ouvriers.
     return {
       a: e.a, b: e.b, longueur: Math.round(e.d),
       nom: `${villes[e.a].nom} — ${villes[e.b].nom}`,
-      dateInitiale: mois, date: mois,
-      // Une liaison EST une société. Capital nominal proportionnel à la longueur
-      // — poser du rail coûte au kilomètre — souscrit par les joueurs pendant
-      // les travaux, le reste étant porté par un consortium extérieur.
-      capital: 0, achevee: false, cotee: false, parts: {},
-      actions: 0, recette: 0, charges: 0, resultat: 0,
-      histoResultat: [], histoCours: [],
+      dateInitiale: mois, date: null, debut: null, achevee: false,
     };
   });
 }
@@ -2351,24 +2346,8 @@ class Batiment {
   // bâtiment, ce qui empilait autant de goodwills qu'il y avait de murs ; il
   // s'applique désormais une seule fois, au niveau de la société. Un bâtiment,
   // lui, ne se cote pas : il se vend.
-  // Ce que vaut le bâtiment, à l'achat comme à la vente.
-  //
-  // Une affaire vaut le meilleur de ses deux destins : ce qu'elle rapporte si on
-  // la garde, ou ce que valent ses murs si on l'arrête. Prendre le maximum des
-  // deux est la seule formule qui ne casse ni dans un sens ni dans l'autre.
-  //
-  // Le plancher à zéro qu'il y avait ici fermait bien l'arbitrage — acheter à
-  // perte, démolir, revendre le terrain plus cher — mais au prix d'une aberration
-  // plus grosse : dès que le profit passait sous zéro, les murs ne valaient plus
-  // RIEN. On rachetait une aciérie à quatre cases pour le prix de son sol, soit
-  // 3 240 $ de bâti offerts.
-  //
-  // L'arbitrage reste fermé, et plus largement qu'avant : on paie désormais
-  // terrain + résiduelle, on ne récupère que le terrain en démolissant, donc
-  // l'opération perd exactement la valeur résiduelle.
   get valeurDeCession() {
-    return this.terrainCourant + Math.max(P.valeurResiduelle * this.valeurBatie,
-                                          P.anneesDeProfit * this.profitAnnuel);
+    return this.terrainCourant + Math.max(0, P.anneesDeProfit * this.profitAnnuel);
   }
 
   // Ce que le bâtiment demande au marché du travail ce mois-ci.
@@ -3126,7 +3105,27 @@ class Monde {
     this.L = carte.L; this.H = carte.H;
     this.cases = carte.cases;              // une seule grille pour tout le monde
     this.villes = carte.villes;
-    this.liaisons = carte.liaisons;
+    this.liaisons = carte.liaisons;      // le réseau PLANIFIÉ, posé une ligne à la fois
+    // UNE seule compagnie de chemin de fer, et un seul chantier à la fois.
+    //
+    // Il y en avait une par liaison, toutes en travaux simultanément dès le
+    // premier mois. Quatre introductions en bourse la même année, quatre lignes
+    // qui s'ouvraient presque ensemble : le rail n'était pas une aventure qu'on
+    // suit, c'était un décor qui se déployait tout seul. Une compagnie unique
+    // qui pose ses lignes l'une après l'autre donne au joueur un objet à suivre,
+    // à financer et à posséder sur toute la durée de la partie.
+    //
+    // Elle porte les mêmes champs qu'une liaison d'autrefois — `parts`, `cours`,
+    // `actions` — pour que la société et les panneaux la lisent sans rien
+    // changer.
+    this.compagnie = {
+      nom: 'Compagnie Générale des Chemins de Fer',
+      capital: 0, actions: 0, parts: {}, cotee: false,
+      cours: P.prixNominalAction, introduiteLe: null,
+      recette: 0, charges: 0, resultat: 0,
+      histoResultat: [], histoCours: [],
+      lignes: [],                        // les liaisons achevées
+    };
     this.graine = graine;
     this.mois = 0;
     this.duree = duree;                 // null = la partie ne s'arrête jamais
@@ -3187,7 +3186,7 @@ class Monde {
   fixerPER() {
     let benefices = 0;
     for (const s of this.societes) if (s.cotee !== false) benefices += Math.max(0, s.profitAnnuel);
-    for (const l of this.liaisons) if (l.cotee) benefices += Math.max(0, this.beneficeAnnuelRail(l));
+    if (this.compagnie.cotee) benefices += Math.max(0, this.beneficeAnnuelRail());
     benefices = Math.max(P.beneficePlancher, benefices);
 
     const capitaux = this.capitauxBourse * 12;      // le flux du mois, annualisé
@@ -4321,25 +4320,49 @@ class Monde {
   // que comme actionnaire. Chaque tranche de capital avance la date d'un mois,
   // dans la limite de 40 % du délai initial : le joueur peut avancer la date,
   // pas la faire disparaître.
-  avancerRail() {
-    for (const l of this.liaisons) {
-      if (l.achevee) continue;
-      if (this.mois >= l.date) {
-        l.achevee = true;
-        // L'INTRODUCTION EN BOURSE. Le consortium extérieur complète le capital
-        // nominal — les joueurs en gardent la part qu'ils ont souscrite — et la
-        // compagnie passe d'une valeur comptable à une valeur de rendement.
-        const manquant = Math.max(0, this.capitalNominal(l) - l.capital);
-        l.actions += manquant / P.prixNominalAction;
-        l.capital += manquant;
-        l.cotee = true;
-        l.introduiteLe = this.mois;
-        this.journal.push(`${this.mois} · ★ ${l.nom} ouverte — les marchés fusionnent,`
-          + ` la compagnie entre en bourse à ${this.coursRail(l).toFixed(2)} $ l'action`);
-        this.recomposerMarches();
-      }
-    }
+  // La ligne en travaux, ou null quand tout le réseau est posé.
+  get chantierRail() {
+    return this.liaisons.find(l => !l.achevee) || null;
   }
+
+  avancerRail() {
+    const l = this.chantierRail;
+    if (!l) return;
+
+    // Le chantier n'est daté qu'au moment où il s'ouvre : dater d'avance des
+    // travaux qui n'ont pas encore d'ouvriers n'aurait aucun sens, et le joueur
+    // verrait un compte à rebours courir sur une ligne dont rien ne bouge.
+    if (l.date === null) {
+      l.debut = this.mois;
+      l.date = this.mois + l.dateInitiale;
+      this.journal.push(`${this.mois} · ⚒ ${this.compagnie.nom} ouvre le chantier`
+        + ` ${l.nom} — ${l.longueur} cases, livraison annoncée dans ${l.dateInitiale} mois`);
+      return;
+    }
+    if (this.mois < l.date) return;
+
+    l.achevee = true;
+    this.compagnie.lignes.push(l);
+
+    // Le consortium extérieur complète le capital nominal — les joueurs gardent
+    // la part qu'ils ont souscrite — et la compagnie passe d'une valeur
+    // comptable à une valeur de rendement le jour de sa PREMIÈRE ligne.
+    const manquant = Math.max(0, this.capitalNominal() - this.compagnie.capital);
+    this.compagnie.actions += manquant / P.prixNominalAction;
+    this.compagnie.capital += manquant;
+
+    if (!this.compagnie.cotee) {
+      this.compagnie.cotee = true;
+      this.compagnie.introduiteLe = this.mois;
+      this.journal.push(`${this.mois} · ★ ${l.nom} ouverte — les marchés fusionnent,`
+        + ` ${this.compagnie.nom} entre en bourse à ${this.coursRail().toFixed(2)} $ l'action`);
+    } else {
+      this.journal.push(`${this.mois} · ★ ${l.nom} ouverte — les marchés fusionnent,`
+        + ` la compagnie porte ${this.compagnie.lignes.length} lignes`);
+    }
+    this.recomposerMarches();
+  }
+
 
   // ==========================================================================
   //  LES COMPAGNIES DE CHEMIN DE FER
@@ -4357,90 +4380,87 @@ class Monde {
   //  monte mécaniquement avec les villes, sans que son porteur ait rien à faire.
   // ==========================================================================
 
-  capitalNominal(l) { return l.longueur * P.capitalParCaseDeVoie; }
-
-  // Les liaisons achevées qui desservent un marché donné.
-  liaisonsDe(marche) {
-    const dedans = new Set(marche.villes.map(v => v.id));
-    return this.liaisons.filter(l => l.achevee && dedans.has(this.villes[l.a].id)
-                                              && dedans.has(this.villes[l.b].id));
+  // Le capital nominal de la compagnie : ce que coûte le rail POSÉ, au kilomètre.
+  // Il grandit à chaque ligne ouverte, et c'est lui que le consortium extérieur
+  // complète le jour de l'ouverture.
+  capitalNominal() {
+    return this.compagnie.lignes.reduce((s, l) => s + l.longueur, 0) * P.capitalParCaseDeVoie;
   }
 
-  // Le mois d'une compagnie : elle encaisse son péage, paie sa voie, et verse
+  // Le mois de la compagnie : elle encaisse ses péages, paie ses voies, et verse
   // le reste à ses porteurs.
+  //
+  // Le péage a été prélevé sur les producteurs au moment de la vente : on ne
+  // fait ici que le collecter. Rien n'est créé. Il n'y a plus de répartition au
+  // prorata de la longueur entre compagnies concurrentes — il n'y en a qu'une.
   exploiterRail() {
-    for (const l of this.liaisons) { l.recette = 0; l.charges = 0; l.resultat = 0; }
+    const c = this.compagnie;
+    c.recette = 0; c.charges = 0; c.resultat = 0;
+    if (!c.lignes.length) return;
 
     for (const m of this.marches) {
-      const desservantes = this.liaisonsDe(m);
-      if (!desservantes.length) continue;
-      const total = desservantes.reduce((s, l) => s + l.longueur, 0);
-      // Le péage a été prélevé sur les producteurs au moment de la vente : on ne
-      // fait ici que le répartir. Rien n'est créé.
-      for (const l of desservantes) {
-        l.recette += (m.peageCollecte || 0) * (l.longueur / total);
+      if (m.villes.length > 1) c.recette += m.peageCollecte || 0;
+    }
+    c.charges = this.capitalNominal() * P.entretienVoie / 12;
+    c.resultat = c.recette - c.charges;
+    c.histoResultat.push(c.resultat);
+    if (c.histoResultat.length > P.fenetreProfit) c.histoResultat.shift();
+
+    // Le dividende part à ceux qui ont souscrit. La part du consortium sort du
+    // modèle, comme les salaires que les bureaux reçoivent du dehors.
+    if (c.resultat > 0 && c.actions > 0) {
+      for (const s of this.societes) {
+        const n = c.parts[s.id] || 0;
+        if (n > 0) s.encaisser(c.resultat * n / c.actions);
       }
     }
-
-    for (const l of this.liaisons) {
-      if (!l.achevee) continue;
-      l.charges = this.capitalNominal(l) * P.entretienVoie / 12;
-      l.resultat = l.recette - l.charges;
-      l.histoResultat.push(l.resultat);
-      if (l.histoResultat.length > P.fenetreProfit) l.histoResultat.shift();
-
-      // Le dividende part à ceux qui ont souscrit. La part du consortium sort du
-      // modèle, comme les salaires que les bureaux reçoivent du dehors.
-      if (l.resultat > 0 && l.actions > 0) {
-        for (const s of this.societes) {
-          const n = l.parts[s.id] || 0;
-          if (n > 0) s.encaisser(l.resultat * n / l.actions);
-        }
-      }
-      l.cours = this.coursRail(l);      // mémorisé : la société le lit pour son actif
-      l.histoCours.push(l.cours);
-      if (l.histoCours.length > P.histoireDesCours) l.histoCours.shift();
-    }
+    c.cours = this.coursRail();        // mémorisé : la société le lit pour son actif
+    c.histoCours.push(c.cours);
+    if (c.histoCours.length > P.histoireDesCours) c.histoCours.shift();
   }
 
-  beneficeAnnuelRail(l) {
-    const h = l.histoResultat;
+  beneficeAnnuelRail() {
+    const h = this.compagnie.histoResultat;
     return h.length ? h.reduce((a, b) => a + b, 0) * 12 / h.length : 0;
   }
 
   // Non cotée : la part vaut ce qu'on a souscrit, au franc le franc.
   // Cotée : capital nominal + PER × bénéfice, divisé par les actions.
-  coursRail(l) {
-    if (!l.actions) return P.prixNominalAction;
-    if (!l.cotee) return P.prixNominalAction;
-    const b = Math.max(0, this.beneficeAnnuelRail(l));
-    return Math.max(0.01, (this.capitalNominal(l) + b * this.per) / l.actions);
+  coursRail() {
+    const c = this.compagnie;
+    if (!c.actions || !c.cotee) return P.prixNominalAction;
+    const b = Math.max(0, this.beneficeAnnuelRail());
+    return Math.max(0.01, (this.capitalNominal() + b * this.per) / c.actions);
   }
 
-  capitalisationRail(l) { return this.coursRail(l) * l.actions; }
+  capitalisationRail() { return this.coursRail() * this.compagnie.actions; }
 
-  valeurPartRail(l, societe) {
-    return (l.parts[societe.id] || 0) * this.coursRail(l);
+  valeurPartRail(societe) {
+    return (this.compagnie.parts[societe.id] || 0) * this.coursRail();
   }
 
-  investirRail(liaison, societe, montant) {
-    if (liaison.achevee || !societe.peutPayer(montant)) return false;
+  // Souscrire au chantier en cours. Il n'y a plus de ligne à choisir : la
+  // compagnie n'en pose qu'une à la fois, et c'est celle-là qu'on finance.
+  investirRail(societe, montant) {
+    const l = this.chantierRail;
+    if (!l || l.date === null || !societe.peutPayer(montant)) return false;
+    const c = this.compagnie;
     societe.payer(montant);
-    liaison.capital += montant;
+    c.capital += montant;
     // La souscription se compte en ACTIONS, pas en dollars : c'est ce qui permet
     // à la part de valoir autre chose que son prix d'achat une fois la compagnie
     // introduite en bourse.
     const titres = montant / P.prixNominalAction;
-    liaison.parts[societe.id] = (liaison.parts[societe.id] || 0) + titres;
-    liaison.actions += titres;
+    c.parts[societe.id] = (c.parts[societe.id] || 0) + titres;
+    c.actions += titres;
     if (!societe.rails) societe.rails = [];
-    if (!societe.rails.includes(liaison)) societe.rails.push(liaison);
+    if (!societe.rails.includes(c)) societe.rails.push(c);
     // Une tranche = un mois d'avance, dans la limite de 40 % du délai initial.
     const tranche = 800;
-    const avanceMax = Math.floor(liaison.dateInitiale * 0.40);
-    const dejaAvance = liaison.dateInitiale - liaison.date;
+    const avanceMax = Math.floor(l.dateInitiale * 0.40);
+    const dejaAvance = (l.debut + l.dateInitiale) - l.date;
     const gain = Math.min(Math.floor(montant / tranche), avanceMax - dejaAvance);
-    liaison.date = Math.max(this.mois + 1, liaison.date - Math.max(0, gain));
+    l.date = Math.max(this.mois + 1, l.date - Math.max(0, gain));
     return true;
   }
 
@@ -5097,10 +5117,25 @@ class Rendu {
 
     if (this.pose) this.dessinerPose(ctx, p, ox, oy, x0, y0, x1, y1);
 
+    // La sélection cercle le BÂTIMENT ENTIER, pas la case touchée.
+    //
+    // On ne clique jamais sur un bâtiment, on clique sur une de ses cases : un
+    // carré blanc d'une case au coin d'une aciérie de quatre laissait croire
+    // qu'on inspectait un terrain d'une case, et les chiffres du foncier
+    // devenaient incompréhensibles. Le contour épouse maintenant l'emprise.
     if (this.selection) {
       const c = this.selection;
+      const bloc = (c.bat && c.bat.cases) || (c.chantier && c.chantier.cases) || [c];
+      let x0b = Infinity, y0b = Infinity, x1b = -Infinity, y1b = -Infinity;
+      for (const k of bloc) {
+        if (k.x < x0b) x0b = k.x;
+        if (k.y < y0b) y0b = k.y;
+        if (k.x > x1b) x1b = k.x;
+        if (k.y > y1b) y1b = k.y;
+      }
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
-      ctx.strokeRect(ox + c.x * p - 1, oy + c.y * p - 1, p + 2, p + 2);
+      ctx.strokeRect(ox + x0b * p - 1, oy + y0b * p - 1,
+                     (x1b - x0b + 1) * p + 2, (y1b - y0b + 1) * p + 2);
     }
   }
 
@@ -5755,48 +5790,59 @@ function voletBourse(monde, rendu) {
     </div>`;
   }).join('');
 
-  const rails = monde.liaisons.map((l, i) => {
-    const mien = l.parts[monde.joueur.id] || 0;
-    const partPct = l.actions > 0 ? mien / l.actions : 0;
-    const cours = monde.coursRail(l);
-    const benef = monde.beneficeAnnuelRail(l);
-    const reste = l.date - monde.mois;
+  // Une seule compagnie de chemin de fer, qui pose ses lignes l'une après
+  // l'autre. Sa carte dit ce qu'elle exploite déjà et ce qu'elle creuse.
+  const co = monde.compagnie;
+  const chantier = monde.chantierRail;
+  const mien = co.parts[monde.joueur.id] || 0;
+  const partPct = co.actions > 0 ? mien / co.actions : 0;
+  const cours = monde.coursRail();
+  const benef = monde.beneficeAnnuelRail();
+  const reste = chantier && chantier.date !== null ? chantier.date - monde.mois : null;
 
-    const corps = l.cotee ? `
+  const enTravaux = !chantier ? `
+      <div class="piedRes"><span class="doux">réseau achevé — plus rien à poser</span></div>`
+    : chantier.date === null ? `
+      <div class="piedRes"><span class="doux">prochain chantier : ${chantier.nom}</span></div>`
+    : `
       <div class="piedRes">
-        <span>capitalisation <b>${eur(monde.capitalisationRail(l))}</b></span>
-        <span class="${benef >= 0 ? 'vert' : 'rouge'}">${eur(benef)}/an</span>
-        ${mien > 0 ? `<span class="or">votre part ${pct(partPct)} · ${eur(mien * cours)}</span>` : ''}
-      </div>` : `
-      <div class="piedRes">
-        <span>ouverture dans <b>${Math.max(0, reste)} mois</b></span>
-        <span class="doux">souscrit ${eur(l.capital)} / ${eur(monde.capitalNominal(l))}</span>
-        ${mien > 0 ? `<span class="or">vous : ${eur(mien * P.prixNominalAction)}</span>` : ''}
+        <span>chantier <b>${chantier.nom}</b></span>
+        <span class="or">ouverture dans ${Math.max(0, reste)} mois</span>
       </div>
       <div class="actions" style="margin-top:6px">
-        <button class="miniInvest" data-liaison="${i}">Souscrire 800 $</button>
+        <button class="miniInvest">Souscrire 800 $</button>
       </div>`;
 
-    return `<div class="carteRes ${ouvert === 'L' + i ? 'actif' : ''}" data-cours="L${i}">
+  const rails = `<div class="carteRes ${ouvert === 'RAIL' ? 'actif' : ''}" data-cours="RAIL">
       <div class="tetRes">
-        <span><b>${l.nom}</b>
-          <span class="cv"><br>${l.longueur} cases · ${l.cotee ? 'cotée' : 'en travaux — non cotée'}</span></span>
-        <span class="prixRes ${l.cotee ? '' : 'doux'}">${cours.toFixed(2)} $
+        <span><b>${co.nom}</b>
+          <span class="cv"><br>${co.lignes.length} ligne${co.lignes.length > 1 ? 's' : ''} en exploitation
+          · ${co.cotee ? 'cotée' : 'non cotée'}</span></span>
+        <span class="prixRes">${cours.toFixed(2)} $
           <span class="etiq" style="display:block;text-align:right">l'action</span></span>
       </div>
-      ${corps}
-      ${ouvert === 'L' + i && l.cotee && l.histoCours.length > 1
-        ? graphiqueCours(l.histoCours.map(x => x / P.prixNominalAction), '#e0b155') : ''}
+      ${co.cotee ? `<div class="piedRes">
+        <span>capitalisation <b>${eur(monde.capitalisationRail())}</b></span>
+        <span class="${benef >= 0 ? 'vert' : 'rouge'}">${eur(benef)}/an</span>
+        ${mien > 0 ? `<span class="or">votre part ${pct(partPct)} · ${eur(mien * cours)}</span>` : ''}
+      </div>` : `<div class="piedRes">
+        <span class="doux">souscrit ${eur(co.capital)}</span>
+        ${mien > 0 ? `<span class="or">vous : ${eur(mien * P.prixNominalAction)}</span>` : ''}
+      </div>`}
+      ${enTravaux}
+      ${ouvert === 'RAIL' && co.histoCours.length > 1
+        ? graphiqueCours(co.histoCours.map(x => x / Math.max(0.01, co.histoCours[0])), '#8fb0c9') : ''}
     </div>`;
-  }).join('');
+
 
   return entete
     + `<h3>Les sociétés</h3><div class="listeRes">${societes}</div>`
-    + `<h3>Les compagnies de chemin de fer</h3><div class="listeRes">${rails}</div>`
+    + `<h3>Le chemin de fer</h3><div class="listeRes">${rails}</div>`
     + `<div class="note">
-        Une liaison <b>est</b> une société. Pendant les travaux elle n'est pas cotée : on y
-        souscrit au franc le franc — ${eur(P.prixNominalAction)} l'action — et chaque tranche
-        avance la date d'ouverture. Le jour où la ligne s'ouvre, le consortium extérieur
+        Il n'y a qu'<b>une compagnie</b>, et elle pose ses lignes l'une après l'autre. Tant
+        qu'elle n'a pas ouvert sa première, elle n'est pas cotée : on y souscrit au franc le
+        franc — ${eur(P.prixNominalAction)} l'action — et chaque tranche avance la date
+        d'ouverture du chantier en cours. Le jour de la première ligne, le consortium extérieur
         complète le capital, la compagnie <b>entre en bourse</b> et acquiert d'un coup tout
         son goodwill.<br><br>
         Elle vit ensuite d'un péage de ${pct(P.peageRail)} sur le chiffre d'affaires du marché
@@ -5808,39 +5854,73 @@ function voletBourse(monde, rendu) {
 }
 
 function voletRail(monde) {
-  const lignes = monde.liaisons.map((l, i) => {
-    const reste = l.date - monde.mois;
-    const mien = l.parts[monde.joueur.id] || 0;
-    const part = l.actions > 0 ? mien / l.actions : 0;
+  const co = monde.compagnie;
+  const chantier = monde.chantierRail;
+
+  const lignes = monde.liaisons.map((l) => {
+    const etat = l.achevee ? '<span class="vert">ouverte</span>'
+      : l === chantier && l.date !== null
+        ? `<span class="or">${Math.max(0, l.date - monde.mois)} mois</span>`
+      : '<span class="faible">à venir</span>';
     return `<tr>
       <td>${l.nom}<br><span class="faible">${l.longueur} cases</span></td>
-      <td class="n ${l.achevee ? 'vert' : reste <= 3 ? 'or' : 'doux'}">
-        ${l.achevee ? 'ouverte' : reste + ' mois'}</td>
-      <td class="n doux">${part > 0 ? pct(part) : '—'}</td>
-      <td class="n">${l.achevee ? '—'
-        : `<button class="miniInvest" data-liaison="${i}">+800 $</button>`}</td>
+      <td class="n">${etat}</td>
     </tr>`;
   }).join('');
+
+  const mien = co.parts[monde.joueur.id] || 0;
+  const part = co.actions > 0 ? mien / co.actions : 0;
+
+  const souscrire = chantier && chantier.date !== null
+    ? `<div class="actions"><button class="miniInvest primaire">Souscrire 800 $</button></div>
+       <div class="note">
+         Chaque tranche de 800 $ avance la livraison d'un mois, dans la limite de 40 % du délai
+         annoncé : on peut avancer le rendez-vous, jamais le supprimer. La souscription vous
+         donne des actions de la compagnie — voir l'onglet <b>Bourse</b>.</div>`
+    : `<div class="note">${chantier ? 'Le chantier n\'a pas encore ouvert.'
+        : 'Le réseau est achevé : il n\'y a plus rien à poser.'}</div>`;
 
   const reseaux = monde.marches.map(m => m.villes.map(v => v.nom).join(' + ')).join('<br>');
 
   return `
-    <h3>Les liaisons</h3>
+    <h3>La compagnie</h3>
+    <div class="grille">
+      <div class="fiche"><div class="etiq">Lignes ouvertes</div>
+        <div class="v">${co.lignes.length} / ${monde.liaisons.length}</div></div>
+      <div class="fiche"><div class="etiq">Action</div>
+        <div class="v or">${monde.coursRail().toFixed(2)} $</div>
+        <div class="etiq" style="margin-top:2px">${co.cotee ? 'cotée' : 'non cotée'}</div></div>
+      <div class="fiche"><div class="etiq">Votre part</div>
+        <div class="v ${part > 0 ? '' : 'doux'}">${part > 0 ? pct(part) : '—'}</div></div>
+    </div>
+    <div class="note">
+      Il n'y a qu'<b>une compagnie</b>, et elle pose ses lignes <b>l'une après l'autre</b>.
+      Le chantier ouvert est le seul qu'on puisse financer ; le suivant ne commencera qu'une
+      fois celui-ci livré.
+    </div>
+
+    <h3>Le chantier</h3>
+    ${chantier
+      ? `<div class="carteRes"><div class="tetRes">
+           <span><b>${chantier.nom}</b><span class="cv"><br>${chantier.longueur} cases</span></span>
+           <span class="prixRes ${chantier.date !== null ? 'or' : 'doux'}">${
+             chantier.date !== null ? Math.max(0, chantier.date - monde.mois) : '—'}
+             <span class="etiq" style="display:block;text-align:right">mois</span></span>
+         </div></div>`
+      : ''}
+    ${souscrire}
+
+    <h3>Le réseau planifié</h3>
     <table>
-      <tr><th>Ligne</th><th class="n">Achèvement</th><th class="n">Votre part</th><th></th></tr>
+      <tr><th>Ligne</th><th class="n">État</th></tr>
       ${lignes}
     </table>
-    <div class="note">
-      Chaque tranche de 800 $ avance la date d'un mois, dans la limite de 40 % du délai
-      initial : on peut avancer le rendez-vous, jamais le supprimer. La souscription vous
-      donne des actions de la compagnie — voir l'onglet <b>Bourse</b>.
-    </div>
 
     <h3>Marchés en présence</h3>
     <div class="note">${reseaux}<br><br>
       Les liaisons ne s'additionnent pas, elles se chaînent : si A rejoint B et B rejoint C,
       alors A et C partagent déjà le même marché, sans qu'aucune ligne supplémentaire ait
-      été posée. Un marché desservi paie ${pct(P.peageRail)} de péage à ses compagnies.</div>
+      été posée. Un marché desservi paie ${pct(P.peageRail)} de péage à la compagnie.</div>
 
     <h3>Journal</h3>
     <div class="note">${monde.journal.slice(-8).reverse().join('<br>') || 'Rien à signaler.'}</div>
@@ -6097,17 +6177,27 @@ function ficheTerrain(monde, v, c) {
 // distingue le centre, c'est la PENTE — bâtir contre la gare au premier mois,
 // c'est acheter un loyer qui quadruplera ; bâtir en lisière, un loyer qui
 // gagnera 11 %. Sans cette jauge, rien à l'écran ne le dirait.
-function jaugePotentiel(v, c, bat) {
-  const richesse = qualiteMax(c);
-  const p = potentielTerrain(v.niveau, c.distanceGare, richesse);
+// `cases` est l'emprise entière quand on inspecte un bâtiment, et la seule case
+// touchée quand on inspecte un terrain nu. Les sommes portent donc toujours sur
+// ce que le joueur a effectivement sélectionné — un bâtiment de quatre cases
+// annonçait auparavant le foncier d'une seule, celle qu'on avait touchée.
+function jaugePotentiel(v, cases, bat) {
+  const liste = Array.isArray(cases) ? cases : [cases];
+  const somme = (niveau) => liste.reduce(
+    (s, k) => s + prixTerrain(niveau, k.distanceGare, qualiteMax(k)), 0);
+
+  const auj = somme(v.niveau);
+  const bout = somme(P.facteurNiveau.length);
+  const suivant = v.niveau < 5 ? somme(v.niveau + 1) : null;
+  // Le potentiel est le rapport des deux sommes : il vaut le potentiel d'une
+  // case quand l'emprise n'en compte qu'une, et la moyenne pondérée sinon.
+  const p = auj > 0 ? bout / auj : 1;
   const t = Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[4] - 1)));
-  const auj = prixTerrain(v.niveau, c.distanceGare, richesse);
-  const suivant = v.niveau < 5 ? prixTerrain(v.niveau + 1, c.distanceGare, richesse) : null;
-  const bout = prixTerrain(5, c.distanceGare, richesse);
 
   // Le même mouvement du sol enrichit une résidence et appauvrit un atelier :
   // le loyer suit le foncier, la recette d'un atelier n'en dépend pas.
-  let dit = `Le sol de cette case peut encore <b>${p.toFixed(2)} ×</b> sa valeur.`;
+  const quoi = liste.length > 1 ? `Le sol de ces <b>${liste.length} cases</b>` : 'Le sol de cette case';
+  let dit = `${quoi} peut encore <b>${p.toFixed(2)} ×</b> sa valeur.`;
   if (bat && bat.def.cat === 'loge') {
     dit += ' Le loyer étant indexé sur le foncier, <span class="vert">votre loyer suivra</span> —'
          + ' et votre rendement montera d\'autant, puisqu\'il se calcule sur ce que vous avez payé.';
@@ -6452,7 +6542,7 @@ function ficheBatiment(monde, b, c) {
       <div class="fiche"><div class="etiq">Quartier</div>
         <div class="v doux" style="font-size:12px">${NOMS_QUARTIER[b.cases[0].quartier] || '—'}</div></div>
     </div>
-    ${jaugePotentiel(b.ville, b.cases[0], b)}
+    ${jaugePotentiel(b.ville, b.cases, b)}
     ${def.qual ? `<div class="note">Sol de qualité <b>${b.qualite.toFixed(1)} / 5</b> : cette
       exploitation sort ${facteurQualite(b.qualite).toFixed(2)}× ce que sortirait la même sur une terre
       moyenne. Un handicap de terrain ne fait aucun bruit — il se lit uniquement dans la
@@ -6748,7 +6838,7 @@ function brancherVolet(corps) {
   };
 
   corps.querySelectorAll('.miniInvest').forEach(btn => btn.onclick = () => {
-    monde.investirRail(monde.liaisons[+btn.dataset.liaison], monde.joueur, 800);
+    monde.investirRail(monde.joueur, 800);
     rafraichirTout();
   });
 }

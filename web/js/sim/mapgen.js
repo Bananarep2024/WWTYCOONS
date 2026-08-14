@@ -403,20 +403,19 @@ function construireReseau(villes, rnd) {
   }
   if (rejetees.length && villes.length >= 4) retenues.push(rejetees[0]);
 
-  return retenues.map(e => {
+  return retenues.map((e) => {
     // La date d'achèvement est proportionnelle à la longueur : une ligne longue
     // demande plus de travail, et le joueur le voit dès la première seconde.
     const mois = Math.round(8 + e.d * P.moisParCaseDeVoie + rnd() * 6);
+    // Une liaison n'est plus une société : il n'y a qu'UNE compagnie de chemin
+    // de fer, et elle pose ses lignes l'une après l'autre. La liaison ne porte
+    // donc plus que sa géométrie et son calendrier. `date` reste nulle tant que
+    // le chantier n'a pas commencé — on ne date pas des travaux qui n'ont pas
+    // d'ouvriers.
     return {
       a: e.a, b: e.b, longueur: Math.round(e.d),
       nom: `${villes[e.a].nom} — ${villes[e.b].nom}`,
-      dateInitiale: mois, date: mois,
-      // Une liaison EST une société. Capital nominal proportionnel à la longueur
-      // — poser du rail coûte au kilomètre — souscrit par les joueurs pendant
-      // les travaux, le reste étant porté par un consortium extérieur.
-      capital: 0, achevee: false, cotee: false, parts: {},
-      actions: 0, recette: 0, charges: 0, resultat: 0,
-      histoResultat: [], histoCours: [],
+      dateInitiale: mois, date: null, debut: null, achevee: false,
     };
   });
 }

@@ -353,10 +353,25 @@ export class Rendu {
 
     if (this.pose) this.dessinerPose(ctx, p, ox, oy, x0, y0, x1, y1);
 
+    // La sélection cercle le BÂTIMENT ENTIER, pas la case touchée.
+    //
+    // On ne clique jamais sur un bâtiment, on clique sur une de ses cases : un
+    // carré blanc d'une case au coin d'une aciérie de quatre laissait croire
+    // qu'on inspectait un terrain d'une case, et les chiffres du foncier
+    // devenaient incompréhensibles. Le contour épouse maintenant l'emprise.
     if (this.selection) {
       const c = this.selection;
+      const bloc = (c.bat && c.bat.cases) || (c.chantier && c.chantier.cases) || [c];
+      let x0b = Infinity, y0b = Infinity, x1b = -Infinity, y1b = -Infinity;
+      for (const k of bloc) {
+        if (k.x < x0b) x0b = k.x;
+        if (k.y < y0b) y0b = k.y;
+        if (k.x > x1b) x1b = k.x;
+        if (k.y > y1b) y1b = k.y;
+      }
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
-      ctx.strokeRect(ox + c.x * p - 1, oy + c.y * p - 1, p + 2, p + 2);
+      ctx.strokeRect(ox + x0b * p - 1, oy + y0b * p - 1,
+                     (x1b - x0b + 1) * p + 2, (y1b - y0b + 1) * p + 2);
     }
   }
 

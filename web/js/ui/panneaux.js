@@ -474,48 +474,59 @@ export function voletBourse(monde, rendu) {
     </div>`;
   }).join('');
 
-  const rails = monde.liaisons.map((l, i) => {
-    const mien = l.parts[monde.joueur.id] || 0;
-    const partPct = l.actions > 0 ? mien / l.actions : 0;
-    const cours = monde.coursRail(l);
-    const benef = monde.beneficeAnnuelRail(l);
-    const reste = l.date - monde.mois;
+  // Une seule compagnie de chemin de fer, qui pose ses lignes l'une après
+  // l'autre. Sa carte dit ce qu'elle exploite déjà et ce qu'elle creuse.
+  const co = monde.compagnie;
+  const chantier = monde.chantierRail;
+  const mien = co.parts[monde.joueur.id] || 0;
+  const partPct = co.actions > 0 ? mien / co.actions : 0;
+  const cours = monde.coursRail();
+  const benef = monde.beneficeAnnuelRail();
+  const reste = chantier && chantier.date !== null ? chantier.date - monde.mois : null;
 
-    const corps = l.cotee ? `
+  const enTravaux = !chantier ? `
+      <div class="piedRes"><span class="doux">réseau achevé — plus rien à poser</span></div>`
+    : chantier.date === null ? `
+      <div class="piedRes"><span class="doux">prochain chantier : ${chantier.nom}</span></div>`
+    : `
       <div class="piedRes">
-        <span>capitalisation <b>${eur(monde.capitalisationRail(l))}</b></span>
-        <span class="${benef >= 0 ? 'vert' : 'rouge'}">${eur(benef)}/an</span>
-        ${mien > 0 ? `<span class="or">votre part ${pct(partPct)} · ${eur(mien * cours)}</span>` : ''}
-      </div>` : `
-      <div class="piedRes">
-        <span>ouverture dans <b>${Math.max(0, reste)} mois</b></span>
-        <span class="doux">souscrit ${eur(l.capital)} / ${eur(monde.capitalNominal(l))}</span>
-        ${mien > 0 ? `<span class="or">vous : ${eur(mien * P.prixNominalAction)}</span>` : ''}
+        <span>chantier <b>${chantier.nom}</b></span>
+        <span class="or">ouverture dans ${Math.max(0, reste)} mois</span>
       </div>
       <div class="actions" style="margin-top:6px">
-        <button class="miniInvest" data-liaison="${i}">Souscrire 800 $</button>
+        <button class="miniInvest">Souscrire 800 $</button>
       </div>`;
 
-    return `<div class="carteRes ${ouvert === 'L' + i ? 'actif' : ''}" data-cours="L${i}">
+  const rails = `<div class="carteRes ${ouvert === 'RAIL' ? 'actif' : ''}" data-cours="RAIL">
       <div class="tetRes">
-        <span><b>${l.nom}</b>
-          <span class="cv"><br>${l.longueur} cases · ${l.cotee ? 'cotée' : 'en travaux — non cotée'}</span></span>
-        <span class="prixRes ${l.cotee ? '' : 'doux'}">${cours.toFixed(2)} $
+        <span><b>${co.nom}</b>
+          <span class="cv"><br>${co.lignes.length} ligne${co.lignes.length > 1 ? 's' : ''} en exploitation
+          · ${co.cotee ? 'cotée' : 'non cotée'}</span></span>
+        <span class="prixRes">${cours.toFixed(2)} $
           <span class="etiq" style="display:block;text-align:right">l'action</span></span>
       </div>
-      ${corps}
-      ${ouvert === 'L' + i && l.cotee && l.histoCours.length > 1
-        ? graphiqueCours(l.histoCours.map(x => x / P.prixNominalAction), '#e0b155') : ''}
+      ${co.cotee ? `<div class="piedRes">
+        <span>capitalisation <b>${eur(monde.capitalisationRail())}</b></span>
+        <span class="${benef >= 0 ? 'vert' : 'rouge'}">${eur(benef)}/an</span>
+        ${mien > 0 ? `<span class="or">votre part ${pct(partPct)} · ${eur(mien * cours)}</span>` : ''}
+      </div>` : `<div class="piedRes">
+        <span class="doux">souscrit ${eur(co.capital)}</span>
+        ${mien > 0 ? `<span class="or">vous : ${eur(mien * P.prixNominalAction)}</span>` : ''}
+      </div>`}
+      ${enTravaux}
+      ${ouvert === 'RAIL' && co.histoCours.length > 1
+        ? graphiqueCours(co.histoCours.map(x => x / Math.max(0.01, co.histoCours[0])), '#8fb0c9') : ''}
     </div>`;
-  }).join('');
+
 
   return entete
     + `<h3>Les sociétés</h3><div class="listeRes">${societes}</div>`
-    + `<h3>Les compagnies de chemin de fer</h3><div class="listeRes">${rails}</div>`
+    + `<h3>Le chemin de fer</h3><div class="listeRes">${rails}</div>`
     + `<div class="note">
-        Une liaison <b>est</b> une société. Pendant les travaux elle n'est pas cotée : on y
-        souscrit au franc le franc — ${eur(P.prixNominalAction)} l'action — et chaque tranche
-        avance la date d'ouverture. Le jour où la ligne s'ouvre, le consortium extérieur
+        Il n'y a qu'<b>une compagnie</b>, et elle pose ses lignes l'une après l'autre. Tant
+        qu'elle n'a pas ouvert sa première, elle n'est pas cotée : on y souscrit au franc le
+        franc — ${eur(P.prixNominalAction)} l'action — et chaque tranche avance la date
+        d'ouverture du chantier en cours. Le jour de la première ligne, le consortium extérieur
         complète le capital, la compagnie <b>entre en bourse</b> et acquiert d'un coup tout
         son goodwill.<br><br>
         Elle vit ensuite d'un péage de ${pct(P.peageRail)} sur le chiffre d'affaires du marché
@@ -527,39 +538,73 @@ export function voletBourse(monde, rendu) {
 }
 
 export function voletRail(monde) {
-  const lignes = monde.liaisons.map((l, i) => {
-    const reste = l.date - monde.mois;
-    const mien = l.parts[monde.joueur.id] || 0;
-    const part = l.actions > 0 ? mien / l.actions : 0;
+  const co = monde.compagnie;
+  const chantier = monde.chantierRail;
+
+  const lignes = monde.liaisons.map((l) => {
+    const etat = l.achevee ? '<span class="vert">ouverte</span>'
+      : l === chantier && l.date !== null
+        ? `<span class="or">${Math.max(0, l.date - monde.mois)} mois</span>`
+      : '<span class="faible">à venir</span>';
     return `<tr>
       <td>${l.nom}<br><span class="faible">${l.longueur} cases</span></td>
-      <td class="n ${l.achevee ? 'vert' : reste <= 3 ? 'or' : 'doux'}">
-        ${l.achevee ? 'ouverte' : reste + ' mois'}</td>
-      <td class="n doux">${part > 0 ? pct(part) : '—'}</td>
-      <td class="n">${l.achevee ? '—'
-        : `<button class="miniInvest" data-liaison="${i}">+800 $</button>`}</td>
+      <td class="n">${etat}</td>
     </tr>`;
   }).join('');
+
+  const mien = co.parts[monde.joueur.id] || 0;
+  const part = co.actions > 0 ? mien / co.actions : 0;
+
+  const souscrire = chantier && chantier.date !== null
+    ? `<div class="actions"><button class="miniInvest primaire">Souscrire 800 $</button></div>
+       <div class="note">
+         Chaque tranche de 800 $ avance la livraison d'un mois, dans la limite de 40 % du délai
+         annoncé : on peut avancer le rendez-vous, jamais le supprimer. La souscription vous
+         donne des actions de la compagnie — voir l'onglet <b>Bourse</b>.</div>`
+    : `<div class="note">${chantier ? 'Le chantier n\'a pas encore ouvert.'
+        : 'Le réseau est achevé : il n\'y a plus rien à poser.'}</div>`;
 
   const reseaux = monde.marches.map(m => m.villes.map(v => v.nom).join(' + ')).join('<br>');
 
   return `
-    <h3>Les liaisons</h3>
+    <h3>La compagnie</h3>
+    <div class="grille">
+      <div class="fiche"><div class="etiq">Lignes ouvertes</div>
+        <div class="v">${co.lignes.length} / ${monde.liaisons.length}</div></div>
+      <div class="fiche"><div class="etiq">Action</div>
+        <div class="v or">${monde.coursRail().toFixed(2)} $</div>
+        <div class="etiq" style="margin-top:2px">${co.cotee ? 'cotée' : 'non cotée'}</div></div>
+      <div class="fiche"><div class="etiq">Votre part</div>
+        <div class="v ${part > 0 ? '' : 'doux'}">${part > 0 ? pct(part) : '—'}</div></div>
+    </div>
+    <div class="note">
+      Il n'y a qu'<b>une compagnie</b>, et elle pose ses lignes <b>l'une après l'autre</b>.
+      Le chantier ouvert est le seul qu'on puisse financer ; le suivant ne commencera qu'une
+      fois celui-ci livré.
+    </div>
+
+    <h3>Le chantier</h3>
+    ${chantier
+      ? `<div class="carteRes"><div class="tetRes">
+           <span><b>${chantier.nom}</b><span class="cv"><br>${chantier.longueur} cases</span></span>
+           <span class="prixRes ${chantier.date !== null ? 'or' : 'doux'}">${
+             chantier.date !== null ? Math.max(0, chantier.date - monde.mois) : '—'}
+             <span class="etiq" style="display:block;text-align:right">mois</span></span>
+         </div></div>`
+      : ''}
+    ${souscrire}
+
+    <h3>Le réseau planifié</h3>
     <table>
-      <tr><th>Ligne</th><th class="n">Achèvement</th><th class="n">Votre part</th><th></th></tr>
+      <tr><th>Ligne</th><th class="n">État</th></tr>
       ${lignes}
     </table>
-    <div class="note">
-      Chaque tranche de 800 $ avance la date d'un mois, dans la limite de 40 % du délai
-      initial : on peut avancer le rendez-vous, jamais le supprimer. La souscription vous
-      donne des actions de la compagnie — voir l'onglet <b>Bourse</b>.
-    </div>
 
     <h3>Marchés en présence</h3>
     <div class="note">${reseaux}<br><br>
       Les liaisons ne s'additionnent pas, elles se chaînent : si A rejoint B et B rejoint C,
       alors A et C partagent déjà le même marché, sans qu'aucune ligne supplémentaire ait
-      été posée. Un marché desservi paie ${pct(P.peageRail)} de péage à ses compagnies.</div>
+      été posée. Un marché desservi paie ${pct(P.peageRail)} de péage à la compagnie.</div>
 
     <h3>Journal</h3>
     <div class="note">${monde.journal.slice(-8).reverse().join('<br>') || 'Rien à signaler.'}</div>

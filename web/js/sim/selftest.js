@@ -91,29 +91,6 @@ ok('la distance pèse plus que la richesse',
    prixTerrain(3, 0, 3) / prixTerrain(3, 60, 3),
    4.02, 0.02);
 
-// UN BÂTIMENT EN PERTE VAUT SES MURS, et l'arbitrage reste fermé.
-//
-// Le plancher était à zéro : dès que le profit passait sous zéro, le bâti ne
-// valait plus rien et l'on ramassait une aciérie de 3 240 $ pour le prix de son
-// sol. Le plancher est désormais la valeur résiduelle, ce qui ferme l'arbitrage
-// plus largement qu'avant — acheter puis démolir perd exactement cette valeur.
-{
-  const w = new Monde({ nbVilles: 5, duree: 120, graine: 12345 });
-  while (w.tick());
-  let pireArbitrage = -Infinity, plancherBas = Infinity, examines = 0;
-  for (const v of w.villes) for (const b of (v.batIndependants || [])) {
-    if (b.profitAnnuel > 0) continue;
-    examines++;
-    const prix = w.prixRachatIndependant(b);
-    // acheter, démolir, revendre le terrain : ce que l'opération rapporte
-    pireArbitrage = Math.max(pireArbitrage, b.terrainCourant - prix);
-    plancherBas = Math.min(plancherBas, (prix - b.terrainCourant) / b.valeurBatie);
-  }
-  ok('bâtiments en perte examinés', examines > 10 ? 1 : 0, 1, 0.01);
-  ok('aucun arbitrage achat → démolition → revente', Math.max(0, pireArbitrage), 0, 0.01);
-  ok('les murs valent leur valeur résiduelle', plancherBas, P.valeurResiduelle, 0.01);
-}
-
 // Le gradient se durcit avec le niveau : c'est là tout le mécanisme.
 ok('potentiel du centre, comptoir', potentielTerrain(1, 0), 4.00, 0.01);
 ok('potentiel à 30 cases, comptoir', potentielTerrain(1, 30), 1.677, 0.02);

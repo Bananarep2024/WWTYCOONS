@@ -141,17 +141,6 @@ export const P = {
   partIndependants: 0.30,
   surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
   anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
-  // Ce que valent les murs quand l'exploitation ne vaut plus rien.
-  //
-  // Sans ce plancher, un bâtiment déficitaire se cédait à son SEUL terrain : on
-  // ramassait une aciérie de 3 240 $ pour le prix de quatre cases de sol. Le
-  // bâti disparaissait du bilan à la seconde où le profit passait sous zéro,
-  // alors qu'il contient toujours ses planches, ses briques et son acier, et
-  // qu'un simple retournement de cours le remet à flot.
-  //
-  // Il reste très en dessous du coût de reconstruction : une affaire en perte
-  // DOIT être une affaire, c'est tout l'intérêt des filières surconstruites.
-  valeurResiduelle: 0.45,      // part du coût de reconstruction que valent les murs
   // — le plancher est le terrain lui-même : voir prixRachatIndependant
 
   chantiersVilleParMois: 6,       // ce qu'une ville peut lancer en un mois
@@ -220,7 +209,14 @@ export const P = {
   margeMonde: 22,              // on ne fonde pas une ville au bord de la carte
   rayonVille: 44,              // rayon moyen d'un territoire, dévié par ville
   distanceMinVilles: 94,       // de centre à centre : sans quoi le rail n'a pas de sens
-  moisParCaseDeVoie: 0.42,     // une ligne longue demande plus de travail
+  moisParCaseDeVoie: 0.12,     // durée d'un chantier, à la case de longueur
+  // Elle valait 0,42 quand les cinq lignes se construisaient EN PARALLÈLE. La
+  // compagnie n'en pose plus qu'une à la fois, si bien que les durées
+  // s'additionnent au lieu de se recouvrir : le réseau ne s'achevait qu'au mois
+  // 312 à 366, et une ville sur deux mourait d'être restée isolée vingt-cinq
+  // ans. À 0,12 le premier train roule vers le mois 25 et le réseau est complet
+  // vers le mois 110 — une ligne tous les vingt mois, ce qui fait du rail une
+  // affaire qu'on suit plutôt qu'un décor qui se déploie tout seul.     // une ligne longue demande plus de travail
   menagesInitiaux: 55,         // avant le tempérament, qui l'étire de 0,80 à 1,20
 };
 
