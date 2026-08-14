@@ -112,6 +112,10 @@ terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
   garantie, reliées par un réseau ferroviaire où les liaisons se chaînent
 - **Bâtiments dessinés** — toits, dents de scie, silos, chevalements — et quartiers de
   vocations distinctes : l'industrie ne cerne jamais l'habitation
+- **Cinq villes aux départs différents** — chacune fondée sur un tempérament tiré au sort :
+  cité ouvrière, ville de rentiers, comptoir affamé, bourg prospère, friche industrielle.
+  Chômage de 25 à 48 %, couverture des besoins, dotation en bureaux et nombre d'affaires
+  déficitaires varient de l'une à l'autre
 - **Attractivité par ville** — le seul chiffre qui décide de la population : moyenne des
   trois baromètres × pouvoir d'achat, avec le détail des quatre composantes ville par ville
 - **Filtres** en dégradé rouge → vert : qualité du sol case par case, baromètres ville par

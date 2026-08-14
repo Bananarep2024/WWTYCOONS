@@ -482,3 +482,45 @@ réglages jouables en sont très loin.
 La densité reste à **1/40**. Passer à 1/30 rendrait les Métropoles atteignables par
 l'ordinateur seul et ferait *baisser* le chômage de 22 à 15 % — c'est un arbitrage de
 conception, en attente.
+
+---
+
+## Cinq villes qui n'ouvrent pas la partie dans le même état
+
+Cinq villes identiques, c'est cinq fois rien à arbitrer : aucune raison d'aller là plutôt
+qu'ici, et un rail qui ne transporte que des marchandises identiques entre des jumelles.
+
+| Point | Décision |
+|---|---|
+| **Cinq archétypes, pas cinq tirages** | Tirer cinq tempéraments indépendamment les aurait fait se ressembler une fois sur deux. On tire donc cinq **archétypes distincts par construction** — cité ouvrière, ville de rentiers, comptoir affamé, bourg prospère, friche industrielle — et on les mélange. Chacun porte cinq réglages : emploi, vivres, produits, bureaux, part d'affaires bancales, et une taille de départ. |
+| **Les bornes ne sont pas libres** | Sous 50 % d'emploi ou 80 % de nourriture, un seuil critique est franchi et la ville se vide de 5 % par mois quoi qu'il arrive. Un tempérament qui descendrait là ne ferait pas une ville difficile, il ferait une ville **condamnée** — mesuré : deux des cinq passaient de 50 à 12 habitants en cinq ans. L'emploi reste au-dessus de 0,68, la nourriture au-dessus de 0,88. Les produits manufacturés, dont le seuil critique est à 20 %, sont là où l'on peut vraiment creuser (0,55 à 1,15). |
+| **Le chômage se fabrique par la POPULATION** | La première version ajustait les postes : elle rasait des exploitations jusqu'à ce que l'emploi tombe où il fallait. Catastrophe silencieuse — une ville de rentiers se retrouvait avec vingt bâtiments productifs, donc sans filière, donc tout en déficit, et passait de 49 à **2 ménages**. On ne fabrique pas du chômage en détruisant l'économie. Le parc est ce qu'il est ; c'est le nombre de ménages qu'on ajuste, et le logement se pose en dernier. Une ville qui a attiré plus de monde que son industrie n'en peut employer — c'est exactement l'Amérique de 1900. |
+| **Les affaires bancales** | On ne choisit pas un métier pour lui chercher ensuite un mauvais sol : cette version-là posait deux bâtiments sur huit. On cherche l'inverse — **la plus mauvaise terre disponible, tous métiers confondus** — et l'on y met celui qui y perdra le plus. La ferme et le ranch sont privilégiés : deux cases, donc deux salaires pleins pour une production que le sol divise par trois. Un ranch sur de la caillasse encaisse 31 $ et en verse 40, il perd quoi que fasse le marché ; une coupe forestière, elle, redevient rentable dès que le bois se raréfie. |
+
+### Moins d'habitants, villes moins compactes, terrains libres
+
+| Point | Décision |
+|---|---|
+| **Population de départ** | 80 → **55 ménages**, étirés de 0,80 à 1,20 par le tempérament : de 44 à 66 selon la ville. |
+| **Le rayon UTILE** | Le territoire est taillé pour une Métropole — quatre mille cases. Y lâcher un comptoir de cinquante ménages donnait une confiture : des fermes à trente cases de la gare dès le premier mois et un cœur rempli à 17 %. Une agglomération naissante est **dense et petite** ; elle s'étale en grandissant, elle ne naît pas étalée. On compte trois cases par ménage, on prend le rayon du disque correspondant avec 20 % de marge, et une exploitation a le droit de s'en éloigner de 2,2 fois pour suivre sa ressource. |
+| **Il ne rétrécit jamais** | Une ville qui perd des habitants verrait sinon son rayon se resserrer sur un tissu déjà bâti, ne trouverait plus où bâtir, et s'enfoncerait — mesuré : une ville passait de 58 à 34 ménages avec son rayon utile rempli à 97 %. Une ville qui décline garde ses rues, elle les laisse se vider. |
+| **La dispersion** | Au lieu de toujours prendre l'emplacement optimal — lequel récompense la proximité de la gare, d'où un pâté concentrique sans un pouce de vide — on tire au sort parmi ceux qui s'en approchent à 12 points près. Il reste des **trous** : des terrains libres au milieu de l'habitation, que le joueur peut acheter et où la ville densifiera plus tard. Deux parties sur la même carte n'ont plus le même plan de ville. |
+
+### Mesuré
+
+Huit cartes, quarante villes :
+
+| Tempérament | Ménages au départ | Chômage au départ | Ménages à 20 ans | La pire |
+|---|---|---|---|---|
+| bourg prospère | 63 | 25 % | 272 | 129 |
+| cité ouvrière | 44 | 28 % | 200 | 78 |
+| ville de rentiers | 74 | 35 % | 242 | 141 |
+| comptoir affamé | 43 | 37 % | 203 | 95 |
+| friche industrielle | 63 | **48 %** | 222 | 191 |
+
+**0 ville sur 40 sous 25 ménages à vingt ans** : le contraste ne condamne personne. Et le
+tissu urbain : **47 % de remplissage** dans le rayon utile, **54 % des parcelles
+d'habitation encore libres**.
+
+Le tempérament est affiché dans l'onglet Villes — « fondée comme friche industrielle » — et
+détaillé au dépli.

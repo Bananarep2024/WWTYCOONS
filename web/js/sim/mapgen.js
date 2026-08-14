@@ -57,6 +57,41 @@ const PROFILS = [
   { pred: 'argile',    rares: ['bois', 'minerai'],     penteVoulue: 0.20 },
 ];
 
+// Le tempérament d'une ville de départ.
+//
+// Les cinq villes ne doivent pas ouvrir la partie dans le même état : sans quoi
+// il n'y a rien à arbitrer, aucune raison d'aller là plutôt qu'ici, et le rail
+// ne sert qu'à transporter des marchandises identiques entre des jumelles. On
+// tire donc cinq ARCHÉTYPES distincts — jamais cinq tirages indépendants, qui
+// se seraient ressemblés une fois sur deux — et on les mélange.
+//
+//   emploi     couverture des postes : 0,60 = un tiers de chômeurs au départ
+//   vivres     couverture alimentaire
+//   produits   couverture en produits manufacturés
+//   bureaux    dotation en immeubles de bureaux, l'argent qui vient du dehors
+//   malchance  part des exploitations plantées sur un sol médiocre — donc
+//              déficitaires dès le premier mois, donc à racheter pour rien
+//   taille     population de départ, en multiple de la base
+// Les bornes ne sont pas libres : sous 50 % d'emploi ou 80 % de nourriture, un
+// seuil critique est franchi et la ville se vide de 5 % par mois quoi qu'il
+// arrive. Un tempérament qui descendrait là ne ferait pas une ville difficile,
+// il ferait une ville condamnée — mesuré : deux des cinq passaient de 50 à 12
+// habitants en cinq ans. L'emploi reste donc au-dessus de 0,68 et la nourriture
+// au-dessus de 0,88. Les produits manufacturés, eux, ont un seuil critique à
+// 20 % seulement : c'est là qu'on peut vraiment creuser l'écart.
+const TEMPERAMENTS = [
+  { nom: 'cité ouvrière',       emploi: 1.00, vivres: 0.90, produits: 0.60,
+    bureaux: 0.45, malchance: 0.12, taille: 1.20 },
+  { nom: 'ville de rentiers',   emploi: 0.72, vivres: 1.08, produits: 1.15,
+    bureaux: 1.85, malchance: 0.05, taille: 0.95 },
+  { nom: 'comptoir affamé',     emploi: 0.86, vivres: 0.88, produits: 0.55,
+    bureaux: 0.80, malchance: 0.26, taille: 0.80 },
+  { nom: 'bourg prospère',      emploi: 0.95, vivres: 1.12, produits: 1.10,
+    bureaux: 1.25, malchance: 0.04, taille: 1.10 },
+  { nom: 'friche industrielle', emploi: 0.68, vivres: 0.95, produits: 0.75,
+    bureaux: 0.55, malchance: 0.36, taille: 0.90 },
+];
+
 // Les vocations de quartier. Un quartier est une tache de Voronoï à l'intérieur
 // du territoire d'une ville : c'est ce qui empêche les ateliers de cerner les
 // maisons, et ce qui donne à chaque ville un plan différent.
@@ -120,6 +155,7 @@ export function genererMonde(nbVilles, graine) {
   // On tire des candidats et on ne garde que ceux qui respectent la distance
   // minimale : sans elle, deux villes se recouvrent et le rail n'a plus de sens.
   const profils = melanger(PROFILS.slice(), rnd).slice(0, nbVilles);
+  const temperaments = melanger(TEMPERAMENTS.slice(), rnd);
   const noms = melanger(NOMS.slice(), rnd);
   const sites = [];
 
@@ -155,15 +191,18 @@ export function genererMonde(nbVilles, graine) {
     const profil = profils[i];
     // Un rayon propre à chaque ville et une déformation directionnelle : sans
     // cela, les cinq villes auraient exactement le même plan.
-    const rayon = P.rayonVille * (0.85 + rnd() * 0.35);
+    // Un rayon plus large et plus dispersé : une ville de départ ne doit pas
+    // être un pâté compact, mais un semis de hameaux à relier.
+    const rayon = P.rayonVille * (0.80 + rnd() * 0.45);
     const orientation = rnd() * Math.PI;
     const aplatissement = 0.62 + rnd() * 0.5;
     const fLisiere = fractal(rnd, [7, 3], [1, 0.5]);
 
+    const temperament = temperaments[i % temperaments.length];
     const v = {
-      id: i, nom: noms[i], profil, gare: { x: site.x, y: site.y },
+      id: i, nom: noms[i], profil, temperament, gare: { x: site.x, y: site.y },
       rayon, cases: [],
-      menages: P.menagesInitiaux,
+      menages: Math.round(P.menagesInitiaux * temperament.taille),
       occupation: 0.85, salaire: P.salaireCase, niveau: 1,
       barometres: { nourriture: 1, emploi: 0.78, produits: 0.6 },
       epargne: 0, marche: null, histo: [],

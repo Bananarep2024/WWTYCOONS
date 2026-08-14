@@ -71,6 +71,13 @@ export const P = {
   // — le plancher est le terrain lui-même : voir prixRachatIndependant
 
   chantiersVilleParMois: 6,       // ce qu'une ville peut lancer en un mois
+  dispersionDepart: 12,        // points d'écart tolérés à la pose initiale
+  casesParMenage: 3.0,         // logement + postes : ce qu'un ménage occupe
+  aisanceUrbaine: 1.20,        // marge sur le rayon utile — d'où les trous
+  porteeExploitations: 2.2,    // une ferme a le droit de s'éloigner
+  partBancale: 0.9,            // part du parc productif replantée sur mauvais sol
+  solBancal: 1.5,              // au-dessus, le marché rendrait l'affaire viable
+  dispersionVille: 18,         // et ensuite, quand la ville bâtit d'elle-même
   rendementMinimalPourBatir: 0.05,  // sous ce rendement attendu, on ne bâtit pas
 
   // Le sol
@@ -98,7 +105,7 @@ export const P = {
   rayonVille: 44,              // rayon moyen d'un territoire, dévié par ville
   distanceMinVilles: 94,       // de centre à centre : sans quoi le rail n'a pas de sens
   moisParCaseDeVoie: 0.42,     // une ligne longue demande plus de travail
-  menagesInitiaux: 80,         // toutes les villes démarrent au niveau 1 (Comptoir)
+  menagesInitiaux: 55,         // avant le tempérament, qui l'étire de 0,80 à 1,20
 };
 
 // --- Ressources -------------------------------------------------------------

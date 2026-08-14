@@ -189,26 +189,75 @@ export class Monde {
     return Math.max(plancher, k);
   }
 
+  // Poser une affaire vouée à perdre de l'argent, délibérément.
+  //
+  // C'est ce qui fabrique les bâtiments déficitaires du premier mois — ceux
+  // qu'on rachète pour le prix de leur terre, à charge de les redresser ou de
+  // les raser. Sans eux, toutes les villes ouvrent avec un parc également sain
+  // et il n'y a rien à chiner.
+  //
+  // On ne choisit PAS un métier pour lui chercher ensuite un mauvais sol : la
+  // première version faisait cela et posait deux bâtiments sur huit, parce que
+  // la bande de qualité recherchée était étroite et le métier tiré d'avance.
+  // On cherche à l'inverse la plus mauvaise terre disponible, tous métiers
+  // confondus, et l'on y met celui qui y perdra le plus.
+  //
+  // La ferme et le ranch sont privilégiés : deux cases, donc deux salaires
+  // pleins pour une production que le sol divise par trois. Un ranch sur de la
+  // caillasse encaisse 31 $ et en verse 40 — il perd quoi que fasse le marché.
+  // Une coupe forestière, elle, redevient rentable dès que le bois se raréfie.
+  poserAffaireBancale(v) {
+    const METIERS = [
+      { type: 'ranch',       poids: 1.00 },
+      { type: 'ferme',       poids: 1.00 },
+      { type: 'mineCharbon', poids: 0.55 },
+      { type: 'mineFer',     poids: 0.55 },
+      { type: 'coupe',       poids: 0.50 },
+      { type: 'carriere',    poids: 0.50 },
+    ];
+    let choix = null, pire = Infinity;
+
+    for (const { type, poids } of METIERS) {
+      const def = BAT[type];
+      for (const depart of v.cases) {
+        const cases = [];
+        let ok = true;
+        for (let dy = 0; dy < def.h && ok; dy++) for (let dx = 0; dx < def.w && ok; dx++) {
+          const c = this.caseAt(depart.x + dx, depart.y + dy);
+          if (!c || c.ville !== v || c.voie || c.bat || c.chantier || c.proprio) { ok = false; break; }
+          cases.push(c);
+        }
+        if (!ok || cases.length !== def.cases) continue;
+        const moy = cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length;
+        // Le score mêle la qualité du sol et la sévérité du métier : à sol égal,
+        // un ranch fera une affaire plus catastrophique qu'une coupe.
+        const score = moy / poids;
+        if (score < pire) { pire = score; choix = { type, cases }; }
+      }
+    }
+    return choix ? this.poser(choix.type, v, choix.cases, null) : null;
+  }
+
   parcDeDepart(v) {
     const M = v.menages;
+    const t = v.temperament || { emploi: 1, vivres: 1, produits: 1, bureaux: 1, malchance: 0 };
     const dBois = this.dotation(v, 'bois');
     const dArgile = this.dotation(v, 'argile');
     const dCharbon = this.dotation(v, 'charbon');
     const dFer = this.dotation(v, 'minerai');
     const dTerre = this.dotation(v, 'fertilite', 0.90);   // on ne laisse pas une ville affamée
 
-    // Logement : un peu plus que la population, pour que l'occupation démarre
-    // sous 100 % et laisse à la ville la place de croître.
-    this.poserJusqua(v, 'maison', M / 0.85, b => b.def.menages);
-
-    // Filière alimentaire : 1 ration par ménage et par mois.
-    this.poserJusqua(v, 'minoterie', M * dTerre, b => b.capacite);
-    this.poserJusqua(v, 'ferme', M * 2 * dTerre, b => b.capacite);   // 2 céréales par pain
+    // Filière alimentaire : 1 ration par ménage et par mois — pondérée par le
+    // tempérament. Un comptoir affamé ouvre à 70 % de couverture, et devra
+    // acheter son pain au dehors ou bâtir vite.
+    this.poserJusqua(v, 'minoterie', M * dTerre * t.vivres, b => b.capacite);
+    this.poserJusqua(v, 'ferme', M * 2 * dTerre * t.vivres, b => b.capacite);
 
     // Filière manufacturée, remontée jusqu'aux mines.
-    this.poserJusqua(v, 'manufacture', M * 1.08, b => b.capacite);
-    const planchesManu = M * 1.08 * 1;                          // 6 planches pour 6 produits
-    const acierManu = M * 1.08 / 3;                             // 2 aciers pour 6 produits
+    const manu = M * 1.08 * t.produits;
+    this.poserJusqua(v, 'manufacture', manu, b => b.capacite);
+    const planchesManu = manu;                                  // 6 planches pour 6 produits
+    const acierManu = manu / 3;                                 // 2 aciers pour 6 produits
     this.poserJusqua(v, 'acierie', acierManu * Math.min(dCharbon, dFer), b => b.capacite);
     this.poserJusqua(v, 'mineCharbon', acierManu * 4 * dCharbon, b => b.capacite);
     this.poserJusqua(v, 'mineFer', acierManu * 4 * dFer, b => b.capacite);
@@ -216,10 +265,10 @@ export class Monde {
     // Matériaux : ce que réclament les manufactures, plus l'entretien du parc
     // et les chantiers à venir — c'est le facteur 1,45.
     const planches = planchesManu + M * 0.45;
-    this.poserJusqua(v, 'scierie', planches * dBois, b => b.capacite);
-    this.poserJusqua(v, 'coupe', planches * 2 * dBois, b => b.capacite);
-    this.poserJusqua(v, 'briqueterie', M * 0.40 * dArgile, b => b.capacite);
-    this.poserJusqua(v, 'carriere', M * 0.80 * dArgile, b => b.capacite);
+    this.poserJusqua(v, 'scierie', planches * dBois * t.emploi, b => b.capacite);
+    this.poserJusqua(v, 'coupe', planches * 2 * dBois * t.emploi, b => b.capacite);
+    this.poserJusqua(v, 'briqueterie', M * 0.40 * dArgile * t.emploi, b => b.capacite);
+    this.poserJusqua(v, 'carriere', M * 0.80 * dArgile * t.emploi, b => b.capacite);
 
     // Filière élevage : pour l'instant un doublon de la filière céréalière,
     // pain et viande étant substituables 1 pour 1. Modeste au départ.
@@ -229,11 +278,49 @@ export class Monde {
     // Les bureaux sont le seul argent qui vienne du dehors : le nombre de
     // départ décide de la trajectoire d'une ville plus sûrement que la qualité
     // de ses terres. Un immeuble pour 78 ménages tient l'emploi à 78 %.
-    const bureaux = Math.max(1, Math.round(M / P.menagesParBureaux) + (v.bonusBureaux || 0));
+    const bureaux = Math.max(t.bureaux >= 1 ? 1 : 0,
+      Math.round(M / P.menagesParBureaux * t.bureaux) + (v.bonusBureaux || 0));
     for (let k = 0; k < bureaux; k++) {
-      const cases = this.trouverEmplacement(v, 'bureaux', null);
+      const cases = this.trouverEmplacement(v, 'bureaux', null, P.dispersionDepart);
       if (cases) this.poser('bureaux', v, cases, null);
     }
+
+    // L'EMPLOI, en dernier et directement.
+    //
+    // Le tempérament ne peut pas se contenter de pondérer les filières : le taux
+    // d'emploi est un rapport entre les postes installés et les bras, et le
+    // moduler indirectement donnait cinq villes à 69-79 %, c'est-à-dire cinq
+    // villes identiques. On compte donc les postes une fois le parc posé, et on
+    // ajuste jusqu'à la cible. Une friche industrielle ouvre à 58 % — un tiers
+    // de chômeurs dès la première seconde — une cité ouvrière au plein emploi.
+    // Les affaires mal parties, avant le recensement : elles s'arrêteront dès le
+    // premier mois — marge brute négative — et cesseront donc de demander des
+    // bras. C'est voulu, et c'est précisément pour cela qu'elles doivent être
+    // comptées AVANT qu'on fixe la population.
+    const productifs = this.tousBatiments(v).filter(b => b.def.sort).length;
+    const bancals = Math.round(productifs * t.malchance * P.partBancale);
+    for (let k = 0; k < bancals; k++) this.poserAffaireBancale(v);
+
+    // LE CHÔMAGE, en dernier — et par la population, jamais par la démolition.
+    //
+    // La première version ajustait les POSTES à la cible : elle rasait des
+    // exploitations jusqu'à ce que l'emploi tombe où il fallait. C'était une
+    // catastrophe silencieuse — une ville de rentiers se retrouvait avec vingt
+    // bâtiments productifs, donc sans filière, donc tout en déficit, et passait
+    // de 49 à 2 ménages en cinq ans. On ne fabrique pas du chômage en détruisant
+    // l'économie.
+    //
+    // On fait l'inverse : le parc est ce qu'il est, et c'est le nombre de
+    // ménages qu'on ajuste. Une ville qui a attiré plus de monde que son
+    // industrie n'en peut employer, voilà ce qu'est une ville au chômage — et
+    // c'est exactement l'Amérique de 1900.
+    const postes = this.tousBatiments(v).reduce((s, b) => s + b.postesDemandes, 0);
+    v.menages = Math.max(12, Math.round(postes / (P.employesParMenage * t.emploi)));
+
+    // Le logement vient donc en dernier, une fois la population connue. Un peu
+    // plus que la population : l'occupation démarre sous 100 % et la ville a la
+    // place de croître.
+    this.poserJusqua(v, 'maison', v.menages / 0.85, b => b.def.menages);
 
     v.occupation = Math.min(1, v.menages / Math.max(1, this.tousBatiments(v)
       .filter(b => b.def.cat === 'loge').reduce((s, b) => s + b.def.menages, 0)));
@@ -243,10 +330,10 @@ export class Monde {
   // dépend de la qualité du sol : sur une mauvaise terre il en faut simplement
   // davantage — la ville cherche toujours à couvrir ses besoins, quel que soit
   // le sol. Ce qui change, c'est le prix de revient.
-  poserJusqua(v, type, cible, mesure) {
+  poserJusqua(v, type, cible, mesure, dispersion = P.dispersionDepart) {
     let total = 0, gardeFou = 0;
     while (total < cible && gardeFou++ < 400) {
-      const cases = this.trouverEmplacement(v, type, null);
+      const cases = this.trouverEmplacement(v, type, null, dispersion);
       if (!cases) break;
       const b = this.poser(type, v, cases, null);
       total += mesure(b);
@@ -273,10 +360,49 @@ export class Monde {
   // vont là où le sol est bon — une ferme sur une terre de qualité 5 sort une
   // fois et demie ce que sort la même ferme sur une qualité 3 ; le logement se
   // serre autour de la gare, là où le foncier est cher mais la ville dense.
-  trouverEmplacement(ville, type, societe) {
+  // `dispersion` : au lieu de toujours prendre le meilleur emplacement, on tire
+  // au sort parmi ceux qui s'en approchent à ce nombre de points près.
+  //
+  // Sans elle, chaque bâtiment va exactement à l'optimum, et comme l'optimum
+  // récompense la proximité de la gare, la ville sort de terre en pâté compact
+  // et concentrique, sans un pouce de vide. Avec elle, il reste des trous — des
+  // terrains libres au milieu de l'habitation, que le joueur peut acheter et où
+  // la ville densifiera plus tard. C'est aussi ce qui donne à deux parties la
+  // même carte des plans de ville différents.
+  // Le rayon UTILE d'une ville : celui qu'elle occupe réellement, et non celui
+  // qu'elle revendique.
+  //
+  // Le territoire est taillé pour une Métropole — quatre mille cases. Y lâcher
+  // un comptoir de cinquante ménages donnait une confiture : des fermes à trente
+  // cases de la gare dès le premier mois, un cœur rempli à 17 %, et rien qui
+  // ressemble à une ville. Une agglomération naissante est DENSE et petite ;
+  // elle s'étale en grandissant, elle ne naît pas étalée.
+  //
+  // Compter environ trois cases par ménage — le logement, plus les postes qui le
+  // font vivre — et prendre le rayon du disque correspondant, avec de la marge.
+  // Il ne RÉTRÉCIT jamais. Une ville qui perd des habitants verrait sinon son
+  // rayon se resserrer sur un tissu déjà bâti, ne trouverait plus où bâtir, et
+  // s'enfoncerait — mesuré : une ville passait de 58 à 34 ménages avec son
+  // rayon utile rempli à 97 %, incapable d'ouvrir le moindre atelier. Une ville
+  // qui décline garde ses rues ; elle les laisse se vider.
+  rayonUtile(ville) {
+    const besoin = Math.max(40, ville.menages * P.casesParMenage);
+    const r = Math.sqrt(besoin / Math.PI) * P.aisanceUrbaine;
+    const borne = Math.max(6, Math.min(ville.rayon * 1.15, r));
+    ville.rayonAtteint = Math.max(ville.rayonAtteint || 0, borne);
+    return ville.rayonAtteint;
+  }
+
+  trouverEmplacement(ville, type, societe, dispersion = 0) {
     const def = BAT[type];
     const voulu = Monde.VOCATION_PREFEREE[def.cat];
     let meilleur = null, meilleurScore = -Infinity;
+    const proches = [];        // les emplacements à `dispersion` points du meilleur
+
+    // Une exploitation suit la ressource et a donc le droit de s'éloigner ;
+    // le reste tient dans l'agglomération.
+    const portee = this.rayonUtile(ville) * (def.cat === 'expl' ? P.porteeExploitations : 1);
+    let secours = null, secoursScore = -Infinity;
 
     for (const depart of ville.cases) {
       const cases = [];
@@ -313,9 +439,29 @@ export class Monde {
         score += -cases[0].distanceGare * 1.4;
       }
 
+      // Hors de portée : on le garde en secours, au cas où rien ne tiendrait
+      // dedans — une ville ne doit jamais se retrouver incapable de bâtir.
+      if (cases[0].distanceGare > portee) {
+        if (score > secoursScore) { secoursScore = score; secours = cases; }
+        continue;
+      }
+
       if (score > meilleurScore) { meilleurScore = score; meilleur = cases; }
+      if (dispersion > 0) {
+        proches.push({ cases, score });
+        // On borne la liste : sur quatre mille cases, tout garder coûterait
+        // plus cher que le reste de la génération réunie.
+        if (proches.length > 400) {
+          proches.sort((a, b) => b.score - a.score);
+          proches.length = 120;
+        }
+      }
     }
-    return meilleur;
+    if (dispersion > 0 && proches.length) {
+      const bons = proches.filter(x => x.score >= meilleurScore - dispersion);
+      if (bons.length) return bons[Math.floor(Math.random() * bons.length)].cases;
+    }
+    return meilleur || secours;
   }
 
   // Pose immédiate (parc de départ et constructions des indépendants).

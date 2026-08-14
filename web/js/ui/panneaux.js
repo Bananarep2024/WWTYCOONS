@@ -137,7 +137,8 @@ function carteVille(monde, v) {
     <div class="tetVille">
       <span><b>${v.nom}</b>${v.enCrise ? ' <span class="rouge">⚠</span>' : ''}
         <span class="cv"><br>${P.nomsNiveau[v.niveau - 1]} · ${Math.round(v.menages)} ménages
-        · ${pct(v.occupation)} occupé</span></span>
+        · ${pct(v.occupation)} occupé${v.temperament
+          ? `<br><i class="faible">fondée comme ${v.temperament.nom}</i>` : ''}</span></span>
       <span class="attrait" style="color:${rgb(echelle(a))}">${pct(a)}
         <span class="etiq" style="display:block;text-align:right">attractivité</span></span>
     </div>
@@ -196,6 +197,16 @@ export function detailVille(monde, v) {
 
   return `
     <h3>${v.nom} · ${P.nomsNiveau[v.niveau - 1]}</h3>
+    ${v.temperament ? `<div class="note" style="margin:0 0 9px">Fondée comme
+      <b>${v.temperament.nom}</b>. Les cinq villes n'ouvrent pas la partie dans le même état :
+      celle-ci démarrait avec ${Math.round(v.temperament.emploi * 100)} % de ses bras employés,
+      ${Math.round(v.temperament.vivres * 100)} % de couverture alimentaire,
+      ${Math.round(v.temperament.produits * 100)} % en produits manufacturés,
+      ${v.temperament.bureaux >= 1.2 ? 'une belle dotation de bureaux'
+        : v.temperament.bureaux <= 0.6 ? 'presque pas de bureaux' : 'des bureaux en nombre moyen'},
+      et ${v.temperament.malchance >= 0.25 ? 'beaucoup d\'affaires'
+        : v.temperament.malchance <= 0.06 ? 'très peu d\'affaires' : 'quelques affaires'}
+      plantées sur du mauvais sol — celles qu'on rachète pour le prix de leur terre.</div>` : ''}
     <div class="grille">
       <div class="fiche"><div class="etiq">Ménages</div><div class="v">${Math.round(v.menages)}</div></div>
       <div class="fiche"><div class="etiq">Logements</div>
