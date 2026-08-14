@@ -43,13 +43,22 @@ export function echelle(t) {
 
 // Les filtres par case : chacun sait lire une case et en tirer une valeur de 0
 // (mauvais, rouge) à 1 (bon, vert).
+//
+// `bornes` dit ce que valent les deux extrémités de l'échelle. Sans elles, le
+// dégradé rouge → vert était muet, et rien ne distinguait un filtre où le vert
+// veut dire « beaucoup » d'un filtre où il veut dire « pas cher ». Un joueur
+// regardant le prix du sol y lisait le contraire de ce qui était affiché : le
+// centre en rouge — donc CHER — se lisait comme le parent pauvre de sa
+// périphérie verte.
+const SOL = ['pauvre · 1', 'excellent · 5'];
+
 export const FILTRES_CASE = {
-  fertilite: { nom: 'Fertilité', lire: (c) => (c.q.fertilite - 1) / 4 },
-  bois:      { nom: 'Bois',      lire: (c) => (c.q.bois - 1) / 4 },
-  argile:    { nom: 'Argile',    lire: (c) => (c.q.argile - 1) / 4 },
-  charbon:   { nom: 'Charbon',   lire: (c) => (c.q.charbon - 1) / 4 },
-  minerai:   { nom: 'Minerai',   lire: (c) => (c.q.minerai - 1) / 4 },
-  terrain:   { nom: 'Prix du sol',
+  fertilite: { nom: 'Fertilité', bornes: SOL, lire: (c) => (c.q.fertilite - 1) / 4 },
+  bois:      { nom: 'Bois',      bornes: SOL, lire: (c) => (c.q.bois - 1) / 4 },
+  argile:    { nom: 'Argile',    bornes: SOL, lire: (c) => (c.q.argile - 1) / 4 },
+  charbon:   { nom: 'Charbon',   bornes: SOL, lire: (c) => (c.q.charbon - 1) / 4 },
+  minerai:   { nom: 'Minerai',   bornes: SOL, lire: (c) => (c.q.minerai - 1) / 4 },
+  terrain:   { nom: 'Prix du sol', bornes: ['cher · 540 $', 'bon marché · 40 $'],
                lire: (c) => 1 - Math.min(1, (prixTerrain(c.ville ? c.ville.niveau : 1,
                                               c.distanceGare, qualiteMax(c)) - 40) / 500) },
 
@@ -61,7 +70,7 @@ export const FILTRES_CASE = {
   // foncier, il s'ajuste et le taux ne bouge pas. Ce qui diffère, c'est la
   // PENTE. On normalise sur l'amplitude complète du barème, de ×1 à ×4, pour
   // que la couleur veuille dire la même chose d'une ville à l'autre.
-  potentiel: { nom: 'Potentiel de valorisation',
+  potentiel: { nom: 'Potentiel de valorisation', bornes: ['×1 — au bout', `×${P.facteurNiveau[4]} — tout à gagner`],
                lire: (c) => {
                  if (!c.ville) return 0;
                  const p = potentielTerrain(c.ville.niveau, c.distanceGare, qualiteMax(c));
@@ -73,13 +82,15 @@ export const FILTRES_CASE = {
 // mesurent pas à la case mais à la ville entière. Tout son territoire prend
 // donc la même teinte, et les cinq villes se comparent d'un coup d'œil.
 export const FILTRES_VILLE = {
-  emploi:     { nom: 'Emploi',     lire: (v) => v.barometres.emploi },
-  nourriture: { nom: 'Nourriture', lire: (v) => v.barometres.nourriture },
-  produits:   { nom: 'Produits',   lire: (v) => v.barometres.produits },
-  occupation: { nom: 'Logement',   lire: (v) => 1 - Math.abs(v.occupation - 0.9) / 0.9 },
+  emploi:     { nom: 'Emploi',     bornes: ['0 %', '100 %'], lire: (v) => v.barometres.emploi },
+  nourriture: { nom: 'Nourriture', bornes: ['0 %', '100 %'], lire: (v) => v.barometres.nourriture },
+  produits:   { nom: 'Produits',   bornes: ['0 %', '100 %'], lire: (v) => v.barometres.produits },
+  occupation: { nom: 'Logement',   bornes: ['vide ou saturé', '90 % occupé'],
+                lire: (v) => 1 - Math.abs(v.occupation - 0.9) / 0.9 },
   // Un salaire élevé est une bonne nouvelle pour la ville et une mauvaise pour
   // l'industriel. On le lit ici du point de vue du patron : bas = vert.
-  salaire:    { nom: 'Salaire',    lire: (v) => 1 - Math.min(1, (v.salaire - 10) / 25) },
+  salaire:    { nom: 'Salaire',    bornes: ['35 $ — cher à employer', '10 $ — main-d\'œuvre bon marché'],
+                lire: (v) => 1 - Math.min(1, (v.salaire - 10) / 25) },
 };
 
 export class Rendu {

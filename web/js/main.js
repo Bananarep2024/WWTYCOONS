@@ -212,7 +212,17 @@ function appliquerFiltre(nom, prix, rdt) {
     : prix ? `Prix — ${RES[prix].nom}`
     : nom === 'proprio' ? 'Mes possessions'
     : (FILTRES_CASE[nom] || FILTRES_VILLE[nom]).nom;
-  $('#bandeauEchelle').style.display = nom === 'proprio' ? 'none' : '';
+  // L'échelle porte enfin ses deux bouts. Un dégradé rouge → vert sans légende
+  // se lit « vert = beaucoup », ce qui est vrai pour la fertilité et faux pour
+  // le prix du sol, où le vert dit « bon marché ».
+  const f = rdt ? null : prix ? null : (FILTRES_CASE[nom] || FILTRES_VILLE[nom]);
+  const bornes = rdt ? ['à l\'arrêt', 'au rendement visé']
+    : prix ? ['cher · ×2 la référence', 'bon marché · ×0,5']
+    : f && f.bornes ? f.bornes : null;
+  const mesure = $('#bandeauMesure');
+  mesure.style.display = nom === 'proprio' ? 'none' : '';
+  $('#bandeauBas').textContent  = bornes ? bornes[0] : '';
+  $('#bandeauHaut').textContent = bornes ? bornes[1] : '';
 }
 
 // Le bandeau du haut sert aussi de rappel de mode : on ne doit jamais pouvoir
@@ -362,12 +372,17 @@ const doigts = new Map();
 let depart = null, aGlisse = false, ecartInitial = 0, zoomInitial = 1, dernierToucher = 0;
 
 cv.addEventListener('pointerdown', (e) => {
-  cv.setPointerCapture(e.pointerId);
+  // La capture échoue sur un pointeur synthétique — celui d'un banc d'essai —
+  // et l'exception emporterait tout le reste du geste avec elle.
+  try { cv.setPointerCapture(e.pointerId); } catch { /* sans importance */ }
   doigts.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (doigts.size === 1) {
     depart = { x: e.clientX, y: e.clientY, cx: rendu.cx, cy: rendu.cy };
     aGlisse = false;
-  } else if (doigts.size === 2) {
+  } else {
+    // Deux doigts ou plus : on prend les deux premiers. Le cas d'un troisième
+    // doigt qui se pose compte aussi — sans quoi l'écart de référence resterait
+    // celui d'avant et le zoom bondirait.
     const [a, b] = [...doigts.values()];
     ecartInitial = Math.hypot(a.x - b.x, a.y - b.y);
     zoomInitial = rendu.zoom;
@@ -426,9 +441,36 @@ cv.addEventListener('pointerup', (e) => {
   }
   dernierToucher = t;
   if (doigts.size === 0) depart = null;
+  else reancrer();
 });
 
-cv.addEventListener('pointercancel', (e) => { doigts.delete(e.pointerId); depart = null; });
+cv.addEventListener('pointercancel', (e) => {
+  doigts.delete(e.pointerId);
+  if (doigts.size === 0) depart = null;
+  else reancrer();
+});
+
+// Quand un doigt se lève et qu'il en reste au moins un, il FAUT repartir de la
+// position courante.
+//
+// Sans cela, `depart` gardait la position du premier doigt telle qu'elle était
+// AVANT le pincement, ainsi que le cadrage d'avant. Au relâchement du second
+// doigt, le moindre mouvement du doigt restant rejouait `cx = depart.cx + dx`
+// depuis cette origine périmée : la vue sautait d'un coup à la fin de chaque
+// zoom. C'est le décalage qu'on voyait sur tablette, et il ne se produisait
+// jamais à la souris — un seul pointeur ne quitte jamais l'écran à mi-geste.
+function reancrer() {
+  const restants = [...doigts.values()];
+  if (restants.length === 1) {
+    depart = { x: restants[0].x, y: restants[0].y, cx: rendu.cx, cy: rendu.cy };
+    // Un geste qui a commencé à deux doigts ne doit pas finir en sélection.
+    aGlisse = true;
+  } else {
+    const [a, b] = restants;
+    ecartInitial = Math.hypot(a.x - b.x, a.y - b.y);
+    zoomInitial = rendu.zoom;
+  }
+}
 
 cv.addEventListener('wheel', (e) => {
   e.preventDefault();
