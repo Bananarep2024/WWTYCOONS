@@ -250,12 +250,12 @@ export const NOURRITURES = ['pain', 'viande'];
 // produit n fois ces quantités. (§20 : « une case, un employé, une production »)
 
 export const BAT = {
-  coupe:       { nom: 'Coupe forestière', cases: 1, w: 1, h: 1, sort: 'bois',     debit: 24, intrants: {}, cout: 130, mat: { planches: 26 }, qual: 'bois',      cat: 'expl' },
-  carriere:    { nom: 'Carrière',         cases: 1, w: 1, h: 1, sort: 'argile',   debit: 24, intrants: {}, cout: 130, mat: { planches: 26 }, qual: 'argile',    cat: 'expl' },
-  mineCharbon: { nom: 'Mine de charbon',  cases: 1, w: 1, h: 1, sort: 'charbon',  debit: 24, intrants: {}, cout: 130, mat: { planches: 26 }, qual: 'charbon',   cat: 'expl' },
-  mineFer:     { nom: 'Mine de fer',      cases: 1, w: 1, h: 1, sort: 'minerai',  debit: 24, intrants: {}, cout: 130, mat: { planches: 26 }, qual: 'minerai',   cat: 'expl' },
-  ferme:       { nom: 'Ferme céréalière', cases: 2, w: 2, h: 1, sort: 'cereales', debit: 10, intrants: {}, cout: 130, mat: { planches: 26 }, qual: 'fertilite', cat: 'expl' },
-  ranch:       { nom: 'Ranch',            cases: 2, w: 2, h: 1, sort: 'betail',   debit: 10, intrants: {}, cout: 130, mat: { planches: 26 }, qual: 'fertilite', cat: 'expl' },
+  coupe:       { nom: 'Coupe forestière', cases: 1, w: 1, h: 1, sort: 'bois',     debit: 24, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'bois',      cat: 'expl' },
+  carriere:    { nom: 'Carrière',         cases: 1, w: 1, h: 1, sort: 'argile',   debit: 24, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'argile',    cat: 'expl' },
+  mineCharbon: { nom: 'Mine de charbon',  cases: 1, w: 1, h: 1, sort: 'charbon',  debit: 24, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'charbon',   cat: 'expl' },
+  mineFer:     { nom: 'Mine de fer',      cases: 1, w: 1, h: 1, sort: 'minerai',  debit: 24, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'minerai',   cat: 'expl' },
+  ferme:       { nom: 'Ferme céréalière', cases: 2, w: 2, h: 1, sort: 'cereales', debit: 10, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'fertilite', cat: 'expl' },
+  ranch:       { nom: 'Ranch',            cases: 2, w: 2, h: 1, sort: 'betail',   debit: 10, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'fertilite', cat: 'expl' },
 
   scierie:     { nom: 'Scierie',      cases: 2, w: 2, h: 1, sort: 'planches', debit: 12, intrants: { bois: 24 },              cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
   briqueterie: { nom: 'Briqueterie',  cases: 2, w: 2, h: 1, sort: 'briques',  debit: 12, intrants: { argile: 24 },            cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
