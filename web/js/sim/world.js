@@ -151,10 +151,22 @@ export class Monde {
       // additionne, elle ne remet pas à zéro.
       const sources = anciens.filter(a => a.villes.some(v => membres.includes(v)));
       if (sources.length) {
+        // Le stock suit sa VILLE, pas son marché : à la fusion, chacune arrive
+        // avec ses propres réserves. Les additionner en un tas commun aurait
+        // dépossédé le producteur de sa récolte au moment même où la ligne
+        // s'ouvre — c'est-à-dire à l'instant précis où la priorité locale
+        // devrait compter le plus.
+        for (const a of sources) {
+          for (const [v, l] of a.parVille) {
+            if (!membres.includes(v)) continue;
+            const dest = m.livre(v);
+            for (const r of RESSOURCES) dest.stock[r] += l.stock[r];
+          }
+        }
         for (const r of RESSOURCES) {
-          m.stock[r] = sources.reduce((s, a) => s + a.stock[r], 0);
           m.prix[r] = sources.reduce((s, a) => s + a.prix[r], 0) / sources.length;
         }
+        m.recomposerStock();
       }
       this.marches.push(m);
       for (const v of membres) v.marche = m;
@@ -168,7 +180,10 @@ export class Monde {
   // la première briqueterie de chaque ville.
   amorcer() {
     for (const v of this.villes) {
-      for (const [r, q] of Object.entries(P.stockAmorcage)) v.marche.stock[r] += q;
+      for (const [r, q] of Object.entries(P.stockAmorcage)) {
+        v.marche.livre(v).stock[r] += q;
+      }
+      v.marche.recomposerStock();
       v.niveau = niveauVille(v.menages);
       // Un parc de départ minimal, aux mains des indépendants : sans lui la
       // ville n'a rien à manger le premier mois.
@@ -791,23 +806,23 @@ export class Monde {
       const capaciteA = m.offreAttendue(moinsCher) * (v.menages / totalMenages(m));
       v.repas[moinsCher] = Math.min(v.demandeNourriture, capaciteA);
       v.repas[autre] = v.demandeNourriture - v.repas[moinsCher];
-      m.demander(moinsCher, v.repas[moinsCher]);
-      m.demander(autre, v.repas[autre]);
-      m.demander('produits', v.demandeProduits);
+      m.demander(moinsCher, v.repas[moinsCher], v);
+      m.demander(autre, v.repas[autre], v);
+      m.demander('produits', v.demandeProduits, v);
 
       // Les chantiers. Cette commande n'est pas une intention : c'est une
       // demande réelle sur le marché, au même titre que le pain d'un ménage.
       // C'est ainsi qu'une ville à court de briques finit par se donner une
       // briqueterie.
       for (const ch of this.tousChantiers(v)) {
-        for (const [r, q] of Object.entries(ch.restant)) if (q > 0) m.demander(r, q);
+        for (const [r, q] of Object.entries(ch.restant)) if (q > 0) m.demander(r, q, v);
       }
 
       // L'entretien du bâti : une demande permanente de matériaux, qui donne
       // aux scieries et briqueteries leur débouché de régime de croisière.
       for (const b of bats) {
         for (const [r, q] of Object.entries(materiaux(b.type))) {
-          m.demander(r, q * P.entretienAnnuel / 12);
+          m.demander(r, q * P.entretienAnnuel / 12, v);
         }
       }
     }
@@ -869,7 +884,7 @@ export class Monde {
         for (const v of this.villes) {
           for (const b of v.__bats) {
             for (const [r, q] of Object.entries(materiaux(b.type))) {
-              v.marche.prendre(r, q * P.entretienAnnuel / 12);
+              v.marche.prendre(r, q * P.entretienAnnuel / 12, v);
             }
           }
         }
@@ -883,7 +898,7 @@ export class Monde {
           for (const ch of chs) {
             for (const [r, q] of Object.entries(ch.restant)) {
               if (q <= 0) continue;
-              const servi = m.prendre(r, q);
+              const servi = m.prendre(r, q, v);
               ch.restant[r] = Math.max(0, q - servi);
               ch.recu[r] = (ch.recu[r] || 0) + servi;
               if (ch.societe) ch.societe.payer(servi * m.prix[r]);
@@ -916,8 +931,8 @@ export class Monde {
     for (const v of this.villes) {
       const m = v.marche;
       v.nourrObtenue = 0;
-      for (const r of NOURRITURES) v.nourrObtenue += m.prendre(r, v.repas[r] || 0);
-      v.prodObtenue = m.prendre('produits', v.demandeProduits);
+      for (const r of NOURRITURES) v.nourrObtenue += m.prendre(r, v.repas[r] || 0, v);
+      v.prodObtenue = m.prendre('produits', v.demandeProduits, v);
     }
 
     for (const m of this.marches) {
@@ -932,7 +947,7 @@ export class Monde {
       let reste = Math.max(0, v.demandeNourriture - v.nourrObtenue) * m.partSubstitution;
       for (const r of NOURRITURES) {
         if (reste <= 0.001) break;
-        const pris = m.rafler(r, reste);
+        const pris = m.rafler(r, reste, v);
         v.nourrObtenue += pris;
         reste -= pris;
       }

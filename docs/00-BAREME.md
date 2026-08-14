@@ -354,6 +354,42 @@ Métropole atteint.
 
 ---
 
+### 6 quinquies. Le marché sert le local d'abord
+
+Quand deux villes sont reliées, leurs marchés fusionnent — mais **un marché fusionné n'est pas
+un entrepôt unique**.
+
+    1. Chaque ville sert ses propres besoins sur SA propre production.
+    2. Le surplus des excédentaires alimente un pot commun.
+    3. Les villes en manque se partagent ce pot au prorata de leur déficit.
+
+Une ville qui produit assez est donc servie à **100 %** quoi qu'il arrive ailleurs. Auparavant,
+un seul stock et un seul taux de service : la ville qui produisait tout le blé était rationnée
+exactement comme celle qui n'en produisait pas un grain.
+
+**Le prix, lui, reste celui du marché entier.** Un marché relié a un cours — c'est ce qui le
+définit. La priorité locale décide de *qui obtient* la marchandise, jamais de ce qu'elle coûte.
+
+Mesuré au mois 200 sur un marché de cinq villes, en tension sur les produits manufacturés :
+
+| Ville | Produit | Demande | Servie sur sa production |
+|---|---|---|---|
+| Roche-Noire | 395 | 391 | **100 %** |
+| Plaine-Dorée | 216 | 210 | **100 %** |
+| Bois-Perdu | 397 | 358 | **100 %** |
+| Sainte-Agathe | 486 | 507 | 96 % |
+| Fort-Union | 478 | 678 | **70 %** |
+
+Le taux global du marché était de 92 % : sous l'ancien modèle, les cinq auraient été rationnées
+à 92 % — y compris les trois qui produisaient plus que leurs besoins.
+
+Le stock appartient à la ville qui l'a produit, y compris au moment de la fusion : additionner
+les réserves en un tas commun aurait dépossédé le producteur à l'instant précis où la ligne
+s'ouvre. Quatre contrôles du banc d'essai garantissent que rien ne se crée, que rien ne devient
+négatif, et que l'autosuffisante est bien servie en plein.
+
+---
+
 ## 7. Le chemin de fer
 
 - Chaque ville a **une gare au centre**, présente dès le début.

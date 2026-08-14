@@ -157,7 +157,9 @@ terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
 - **Filtre de rentabilité** par type de bâtiment, sur la même échelle rouge → vert
 - Marché foncier : contiguïté, propriétaires indépendants, prix selon le niveau et la distance
 - Douze ressources, trois niveaux de filière, qualité de sol de 1 à 5 par case
-- Prix formés sur les **flux**, rationnement au prorata, prix de revient local en plancher
+- Prix formés sur les **flux**, prix de revient local en plancher
+- **Le marché sert le local d'abord** : ce qu'une ville produit couvre ses propres besoins, et
+  seul le surplus s'exporte vers les villes reliées. Le prix, lui, reste celui du marché entier
 - Carnet de chantiers : le cash part d'abord, le bâtiment sort quand la dernière brique arrive
 - Curseur d'activité, mise en sommeil, arrêt automatique sur marge négative
 - Démographie par les trois baromètres et le pivot ; niveaux de ville ; loyers indexés

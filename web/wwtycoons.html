@@ -527,6 +527,18 @@ input[type=range] { width: 100%; accent-color: var(--or); }
    entre son chiffre et son « $ » est illisible. */
 .piedRes > span { white-space: nowrap; }
 
+/* Qui fournit, qui dépend. Sur un marché fusionné le taux global ne dit plus
+   rien de ce que vit chaque ville. */
+.detailLocal {
+  margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--filet);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ligneLocale {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 10px; font-variant-numeric: tabular-nums; color: var(--doux);
+}
+.ligneLocale > span:last-child { white-space: nowrap; }
+
 svg.cours {
   width: 100%; height: 96px; display: block; margin: 10px 0 3px;
   background: var(--creux); border: 1px solid var(--filet); border-radius: var(--r1);
@@ -1882,14 +1894,73 @@ class Marche {
     // ne peut pas distinguer une pénurie qui s'installe d'un accident d'un mois.
     this.histoPrix = {};
     for (const r of RESSOURCES) this.histoPrix[r] = [];
+
+    // LE GRAND LIVRE PAR VILLE.
+    //
+    // Un marché fusionné n'est pas un entrepôt unique où tout le monde puise au
+    // même prorata. Ce qu'une ville produit alimente d'abord SES propres
+    // besoins ; seul le surplus part chez la voisine. Sans cette règle, une
+    // ville qui produit tout le blé se retrouvait rationnée à 60 % comme celle
+    // qui n'en produit pas un grain — le rail ne reliait pas deux économies, il
+    // les fondait en une seule bouillie.
+    //
+    // Le PRIX, lui, reste celui du marché entier : un marché relié a un cours,
+    // c'est ce qui le définit. La priorité locale décide de qui obtient la
+    // marchandise, jamais de ce qu'elle coûte.
+    this.parVille = new Map();
+    for (const v of villes) this.parVille.set(v, this.livreNeuf());
+    this.serviceCommun = {};
+    for (const r of RESSOURCES) this.serviceCommun[r] = 1;
+  }
+
+  livreNeuf() {
+    const l = { stock: {}, besoins: {}, restants: {}, entrees: {}, serviceLocal: {} };
+    for (const r of RESSOURCES) {
+      l.stock[r] = 0; l.besoins[r] = 0; l.restants[r] = 0;
+      l.entrees[r] = 0; l.serviceLocal[r] = 1;
+    }
+    return l;
+  }
+
+  // Le livre d'une ville. Une ville absente — cas des appels sans contexte —
+  // retombe sur un livre commun, ce qui rend la priorité locale inopérante pour
+  // elle plutôt que de lever une exception.
+  livre(ville) {
+    if (!ville) {
+      if (!this._orphelin) this._orphelin = this.livreNeuf();
+      return this._orphelin;
+    }
+    let l = this.parVille.get(ville);
+    if (!l) { l = this.livreNeuf(); this.parVille.set(ville, l); }
+    return l;
+  }
+
+  // Le stock total, recomposé depuis les livres : c'est lui qu'on affiche.
+  recomposerStock() {
+    for (const r of RESSOURCES) {
+      let t = 0;
+      for (const l of this.parVille.values()) t += l.stock[r];
+      if (this._orphelin) t += this._orphelin.stock[r];
+      this.stock[r] = t;
+    }
   }
 
   get nom() { return this.villes.map(v => v.nom).join(' + '); }
 
   // --- Phase 1 : on déclare ------------------------------------------------
 
-  demander(res, qte) { this.besoins[res] += qte; }
-  offrir(res, qte) { this.entrees[res] += qte; this.stock[res] += qte; }
+  demander(res, qte, ville) {
+    this.besoins[res] += qte;
+    this.livre(ville).besoins[res] += qte;
+  }
+
+  offrir(res, qte, ville) {
+    this.entrees[res] += qte;
+    this.stock[res] += qte;
+    const l = this.livre(ville);
+    l.entrees[res] += qte;
+    l.stock[res] += qte;         // la marchandise appartient à la ville qui l'a sortie
+  }
 
   // Le plancher, c'est le coût du MEILLEUR producteur — pas du pire.
   //
@@ -1950,10 +2021,37 @@ class Marche {
 
   ouvrirGuichet() {
     for (const r of RESSOURCES) this.restants[r] = this.besoins[r];
+    for (const l of this.parVille.values()) {
+      for (const r of RESSOURCES) l.restants[r] = l.besoins[r];
+    }
+    if (this._orphelin) for (const r of RESSOURCES) {
+      this._orphelin.restants[r] = this._orphelin.besoins[r];
+    }
   }
 
+  // Deux taux au lieu d'un.
+  //
+  //   serviceLocal   ce qu'une ville tire de sa PROPRE production
+  //   serviceCommun  ce que les villes en manque tirent du surplus des autres
+  //
+  // La ville qui produit assez est servie à 100 % quoi qu'il arrive ailleurs.
+  // Celles qui manquent se partagent au prorata ce que les excédentaires n'ont
+  // pas consommé.
   calculerService() {
+    const livres = [...this.parVille.values()];
+    if (this._orphelin) livres.push(this._orphelin);
+
     for (const r of RESSOURCES) {
+      let surplus = 0, deficit = 0;
+      for (const l of livres) {
+        const besoin = l.restants[r], stock = l.stock[r];
+        l.serviceLocal[r] = besoin <= 0.001 ? 1 : Math.max(0, Math.min(1, stock / besoin));
+        surplus += Math.max(0, stock - besoin);
+        deficit += Math.max(0, besoin - stock);
+      }
+      this.serviceCommun[r] = deficit <= 0.001 ? 1 : Math.max(0, Math.min(1, surplus / deficit));
+      // Le taux du marché entier reste calculé : c'est lui qu'on affiche, et
+      // c'est lui qui décrit la tension globale.
       this.service[r] = this.restants[r] <= 0.001 ? 1
         : Math.max(0, Math.min(1, this.stock[r] / this.restants[r]));
     }
@@ -1961,18 +2059,59 @@ class Marche {
 
   // Retire du stock au prorata du service. Renvoie la quantité réellement
   // obtenue. C'est le seul point de sortie régulier du marché.
-  prendre(res, qte) {
-    const servi = Math.min(qte * this.service[res], this.stock[res]);
-    this.stock[res] -= servi;
+  prendre(res, qte, ville) {
+    const l = this.livre(ville);
+
+    // 1. Sa propre production, servie en priorité.
+    const local = Math.min(qte * l.serviceLocal[res], l.stock[res]);
+    l.stock[res] -= local;
+    let servi = local;
+
+    // 2. Ce qui manque va chercher le surplus des villes reliées, au prorata.
+    const manque = qte - local;
+    if (manque > 0.0001 && this.serviceCommun[res] > 0) {
+      servi += this.puiserAilleurs(res, manque * this.serviceCommun[res], l);
+    }
+
+    l.restants[res] = Math.max(0, l.restants[res] - qte);
     this.restants[res] = Math.max(0, this.restants[res] - qte);
+    // Le total suit la sortie réelle : `servi` est exactement ce qui a quitté
+    // les livres, local et puisé confondus. Recomposer la somme à chaque prise
+    // coûtait le double du temps de simulation pour le même résultat.
+    this.stock[res] -= servi;
     return servi;
+  }
+
+  // Puise dans l'excédent des AUTRES villes, au prorata de ce que chacune a de
+  // trop. Une ville ne cède jamais ce dont elle a encore besoin : c'est toute la
+  // règle, et elle tient en cette soustraction.
+  puiserAilleurs(res, veut, sauf) {
+    const autres = [];
+    let dispo = 0;
+    for (const l of this.parVille.values()) {
+      if (l === sauf) continue;
+      const s = Math.max(0, l.stock[res] - l.restants[res]);
+      if (s > 0) { autres.push([l, s]); dispo += s; }
+    }
+    if (this._orphelin && this._orphelin !== sauf) {
+      const s = Math.max(0, this._orphelin.stock[res] - this._orphelin.restants[res]);
+      if (s > 0) { autres.push([this._orphelin, s]); dispo += s; }
+    }
+    if (dispo <= 0.0001) return 0;
+
+    const pris = Math.min(veut, dispo);
+    for (const [l, s] of autres) l.stock[res] -= pris * (s / dispo);
+    return pris;
   }
 
   // Achat spéculatif : ne compte pas dans les besoins, donc ne bouge pas le
   // prix. Il vide en revanche le matelas — au premier accroc de production, les
   // usines s'arrêtent faute d'intrants.
-  rafler(res, qte) {
-    const pris = Math.min(qte, this.stock[res]);
+  rafler(res, qte, ville) {
+    const l = this.livre(ville);
+    let pris = Math.min(qte, l.stock[res]);
+    l.stock[res] -= pris;
+    if (pris < qte) pris += this.puiserAilleurs(res, qte - pris, l);
     this.stock[res] -= pris;
     return pris;
   }
@@ -1984,6 +2123,12 @@ class Marche {
     this.entreesPrec = { ...this.entrees };
     this.peageCollecte = 0;
     for (const r of RESSOURCES) { this.besoins[r] = 0; this.entrees[r] = 0; }
+    for (const l of this.parVille.values()) {
+      for (const r of RESSOURCES) { l.besoins[r] = 0; l.entrees[r] = 0; }
+    }
+    if (this._orphelin) for (const r of RESSOURCES) {
+      this._orphelin.besoins[r] = 0; this._orphelin.entrees[r] = 0;
+    }
   }
 
   // Ce qu'une ressource peut raisonnablement fournir ce mois-ci : ce qu'elle a
@@ -2139,7 +2284,7 @@ class Batiment {
       return;
     }
     this.activiteEffective = this.activite;
-    for (const [r, q] of Object.entries(this.besoinsIntrants())) marche.demander(r, q);
+    for (const [r, q] of Object.entries(this.besoinsIntrants())) marche.demander(r, q, this.ville);
 
     // Le prix de revient réel fait plancher sur ce marché.
     if (this.def.sort && this.capacite > 0) {
@@ -2207,7 +2352,7 @@ class Batiment {
     const besoins = this.besoinsIntrants();
     this.recu = {};
     for (const [r, q] of Object.entries(besoins)) {
-      const obtenu = marche.prendre(r, q);
+      const obtenu = marche.prendre(r, q, this.ville);
       this.recu[r] = obtenu;
       if (q > 0) ratioMat = Math.min(ratioMat, obtenu / q);
     }
@@ -2216,7 +2361,7 @@ class Batiment {
     // et ne paie plus que son entretien : on ne rallume pas une scierie pour
     // produire trois planches par mois.
     if (Object.keys(besoins).length && ratioMat < P.seuilMatieres) {
-      for (const [r, o] of Object.entries(this.recu)) marche.offrir(r, o); // on rend
+      for (const [r, o] of Object.entries(this.recu)) marche.offrir(r, o, this.ville); // on rend
       this.production = 0; this.tauxReel = 0;
       this.resultat = -ent;
       this.alerte = 'matieres';
@@ -2246,7 +2391,7 @@ class Batiment {
     for (const [r, o] of Object.entries(this.recu)) {
       const utilise = Math.min(o, (besoins[r] || 0) * part);
       const rendu = o - utilise;
-      if (rendu > 0) marche.offrir(r, rendu);
+      if (rendu > 0) marche.offrir(r, rendu, this.ville);
       this.recu[r] = utilise;
       achats += utilise * marche.prix[r];
     }
@@ -2270,7 +2415,7 @@ class Batiment {
     if (this.versEntrepot && this.societe && this.societe.entrepotDans(this.ville)) {
       this.societe.stocker(this.ville, this.def.sort, this.production);
     } else {
-      marche.offrir(this.def.sort, this.production);
+      marche.offrir(this.def.sort, this.production, this.ville);
     }
 
     if (ratioMat < 0.9) this.alerte = 'matieres';
@@ -3227,10 +3372,22 @@ class Monde {
       // additionne, elle ne remet pas à zéro.
       const sources = anciens.filter(a => a.villes.some(v => membres.includes(v)));
       if (sources.length) {
+        // Le stock suit sa VILLE, pas son marché : à la fusion, chacune arrive
+        // avec ses propres réserves. Les additionner en un tas commun aurait
+        // dépossédé le producteur de sa récolte au moment même où la ligne
+        // s'ouvre — c'est-à-dire à l'instant précis où la priorité locale
+        // devrait compter le plus.
+        for (const a of sources) {
+          for (const [v, l] of a.parVille) {
+            if (!membres.includes(v)) continue;
+            const dest = m.livre(v);
+            for (const r of RESSOURCES) dest.stock[r] += l.stock[r];
+          }
+        }
         for (const r of RESSOURCES) {
-          m.stock[r] = sources.reduce((s, a) => s + a.stock[r], 0);
           m.prix[r] = sources.reduce((s, a) => s + a.prix[r], 0) / sources.length;
         }
+        m.recomposerStock();
       }
       this.marches.push(m);
       for (const v of membres) v.marche = m;
@@ -3244,7 +3401,10 @@ class Monde {
   // la première briqueterie de chaque ville.
   amorcer() {
     for (const v of this.villes) {
-      for (const [r, q] of Object.entries(P.stockAmorcage)) v.marche.stock[r] += q;
+      for (const [r, q] of Object.entries(P.stockAmorcage)) {
+        v.marche.livre(v).stock[r] += q;
+      }
+      v.marche.recomposerStock();
       v.niveau = niveauVille(v.menages);
       // Un parc de départ minimal, aux mains des indépendants : sans lui la
       // ville n'a rien à manger le premier mois.
@@ -3867,23 +4027,23 @@ class Monde {
       const capaciteA = m.offreAttendue(moinsCher) * (v.menages / totalMenages(m));
       v.repas[moinsCher] = Math.min(v.demandeNourriture, capaciteA);
       v.repas[autre] = v.demandeNourriture - v.repas[moinsCher];
-      m.demander(moinsCher, v.repas[moinsCher]);
-      m.demander(autre, v.repas[autre]);
-      m.demander('produits', v.demandeProduits);
+      m.demander(moinsCher, v.repas[moinsCher], v);
+      m.demander(autre, v.repas[autre], v);
+      m.demander('produits', v.demandeProduits, v);
 
       // Les chantiers. Cette commande n'est pas une intention : c'est une
       // demande réelle sur le marché, au même titre que le pain d'un ménage.
       // C'est ainsi qu'une ville à court de briques finit par se donner une
       // briqueterie.
       for (const ch of this.tousChantiers(v)) {
-        for (const [r, q] of Object.entries(ch.restant)) if (q > 0) m.demander(r, q);
+        for (const [r, q] of Object.entries(ch.restant)) if (q > 0) m.demander(r, q, v);
       }
 
       // L'entretien du bâti : une demande permanente de matériaux, qui donne
       // aux scieries et briqueteries leur débouché de régime de croisière.
       for (const b of bats) {
         for (const [r, q] of Object.entries(materiaux(b.type))) {
-          m.demander(r, q * P.entretienAnnuel / 12);
+          m.demander(r, q * P.entretienAnnuel / 12, v);
         }
       }
     }
@@ -3945,7 +4105,7 @@ class Monde {
         for (const v of this.villes) {
           for (const b of v.__bats) {
             for (const [r, q] of Object.entries(materiaux(b.type))) {
-              v.marche.prendre(r, q * P.entretienAnnuel / 12);
+              v.marche.prendre(r, q * P.entretienAnnuel / 12, v);
             }
           }
         }
@@ -3959,7 +4119,7 @@ class Monde {
           for (const ch of chs) {
             for (const [r, q] of Object.entries(ch.restant)) {
               if (q <= 0) continue;
-              const servi = m.prendre(r, q);
+              const servi = m.prendre(r, q, v);
               ch.restant[r] = Math.max(0, q - servi);
               ch.recu[r] = (ch.recu[r] || 0) + servi;
               if (ch.societe) ch.societe.payer(servi * m.prix[r]);
@@ -3992,8 +4152,8 @@ class Monde {
     for (const v of this.villes) {
       const m = v.marche;
       v.nourrObtenue = 0;
-      for (const r of NOURRITURES) v.nourrObtenue += m.prendre(r, v.repas[r] || 0);
-      v.prodObtenue = m.prendre('produits', v.demandeProduits);
+      for (const r of NOURRITURES) v.nourrObtenue += m.prendre(r, v.repas[r] || 0, v);
+      v.prodObtenue = m.prendre('produits', v.demandeProduits, v);
     }
 
     for (const m of this.marches) {
@@ -4008,7 +4168,7 @@ class Monde {
       let reste = Math.max(0, v.demandeNourriture - v.nourrObtenue) * m.partSubstitution;
       for (const r of NOURRITURES) {
         if (reste <= 0.001) break;
-        const pris = m.rafler(r, reste);
+        const pris = m.rafler(r, reste, v);
         v.nourrObtenue += pris;
         reste -= pris;
       }
@@ -5613,6 +5773,32 @@ function graphiqueCours(h, couleur) {
       n'absorbe : le stock s'entasse et les ateliers perdent de l'argent, tous à la fois.</div>`;
 }
 
+// Qui se nourrit de sa propre production, et qui dépend de ses voisines.
+//
+// Un marché fusionné n'est pas un entrepôt unique : ce qu'une ville produit
+// alimente d'abord ses propres besoins, et seul le surplus s'exporte. Le taux
+// global du marché ne dit donc plus rien de ce que vit chaque ville, et sans ce
+// détail le joueur ne peut pas voir laquelle est fournisseuse et laquelle est
+// dépendante — c'est pourtant la lecture qui décide où bâtir.
+function detailLocal(m, r) {
+  if (m.villes.length < 2) return '';
+  const lignes = [];
+  for (const [v, l] of m.parVille) {
+    if (l.besoins[r] <= 0.001 && l.entrees[r] <= 0.001) continue;
+    const couvert = l.besoins[r] > 0.001 ? Math.min(1, l.entrees[r] / l.besoins[r]) : 1;
+    const excedent = l.entrees[r] - l.besoins[r];
+    lignes.push(`<div class="ligneLocale">
+      <span>${v.nom}</span>
+      <span class="${couvert >= 0.999 ? 'vert' : couvert < 0.6 ? 'rouge' : 'doux'}">${
+        couvert >= 0.999
+          ? `autosuffisante · +${Math.round(excedent).toLocaleString('fr-FR')} exportés`
+          : `${pct(couvert)} de ses besoins · importe ${Math.round(-excedent).toLocaleString('fr-FR')}`}</span>
+    </div>`);
+  }
+  if (!lignes.length) return '';
+  return `<div class="detailLocal">${lignes.join('')}</div>`;
+}
+
 function voletMarche(monde, rendu) {
   const ouvert = rendu.coursOuvert || null;
 
@@ -5641,6 +5827,7 @@ function voletMarche(monde, rendu) {
           <span class="${servi < 0.95 ? 'rouge' : 'doux'}">${pct(servi)} servi</span>
           ${engorge ? '<span class="vert">engorgé</span>' : ''}
         </div>
+        ${detailLocal(m, r)}
         ${ouvert === r ? graphiqueCours(m.histoPrix[r], RES[r].couleur)
             + `<div class="actions" style="margin-top:6px">
                  <button data-prix="${r}">Voir sur la carte</button>

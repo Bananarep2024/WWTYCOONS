@@ -141,7 +141,7 @@ export class Batiment {
       return;
     }
     this.activiteEffective = this.activite;
-    for (const [r, q] of Object.entries(this.besoinsIntrants())) marche.demander(r, q);
+    for (const [r, q] of Object.entries(this.besoinsIntrants())) marche.demander(r, q, this.ville);
 
     // Le prix de revient réel fait plancher sur ce marché.
     if (this.def.sort && this.capacite > 0) {
@@ -209,7 +209,7 @@ export class Batiment {
     const besoins = this.besoinsIntrants();
     this.recu = {};
     for (const [r, q] of Object.entries(besoins)) {
-      const obtenu = marche.prendre(r, q);
+      const obtenu = marche.prendre(r, q, this.ville);
       this.recu[r] = obtenu;
       if (q > 0) ratioMat = Math.min(ratioMat, obtenu / q);
     }
@@ -218,7 +218,7 @@ export class Batiment {
     // et ne paie plus que son entretien : on ne rallume pas une scierie pour
     // produire trois planches par mois.
     if (Object.keys(besoins).length && ratioMat < P.seuilMatieres) {
-      for (const [r, o] of Object.entries(this.recu)) marche.offrir(r, o); // on rend
+      for (const [r, o] of Object.entries(this.recu)) marche.offrir(r, o, this.ville); // on rend
       this.production = 0; this.tauxReel = 0;
       this.resultat = -ent;
       this.alerte = 'matieres';
@@ -248,7 +248,7 @@ export class Batiment {
     for (const [r, o] of Object.entries(this.recu)) {
       const utilise = Math.min(o, (besoins[r] || 0) * part);
       const rendu = o - utilise;
-      if (rendu > 0) marche.offrir(r, rendu);
+      if (rendu > 0) marche.offrir(r, rendu, this.ville);
       this.recu[r] = utilise;
       achats += utilise * marche.prix[r];
     }
@@ -272,7 +272,7 @@ export class Batiment {
     if (this.versEntrepot && this.societe && this.societe.entrepotDans(this.ville)) {
       this.societe.stocker(this.ville, this.def.sort, this.production);
     } else {
-      marche.offrir(this.def.sort, this.production);
+      marche.offrir(this.def.sort, this.production, this.ville);
     }
 
     if (ratioMat < 0.9) this.alerte = 'matieres';

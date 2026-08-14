@@ -67,6 +67,49 @@ console.log('\n=== Formation des prix ===');
   ok('30 % de production retenue, 5 mois', (p - 1) * 100, 19, 0.12);
 }
 
+// --- Le marché sert le LOCAL d'abord ---------------------------------------
+//
+// Un marché fusionné n'est pas un entrepôt unique. Ce qu'une ville produit
+// alimente d'abord ses propres besoins ; seul le surplus part chez la voisine.
+// Deux choses à garantir : que rien ne se crée ni ne se perde au guichet, et que
+// la ville autosuffisante soit servie en plein pendant que la ville en manque
+// est rationnée.
+console.log('\n=== Le marché sert le local d\'abord ===');
+{
+  const w = new Monde({ nbVilles: 5, duree: 200, graine: 12345 });
+  let ecartMax = 0, plusNegatif = 0;
+  while (w.tick()) {
+    for (const mk of w.marches) for (const r of Object.keys(mk.stock)) {
+      let somme = 0;
+      for (const l of mk.parVille.values()) {
+        somme += l.stock[r];
+        if (l.stock[r] < plusNegatif) plusNegatif = l.stock[r];
+      }
+      if (mk._orphelin) somme += mk._orphelin.stock[r];
+      ecartMax = Math.max(ecartMax, Math.abs(somme - mk.stock[r]));
+    }
+  }
+  ok('le grand livre est conservatif', ecartMax < 1e-4 ? 0 : 1, 0, 0.01);
+  ok('aucun stock local négatif', plusNegatif < -1e-6 ? 1 : 0, 0, 0.01);
+
+  // Sur un marché tendu, l'autosuffisante doit être mieux servie que celle qui
+  // manque : c'est toute la règle, et un service uniforme la trahirait.
+  let vus = 0, respectes = 0;
+  for (const mk of w.marches) {
+    if (mk.villes.length < 2) continue;
+    for (const r of Object.keys(mk.stock)) {
+      if (mk.service[r] > 0.98) continue;
+      const taux = [...mk.parVille.values()].map(l => l.serviceLocal[r]);
+      if (Math.max(...taux) - Math.min(...taux) < 0.01) continue;
+      vus++;
+      // celle qui produit assez est à 100 %, celle qui manque est en dessous
+      if (Math.max(...taux) > 0.999) respectes++;
+    }
+  }
+  ok('cas de tension observés', vus > 0 ? 1 : 0, 1, 0.01);
+  ok('la ville autosuffisante est servie en plein', vus ? respectes / vus : 1, 1, 0.001);
+}
+
 console.log('\n=== Foncier ===');
 ok('case contre la gare, comptoir', prixTerrain(1, 0), 100, 0.01);
 ok('case contre la gare, métropole', prixTerrain(5, 0), 400, 0.01);

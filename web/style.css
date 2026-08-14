@@ -516,6 +516,18 @@ input[type=range] { width: 100%; accent-color: var(--or); }
    entre son chiffre et son « $ » est illisible. */
 .piedRes > span { white-space: nowrap; }
 
+/* Qui fournit, qui dépend. Sur un marché fusionné le taux global ne dit plus
+   rien de ce que vit chaque ville. */
+.detailLocal {
+  margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--filet);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ligneLocale {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 10px; font-variant-numeric: tabular-nums; color: var(--doux);
+}
+.ligneLocale > span:last-child { white-space: nowrap; }
+
 svg.cours {
   width: 100%; height: 96px; display: block; margin: 10px 0 3px;
   background: var(--creux); border: 1px solid var(--filet); border-radius: var(--r1);

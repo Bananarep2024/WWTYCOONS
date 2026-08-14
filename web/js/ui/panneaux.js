@@ -297,6 +297,32 @@ function graphiqueCours(h, couleur) {
       n'absorbe : le stock s'entasse et les ateliers perdent de l'argent, tous à la fois.</div>`;
 }
 
+// Qui se nourrit de sa propre production, et qui dépend de ses voisines.
+//
+// Un marché fusionné n'est pas un entrepôt unique : ce qu'une ville produit
+// alimente d'abord ses propres besoins, et seul le surplus s'exporte. Le taux
+// global du marché ne dit donc plus rien de ce que vit chaque ville, et sans ce
+// détail le joueur ne peut pas voir laquelle est fournisseuse et laquelle est
+// dépendante — c'est pourtant la lecture qui décide où bâtir.
+function detailLocal(m, r) {
+  if (m.villes.length < 2) return '';
+  const lignes = [];
+  for (const [v, l] of m.parVille) {
+    if (l.besoins[r] <= 0.001 && l.entrees[r] <= 0.001) continue;
+    const couvert = l.besoins[r] > 0.001 ? Math.min(1, l.entrees[r] / l.besoins[r]) : 1;
+    const excedent = l.entrees[r] - l.besoins[r];
+    lignes.push(`<div class="ligneLocale">
+      <span>${v.nom}</span>
+      <span class="${couvert >= 0.999 ? 'vert' : couvert < 0.6 ? 'rouge' : 'doux'}">${
+        couvert >= 0.999
+          ? `autosuffisante · +${Math.round(excedent).toLocaleString('fr-FR')} exportés`
+          : `${pct(couvert)} de ses besoins · importe ${Math.round(-excedent).toLocaleString('fr-FR')}`}</span>
+    </div>`);
+  }
+  if (!lignes.length) return '';
+  return `<div class="detailLocal">${lignes.join('')}</div>`;
+}
+
 export function voletMarche(monde, rendu) {
   const ouvert = rendu.coursOuvert || null;
 
@@ -325,6 +351,7 @@ export function voletMarche(monde, rendu) {
           <span class="${servi < 0.95 ? 'rouge' : 'doux'}">${pct(servi)} servi</span>
           ${engorge ? '<span class="vert">engorgé</span>' : ''}
         </div>
+        ${detailLocal(m, r)}
         ${ouvert === r ? graphiqueCours(m.histoPrix[r], RES[r].couleur)
             + `<div class="actions" style="margin-top:6px">
                  <button data-prix="${r}">Voir sur la carte</button>

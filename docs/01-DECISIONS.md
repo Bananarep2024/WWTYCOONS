@@ -1033,3 +1033,58 @@ Plaine-Dorée tombée à zéro habitant.
 À **0,12 mois la case**, le premier train roule vers le mois 25, le réseau est complet vers le
 mois 135, et aucune ville ne meurt sur aucune des graines essayées. Une ligne tous les vingt
 mois : assez rare pour que chaque ouverture compte, assez fréquent pour qu'on la voie venir.
+
+
+---
+
+## Le marché sert le local d'abord
+
+Question posée en jouant : « lorsque deux villes sont reliées, ce qui est produit localement
+alimente-t-il en priorité l'économie locale, le surplus seul étant exporté ? »
+
+La réponse était **non**. Un `Marche` fusionné tenait un seul stock, une seule demande agrégée et
+un seul taux de service ; `prendre()` servait tout le monde au même prorata sans regarder qui
+avait produit. Une ville qui sortait tout le blé de la région était rationnée exactement comme sa
+voisine qui n'en produisait pas un grain. Le rail ne reliait pas deux économies, il les fondait
+en une seule bouillie.
+
+### Le grand livre par ville
+
+Le marché tient maintenant un livre par ville — stock, besoins, entrées, taux de service — et
+sert en deux passes : d'abord chacun sur sa propre production, puis le surplus des excédentaires
+partagé au prorata entre ceux qui manquent.
+
+Le stock **appartient à la ville qui l'a produit**, y compris au moment de la fusion. Additionner
+les réserves en un tas commun aurait dépossédé le producteur à l'instant précis où la ligne
+s'ouvre, c'est-à-dire au moment où la priorité locale compte le plus.
+
+### Le prix reste régional, et c'est un choix
+
+Un marché relié a **un** cours : c'est ce qui le définit. La priorité locale décide de qui obtient
+la marchandise, jamais de ce qu'elle coûte. Fragmenter aussi les prix aurait voulu dire cinq
+cotations par marchandise, cinq courbes, cinq tensions — un modèle plus riche, mais qui aurait
+retiré au rail sa fonction la plus lisible : faire converger les prix.
+
+### Ce que ça donne
+
+Au mois 200, sur un marché de cinq villes tendu à 92 % sur les produits manufacturés : les trois
+villes qui produisent plus que leurs besoins sont servies à 100 %, Sainte-Agathe à 96 %, et
+Fort-Union — qui produit 478 pour 678 de besoin — à 70 %, complétée par un pot commun servi à
+22 %. Sous l'ancien modèle, les cinq auraient été rationnées à 92 % sans distinction.
+
+### Le coût, et ce qu'il a fallu corriger
+
+Recomposer le stock total après chaque prise doublait le temps de simulation — 20,4 ms le mois
+contre 10,7. Le total suit maintenant la sortie réelle par simple décrément, `servi` étant
+exactement ce qui a quitté les livres. Retour à 16,1 ms, dont le reste tient au coût honnête des
+deux passes.
+
+Quatre contrôles verrouillent l'invariant : le grand livre est conservatif à 10⁻⁴ près, aucun
+stock local ne devient négatif, des cas de tension sont bien observés, et dans tous ces cas la
+ville autosuffisante est servie en plein.
+
+### Ce que le joueur voit
+
+Sous chaque marchandise d'un marché fusionné, la liste des villes : « autosuffisante · +476
+exportés » ou « 70 % de ses besoins · importe 200 ». Le taux global ne disait plus rien de ce que
+vit chaque ville, et c'est pourtant cette lecture qui décide où bâtir.
