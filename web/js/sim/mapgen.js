@@ -208,13 +208,31 @@ export function genererMonde(nbVilles, graine) {
   //
   // Le plafond lui-même est appliqué plus bas (étape 4 bis), une fois les
   // territoires découpés : c'est l'appartenance qui décide, pas la distance.
-  const vocations = profils.map(profil => {
+  // La prédominance donne le premier plafond riche : comme les cinq profils ont
+  // cinq prédominances distinctes, chaque ressource est déjà riche quelque part.
+  // Le SECOND emplacement riche, lui, se choisissait ville par ville et
+  // indépendamment — et c'est ce qui affamait des cartes entières.
+  //
+  // Mesuré : les villes en pénurie de vivres avaient exactement le même sol et
+  // le même nombre de fermes que les autres (fertilité 3,2 contre 3,3, 149
+  // fermes contre 144). Ce n'était donc pas la ville qui manquait de terre,
+  // c'était la CARTE : quand aucune des deux villes libres de leur second choix
+  // ne le donnait à la fertilité, le continent entier ne comptait qu'une seule
+  // ville nourricière, et il ne pouvait pas se nourrir.
+  //
+  // On répartit donc les seconds emplacements de sorte que chaque ressource soit
+  // riche dans exactement deux villes. Cinq villes à deux emplacements font dix
+  // places pour cinq ressources : le compte tombe juste, et un couplage existe
+  // toujours sur les profils du jeu.
+  const seconds = repartirSeconds(profils, rnd);
+
+  const vocations = profils.map((profil, i) => {
     const autres = QUALITES.filter(q => q !== profil.pred && !profil.rares.includes(q));
-    const melange = melanger(autres.slice(), rnd);
     const plafond = {};
     plafond[profil.pred] = P.vocationRiche;
-    if (melange[0]) plafond[melange[0]] = P.vocationRiche;
-    for (const q of melange.slice(1)) {
+    if (seconds[i]) plafond[seconds[i]] = P.vocationRiche;
+    for (const q of autres) {
+      if (q === seconds[i]) continue;
       plafond[q] = P.vocationMoyenMin
         + Math.floor(rnd() * (P.vocationMoyenMax - P.vocationMoyenMin + 1));
     }
@@ -428,6 +446,37 @@ function tracerVoie(cases, L, H, d, f) {
     poser();
   }
   return emprise;
+}
+
+// Attribue à chaque ville sa seconde ressource riche, de sorte qu'aucune
+// ressource n'en reçoive deux tant qu'une autre n'en a pas reçu une.
+//
+// C'est un couplage : chaque ville ne peut prendre que l'une des deux ressources
+// qui ne sont ni sa prédominance ni ses raretés. On explore en profondeur, dans
+// un ordre tiré au sort pour que deux cartes ne se ressemblent pas, et on se
+// rabat sur un choix libre si aucun couplage complet n'existe — ce qui arrive
+// dès que la partie compte moins de cinq villes.
+function repartirSeconds(profils, rnd) {
+  const choix = profils.map(p =>
+    melanger(QUALITES.filter(q => q !== p.pred && !p.rares.includes(q)), rnd));
+
+  const pris = new Set();
+  const sortie = new Array(profils.length).fill(null);
+
+  const poser = (i) => {
+    if (i >= profils.length) return true;
+    for (const q of choix[i]) {
+      if (pris.has(q)) continue;
+      pris.add(q); sortie[i] = q;
+      if (poser(i + 1)) return true;
+      pris.delete(q); sortie[i] = null;
+    }
+    return false;
+  };
+
+  if (poser(0)) return sortie;
+  // Pas de couplage complet : chacun prend son premier choix disponible.
+  return choix.map(c => c[0] || null);
 }
 
 function melanger(a, rnd) {

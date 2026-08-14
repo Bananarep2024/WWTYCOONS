@@ -158,8 +158,6 @@ export const P = {
   // calibré pour valoir 1,00 à la qualité 3, comme le barème le suppose
   solPlancher: 0.46,
   solPente: 0.18,              // q1 = 0,64 · q3 = 1,00 · q5 = 1,36
-  richessePlancher: 0.35,      // ce que vaut la plus mauvaise terre
-  richesseExposant: 4.0,       // à quel point la bonne terre se paie
 
   // --- Les événements ---
   //
@@ -342,8 +340,21 @@ export function facteurQualite(q) {
 export function prixTerrain(niveau, distanceGare, richesse = 3) {
   const fn = P.facteurNiveau[niveau - 1];
   const fd = 1 / (1 + P.attenuationDistance[niveau - 1] * distanceGare);
-  const fq = P.richessePlancher
-           + (1 - P.richessePlancher) * Math.pow(richesse / 3, P.richesseExposant);
+  // Le sol se paie EXACTEMENT ce qu'il rend : le facteur de richesse est la loi
+  // de rendement elle-même, et non un barème séparé.
+  //
+  // Il y en avait un, réglé à 0,35 de plancher et 4 d'exposant, qui étalait le
+  // prix de la terre sur un rapport de 15 entre la pire et la meilleure — quand
+  // le rendement, lui, ne varie que d'un rapport de 2,1. La prime foncière valait
+  // donc sept fois la rente qu'elle prétendait capitaliser.
+  //
+  // Tant que le sol était excellent presque partout, cela ne se voyait pas :
+  // le terme était une quasi-constante. Depuis que les villes ont des vocations
+  // tranchées, il domine tout — mesuré, 58 % du prix venait de la richesse et
+  // 42 % seulement de la distance, si bien qu'une case de lisière sur un bon
+  // filon coûtait plus cher qu'une case du centre sur une terre pauvre. La carte
+  // du prix du sol montrait alors des villes au centre bon marché.
+  const fq = facteurQualite(richesse);
   return P.terrainRef * fn * fd * fq;
 }
 

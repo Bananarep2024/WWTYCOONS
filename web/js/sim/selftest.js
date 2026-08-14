@@ -1,6 +1,6 @@
 // Banc d'essai : vérifie que le barème code bien ce que dit docs/00-BAREME.md,
 // puis fait tourner vingt ans de simulation sans joueur.
-import { P, BAT, RES, materiaux, coutRef, loyer, prixTerrain, potentielTerrain } from './params.js';
+import { P, BAT, RES, materiaux, coutRef, loyer, prixTerrain, potentielTerrain, facteurQualite } from './params.js';
 import { Monde } from './world.js';
 
 let ko = 0;
@@ -72,6 +72,24 @@ ok('case contre la gare, comptoir', prixTerrain(1, 0), 100, 0.01);
 ok('case contre la gare, métropole', prixTerrain(5, 0), 400, 0.01);
 ok('case à 32 cases, métropole', prixTerrain(5, 32), 88.0, 0.02);
 ok('case à 32 cases, comptoir', prixTerrain(1, 32), 52.72, 0.02);
+
+// LE SOL SE PAIE CE QU'IL REND. La prime foncière d'une bonne terre doit valoir
+// exactement la prime de rendement qu'elle capitalise — sinon la terre riche est
+// un mauvais placement et la terre pauvre une aubaine.
+//
+// Un barème séparé existait, qui étalait le prix sur un rapport de 15 quand le
+// rendement n'en vaut que 2,1. Invisible tant que le sol était excellent
+// partout ; dès que les villes ont eu des vocations tranchées, la richesse
+// pesait 58 % du prix contre 42 % à la distance, et des villes affichaient un
+// centre moins cher que leur lisière.
+ok('prime foncière de la meilleure terre', prixTerrain(3, 0, 5) / prixTerrain(3, 0, 1),
+   facteurQualite(5) / facteurQualite(1), 0.001);
+ok('… et elle vaut la prime de rendement', facteurQualite(5) / facteurQualite(1), 2.125, 0.01);
+// La distance doit peser plus que la richesse, sans quoi la carte du prix du sol
+// ne se lit plus comme un gradient urbain.
+ok('la distance pèse plus que la richesse',
+   prixTerrain(3, 0, 3) / prixTerrain(3, 60, 3),
+   4.02, 0.02);
 
 // Le gradient se durcit avec le niveau : c'est là tout le mécanisme.
 ok('potentiel du centre, comptoir', potentielTerrain(1, 0), 4.00, 0.01);

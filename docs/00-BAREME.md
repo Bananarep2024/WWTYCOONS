@@ -293,6 +293,25 @@ marge au risque de perdre ses employés. *(formats 30 et 60 min)*
 
 ---
 
+### 6 ter. Le sol se paie ce qu'il rend
+
+Le prix d'une case vaut `100 $ × facteur de niveau × facteur de distance × facteur de richesse`,
+et **le facteur de richesse est la loi de rendement elle-même** — `0,46 + 0,18 × qualité`, la
+même qui décide de ce que sort une exploitation.
+
+Une bonne terre rend **2,1 fois** une mauvaise, elle coûte donc 2,1 fois plus. Il y avait
+auparavant un barème séparé, de plancher 0,35 et d'exposant 4, qui étalait le prix sur un
+rapport de **15** : la prime foncière valait sept fois la rente qu'elle prétendait capitaliser.
+
+Le défaut était invisible tant que le sol était excellent presque partout — le terme était une
+quasi-constante. Depuis que les villes ont des vocations tranchées, il dominait tout :
+
+| | Avant | Après |
+|---|---|---|
+| Part du prix expliquée par la **distance** | 42 % | **76 %** |
+| Part expliquée par la **richesse** | 58 % | 24 % |
+| Villes dont plus d'un quart du centre est moins cher que leur médiane | 6 % | **0 %** |
+
 ### 6 bis. Les vocations : deux riches, une moyenne, deux pauvres
 
 Chaque ville reçoit un **plafond de qualité par ressource**, sur les cinq matières premières
@@ -312,6 +331,12 @@ par distance ont été essayées — inverse de la distance, puis gaussienne —
 la ville voisine pesait encore assez en lisière pour remonter les plafonds bas : une ville sur
 dix seulement respectait sa vocation. Seule la terre vierge de l'entre-deux est mélangée, ce
 qui donne le dégradé entre deux zones.
+
+Le second emplacement riche est **réparti à l'échelle de la carte**, et non tiré ville par
+ville : chaque ressource est riche dans exactement **deux villes**. Tiré indépendamment, il
+laissait des cartes entières avec une seule ville nourricière — et ces cartes ne pouvaient pas
+se nourrir. Mesuré sur 40 cartes : la couverture est maintenant de 2 villes pour chacune des
+cinq ressources, sans exception.
 
 Le plafond **étire** la valeur brute au lieu de la couper : une case médiocre reste médiocre,
 une case excellente atteint tout juste le plafond, et le relief continue de se lire à

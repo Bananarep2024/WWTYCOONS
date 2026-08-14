@@ -936,3 +936,66 @@ trois à six fois plus de trous pour le même résultat, et souffre jusqu'à ce 
 Après quoi elle se spécialise : mesuré, une ville pauvre en minerai finit à 0 mine, 12 aciéries
 et 20 manufactures — elle importe et transforme. Sa voisine fait l'inverse. Personne n'a
 programmé cet avantage comparatif ; il sort du seul jeu des prix.
+
+---
+
+## Le sol se paie ce qu'il rend, et la carte se nourrit
+
+Deux défauts découverts en tirant le fil d'une observation de jeu : « toutes les villes avaient
+un centre rouge donc cher, sauf une qui montrait l'inverse ».
+
+### La prime foncière valait sept fois la rente
+
+`prixTerrain` portait un barème de richesse séparé — plancher 0,35, exposant 4 — qui étalait le
+prix de la terre sur un rapport de **15** entre la pire et la meilleure. Le rendement, lui, ne
+varie que d'un rapport de **2,1** (`0,64` à `1,36`). Une terre riche était donc un placement
+calamiteux et une terre pauvre une aubaine.
+
+Le défaut dormait depuis toujours : tant que 81 % des villes avaient les cinq ressources en
+excellent, le terme était une quasi-constante et seule la distance se voyait. Les vocations
+l'ont réveillé — mesuré, **58 % du prix venait de la richesse contre 42 % à la distance**, si
+bien qu'une case de lisière posée sur un bon filon coûtait plus cher qu'une case du centre sur
+une terre pauvre. Six pour cent des villes affichaient un centre bon marché.
+
+Le correctif supprime le barème plutôt que de le régler : `fq = facteurQualite(richesse)`. Le
+facteur de richesse **est** la loi de rendement. Deux paramètres disparaissent, et l'énoncé
+devient exact — le sol se paie ce qu'il rend. La distance explique désormais 76 % du prix, et
+plus aucune ville n'a le centre inversé. Les assertions foncières du banc d'essai passent sans
+retouche : elles se lisent à la richesse 3, où le facteur vaut 1 par construction.
+
+Trois contrôles verrouillent la loi pour qu'elle ne dérive plus : la prime foncière de la
+meilleure terre, son égalité avec la prime de rendement, et le fait que la distance pèse plus
+que la richesse.
+
+### Les cartes qui ne pouvaient pas se nourrir
+
+Le correctif précédent rendait la terre riche bien moins chère, donc la construction plus
+rapide, donc les villes plus grosses — et cinq villes sur trente passaient sous le seuil
+critique de nourriture à trente ans.
+
+Le diagnostic a d'abord semblé local, puis s'est révélé global. Les villes affamées avaient
+**exactement le même sol et le même nombre de fermes** que les repues : fertilité 3,2 contre
+3,3, 149 fermes contre 144. Ce n'était donc pas la ville qui manquait de terre.
+
+C'était la carte. Chaque ville tire deux ressources riches : la première est sa prédominance —
+et comme les cinq profils ont cinq prédominances distinctes, chaque ressource est riche au
+moins une fois. La **seconde** se tirait ville par ville, indépendamment. Quand aucune des deux
+villes libres de leur second choix ne le donnait à la fertilité, le continent entier ne comptait
+qu'une seule ville nourricière, et il ne pouvait pas se nourrir.
+
+Les seconds emplacements sont désormais **répartis** par couplage : cinq villes à deux
+emplacements font dix places pour cinq ressources, le compte tombe juste, et un couplage
+complet existe toujours sur les profils du jeu. On explore en profondeur dans un ordre tiré au
+sort — deux cartes ne se ressemblent pas — avec repli sur un choix libre quand la partie compte
+moins de cinq villes.
+
+Mesuré sur 40 cartes : chaque ressource est riche dans exactement deux villes, sans exception.
+La nourriture finale passe de 91 % à **99 %**, plus aucune ville ne franchit le seuil critique,
+et la population croît de ×3,18 à ×3,79 entre quinze et trente ans.
+
+### Ce qui reste, et qui est voulu
+
+5,6 % des mois-ville se passent en crise, dont 88 % pour la nourriture. Ce ne sont pas des
+villes malades mais des épisodes de croissance : la population dépasse ses vivres, le baromètre
+plonge, la ville se vide un peu, puis les fermes rattrapent. Une économie qui ne connaîtrait
+jamais ce cycle n'aurait rien à arbitrer.
