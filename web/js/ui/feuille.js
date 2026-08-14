@@ -459,12 +459,12 @@ function ficheBatiment(monde, b, c) {
         <button id="btnDemolir">Démolir</button>
       </div>
       <div class="note"><b>Vendre</b> : un indépendant le reprend au prix que dit son compte
-        d'exploitation — ${eur(terrain)} de terrain ${b.profitAnnuel >= 0 ? '+' : '−'}
-        ${eur(Math.abs(P.anneesDeProfit * b.profitAnnuel))} de ${P.anneesDeProfit} années de
-        profit. C'est exactement le prix auquel vous l'auriez racheté : on n'achète pas cher
+        d'exploitation — ${eur(terrain)} de terrain${b.profitAnnuel > 0
+          ? ` + ${eur(P.anneesDeProfit * b.profitAnnuel)} de ${P.anneesDeProfit} années de profit`
+          : ''}. C'est exactement le prix auquel vous l'auriez racheté : on n'achète pas cher
         pour revendre bon marché.
-        ${cession <= terrain * P.plancherCession + 0.5
-          ? ' Ici le plancher joue — une affaire ruinée ne descend jamais sous la moitié de son foncier.'
+        ${b.profitAnnuel <= 0
+          ? ' Elle ne gagne rien : vous n\'en tirerez que la valeur du sol.'
           : ''}</div>
       <div class="note"><b>Démolir</b> : vous conservez le terrain, ne récupérez aucun
         matériau, et la case est libre le mois suivant. À préférer quand c'est la PLACE que
@@ -475,7 +475,7 @@ function ficheBatiment(monde, b, c) {
     const prix = monde.prixRachatIndependant(b);
     const terrain = b.terrainCourant;
     const peut = joueur.tresorerie >= prix;
-    const troisAns = P.anneesDeProfit * b.profitAnnuel;
+    const troisAns = Math.max(0, P.anneesDeProfit * b.profitAnnuel);
     actions = `<h3>L'acquérir</h3>
       <div class="actions">
         <button class="primaire" id="btnRacheter" ${peut ? '' : 'disabled'}>
@@ -485,13 +485,14 @@ function ficheBatiment(monde, b, c) {
         <tr><td>Terrain, au cours du jour</td><td class="n">${eur(terrain)}</td></tr>
         <tr><td>${P.anneesDeProfit} années de profit
           <span class="faible">(12 derniers mois : ${eur(b.profitAnnuel)}/an)</span></td>
-          <td class="n ${troisAns >= 0 ? 'vert' : 'rouge'}">${troisAns >= 0 ? '+' : ''}${eur(troisAns)}</td></tr>
+          <td class="n ${troisAns > 0 ? 'vert' : 'doux'}">${troisAns > 0 ? '+' + eur(troisAns) : '—'}</td></tr>
         <tr><td><b>Prix</b></td><td class="n"><b>${eur(prix)}</b></td></tr>
       </table>
       <div class="note">Un indépendant vend à qui le demande. On n'achète pas une promesse,
-      on achète un compte d'exploitation : une affaire qui perd de l'argent vaut MOINS que
-      son terrain — sans jamais tomber sous la moitié du foncier, car le sol, lui, garde sa
-      valeur quoi qu'il arrive.</div>
+      on achète un compte d'exploitation. Une affaire qui ne gagne rien se paie
+      <b>au prix de sa terre</b>, ni plus ni moins : le bâtiment vient pour rien, à charge
+      de le redresser. Le sol, lui, vaut toujours ce qu'il vaut — sans quoi il suffirait
+      de racheter, de démolir et de revendre le terrain pour fabriquer de l'argent.</div>
       ${peut ? '' : '<div class="avert">Trésorerie insuffisante.</div>'}`;
 
   } else {

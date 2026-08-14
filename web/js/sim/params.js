@@ -67,7 +67,7 @@ export const P = {
   partIndependants: 0.30,
   surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
   anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
-  plancherCession: 0.50,       // jamais moins que la moitié de son foncier
+  // — le plancher est le terrain lui-même : voir prixRachatIndependant
 
   chantiersVilleParMois: 6,       // ce qu'une ville peut lancer en un mois
   rendementMinimalPourBatir: 0.05,  // sous ce rendement attendu, on ne bâtit pas
@@ -84,11 +84,18 @@ export const P = {
   stockAmorcage: { planches: 800, briques: 400 },
 
   // Carte — une seule grille pour tout le monde
-  largeurMonde: 190,
-  hauteurMonde: 130,
-  margeMonde: 16,              // on ne fonde pas une ville au bord de la carte
-  rayonVille: 19,              // rayon moyen d'un territoire, dévié par ville
-  distanceMinVilles: 46,       // de centre à centre : sans quoi le rail n'a pas de sens
+  //
+  // La taille n'est pas décorative : elle décide du dernier palier atteignable.
+  // Une Métropole, c'est 2 000 ménages ; au plein emploi chacun réclame deux
+  // postes, un poste occupe une case — cinq pour un bureau — et le logement en
+  // prend une de plus. Il faut donc de l'ordre de 3 800 cases par territoire, et
+  // les paliers de 1 000 et 2 000 ménages restaient décoratifs sur l'ancienne
+  // grille de 190 × 130, où une ville saturait vers 400.
+  largeurMonde: 380,
+  hauteurMonde: 265,
+  margeMonde: 22,              // on ne fonde pas une ville au bord de la carte
+  rayonVille: 44,              // rayon moyen d'un territoire, dévié par ville
+  distanceMinVilles: 94,       // de centre à centre : sans quoi le rail n'a pas de sens
   moisParCaseDeVoie: 0.42,     // une ligne longue demande plus de travail
   menagesInitiaux: 80,         // toutes les villes démarrent au niveau 1 (Comptoir)
 };

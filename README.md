@@ -103,7 +103,9 @@ exécutions ne donnent jamais exactement la même ville.
 
 ## Ce que la démo couvre
 
-Cinq villes, 1 joueur et 3 sociétés pilotées par l'ordinateur. **La partie n'a pas de
+Cinq villes sur une carte de 380 × 265 cases — environ 4 000 par territoire, de quoi
+qu'une Métropole soit physiquement possible. 1 joueur et 3 sociétés pilotées par
+l'ordinateur. **La partie n'a pas de
 terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
 
 - **Une seule carte du monde** : cinq villes posées sur un relief, à distance minimale
@@ -120,7 +122,9 @@ terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
   manufacturés, salaire de case, revenu du ménage et taux d'épargne — un immeuble ne vaut
   que par le pouvoir d'achat de ceux qui l'habitent
 - **Racheter** le bâtiment d'un indépendant et **le revendre**, au même prix : terrain au
-  cours du jour + 3 années de profit sur les 12 derniers mois. Vente des terrains nus aussi.
+  cours du jour + 3 années de profit, ces dernières ne comptant que si elles sont positives.
+  Le sol est un plancher absolu — sans quoi racheter, démolir et revendre le terrain
+  fabriquerait de l'argent. Vente des terrains nus aussi.
 - **Faire une offre** sur le bâtiment d'un rival
 - **Filtre de rentabilité** par type de bâtiment, sur la même échelle rouge → vert
 - Marché foncier : contiguïté, propriétaires indépendants, prix selon le niveau et la distance

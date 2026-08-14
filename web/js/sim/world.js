@@ -377,14 +377,23 @@ export class Monde {
   // pas une promesse, on achète un compte d'exploitation. Trois ans, c'est le
   // délai qu'un acheteur accepte de payer d'avance — au-delà il préfère bâtir.
   //
-  // Un bâtiment qui perd de l'argent vaut donc MOINS que son terrain : c'est ce
-  // qui rend les affaires en difficulté intéressantes à ramasser. Le prix ne
-  // tombe pourtant jamais sous la moitié du foncier — sous ce seuil il vaudrait
-  // mieux raser et repartir, et le sol, lui, garde sa valeur quoi qu'il arrive.
+  // Le sol vaut toujours ce qu'il vaut : c'est le PLANCHER, et il est absolu.
+  //
+  // Une décote sous la valeur du terrain ouvrait une machine à billets, et le
+  // joueur l'a vue avant moi : on rachetait une ferme déficitaire 507 $ alors
+  // que ses 725 $ de terrain restaient intacts, on la démolissait — la démolition
+  // conserve le sol — et l'on revendait le terrain 725 $. Deux cent dix-huit
+  // dollars sortis de nulle part, à répéter autant de fois qu'il y avait
+  // d'affaires en difficulté sur la carte.
+  //
+  // Le raisonnement était faux à la racine : une exploitation déficitaire ne
+  // rend pas son terrain moins précieux. Elle ne vaut simplement RIEN de plus
+  // que lui. Les trois années de profit ne s'ajoutent donc que lorsqu'elles sont
+  // positives — et une affaire ruinée se paie au prix de sa terre, ni plus, ni
+  // moins. L'intérêt de la ramasser reste entier : on prend le bâtiment pour
+  // rien, à charge de le redresser.
   prixRachatIndependant(b) {
-    const terrain = b.terrainCourant;
-    return Math.max(terrain * P.plancherCession,
-                    terrain + P.anneesDeProfit * b.profitAnnuel);
+    return b.terrainCourant + Math.max(0, P.anneesDeProfit * b.profitAnnuel);
   }
 
   // Le même prix, vu du vendeur. C'est délibérément la même formule : un marché

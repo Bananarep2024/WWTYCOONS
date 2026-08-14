@@ -498,7 +498,7 @@ const P = {
   partIndependants: 0.30,
   surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
   anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
-  plancherCession: 0.50,       // jamais moins que la moitié de son foncier
+  // — le plancher est le terrain lui-même : voir prixRachatIndependant
 
   chantiersVilleParMois: 6,       // ce qu'une ville peut lancer en un mois
   rendementMinimalPourBatir: 0.05,  // sous ce rendement attendu, on ne bâtit pas
@@ -515,11 +515,18 @@ const P = {
   stockAmorcage: { planches: 800, briques: 400 },
 
   // Carte — une seule grille pour tout le monde
-  largeurMonde: 190,
-  hauteurMonde: 130,
-  margeMonde: 16,              // on ne fonde pas une ville au bord de la carte
-  rayonVille: 19,              // rayon moyen d'un territoire, dévié par ville
-  distanceMinVilles: 46,       // de centre à centre : sans quoi le rail n'a pas de sens
+  //
+  // La taille n'est pas décorative : elle décide du dernier palier atteignable.
+  // Une Métropole, c'est 2 000 ménages ; au plein emploi chacun réclame deux
+  // postes, un poste occupe une case — cinq pour un bureau — et le logement en
+  // prend une de plus. Il faut donc de l'ordre de 3 800 cases par territoire, et
+  // les paliers de 1 000 et 2 000 ménages restaient décoratifs sur l'ancienne
+  // grille de 190 × 130, où une ville saturait vers 400.
+  largeurMonde: 380,
+  hauteurMonde: 265,
+  margeMonde: 22,              // on ne fonde pas une ville au bord de la carte
+  rayonVille: 44,              // rayon moyen d'un territoire, dévié par ville
+  distanceMinVilles: 94,       // de centre à centre : sans quoi le rail n'a pas de sens
   moisParCaseDeVoie: 0.42,     // une ligne longue demande plus de travail
   menagesInitiaux: 80,         // toutes les villes démarrent au niveau 1 (Comptoir)
 };
@@ -2523,14 +2530,23 @@ class Monde {
   // pas une promesse, on achète un compte d'exploitation. Trois ans, c'est le
   // délai qu'un acheteur accepte de payer d'avance — au-delà il préfère bâtir.
   //
-  // Un bâtiment qui perd de l'argent vaut donc MOINS que son terrain : c'est ce
-  // qui rend les affaires en difficulté intéressantes à ramasser. Le prix ne
-  // tombe pourtant jamais sous la moitié du foncier — sous ce seuil il vaudrait
-  // mieux raser et repartir, et le sol, lui, garde sa valeur quoi qu'il arrive.
+  // Le sol vaut toujours ce qu'il vaut : c'est le PLANCHER, et il est absolu.
+  //
+  // Une décote sous la valeur du terrain ouvrait une machine à billets, et le
+  // joueur l'a vue avant moi : on rachetait une ferme déficitaire 507 $ alors
+  // que ses 725 $ de terrain restaient intacts, on la démolissait — la démolition
+  // conserve le sol — et l'on revendait le terrain 725 $. Deux cent dix-huit
+  // dollars sortis de nulle part, à répéter autant de fois qu'il y avait
+  // d'affaires en difficulté sur la carte.
+  //
+  // Le raisonnement était faux à la racine : une exploitation déficitaire ne
+  // rend pas son terrain moins précieux. Elle ne vaut simplement RIEN de plus
+  // que lui. Les trois années de profit ne s'ajoutent donc que lorsqu'elles sont
+  // positives — et une affaire ruinée se paie au prix de sa terre, ni plus, ni
+  // moins. L'intérêt de la ramasser reste entier : on prend le bâtiment pour
+  // rien, à charge de le redresser.
   prixRachatIndependant(b) {
-    const terrain = b.terrainCourant;
-    return Math.max(terrain * P.plancherCession,
-                    terrain + P.anneesDeProfit * b.profitAnnuel);
+    return b.terrainCourant + Math.max(0, P.anneesDeProfit * b.profitAnnuel);
   }
 
   // Le même prix, vu du vendeur. C'est délibérément la même formule : un marché
@@ -4827,12 +4843,12 @@ function ficheBatiment(monde, b, c) {
         <button id="btnDemolir">Démolir</button>
       </div>
       <div class="note"><b>Vendre</b> : un indépendant le reprend au prix que dit son compte
-        d'exploitation — ${eur(terrain)} de terrain ${b.profitAnnuel >= 0 ? '+' : '−'}
-        ${eur(Math.abs(P.anneesDeProfit * b.profitAnnuel))} de ${P.anneesDeProfit} années de
-        profit. C'est exactement le prix auquel vous l'auriez racheté : on n'achète pas cher
+        d'exploitation — ${eur(terrain)} de terrain${b.profitAnnuel > 0
+          ? ` + ${eur(P.anneesDeProfit * b.profitAnnuel)} de ${P.anneesDeProfit} années de profit`
+          : ''}. C'est exactement le prix auquel vous l'auriez racheté : on n'achète pas cher
         pour revendre bon marché.
-        ${cession <= terrain * P.plancherCession + 0.5
-          ? ' Ici le plancher joue — une affaire ruinée ne descend jamais sous la moitié de son foncier.'
+        ${b.profitAnnuel <= 0
+          ? ' Elle ne gagne rien : vous n\'en tirerez que la valeur du sol.'
           : ''}</div>
       <div class="note"><b>Démolir</b> : vous conservez le terrain, ne récupérez aucun
         matériau, et la case est libre le mois suivant. À préférer quand c'est la PLACE que
@@ -4843,7 +4859,7 @@ function ficheBatiment(monde, b, c) {
     const prix = monde.prixRachatIndependant(b);
     const terrain = b.terrainCourant;
     const peut = joueur.tresorerie >= prix;
-    const troisAns = P.anneesDeProfit * b.profitAnnuel;
+    const troisAns = Math.max(0, P.anneesDeProfit * b.profitAnnuel);
     actions = `<h3>L'acquérir</h3>
       <div class="actions">
         <button class="primaire" id="btnRacheter" ${peut ? '' : 'disabled'}>
@@ -4853,13 +4869,14 @@ function ficheBatiment(monde, b, c) {
         <tr><td>Terrain, au cours du jour</td><td class="n">${eur(terrain)}</td></tr>
         <tr><td>${P.anneesDeProfit} années de profit
           <span class="faible">(12 derniers mois : ${eur(b.profitAnnuel)}/an)</span></td>
-          <td class="n ${troisAns >= 0 ? 'vert' : 'rouge'}">${troisAns >= 0 ? '+' : ''}${eur(troisAns)}</td></tr>
+          <td class="n ${troisAns > 0 ? 'vert' : 'doux'}">${troisAns > 0 ? '+' + eur(troisAns) : '—'}</td></tr>
         <tr><td><b>Prix</b></td><td class="n"><b>${eur(prix)}</b></td></tr>
       </table>
       <div class="note">Un indépendant vend à qui le demande. On n'achète pas une promesse,
-      on achète un compte d'exploitation : une affaire qui perd de l'argent vaut MOINS que
-      son terrain — sans jamais tomber sous la moitié du foncier, car le sol, lui, garde sa
-      valeur quoi qu'il arrive.</div>
+      on achète un compte d'exploitation. Une affaire qui ne gagne rien se paie
+      <b>au prix de sa terre</b>, ni plus ni moins : le bâtiment vient pour rien, à charge
+      de le redresser. Le sol, lui, vaut toujours ce qu'il vaut — sans quoi il suffirait
+      de racheter, de démolir et de revendre le terrain pour fabriquer de l'argent.</div>
       ${peut ? '' : '<div class="avert">Trésorerie insuffisante.</div>'}`;
 
   } else {

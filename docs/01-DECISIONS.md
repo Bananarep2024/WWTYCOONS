@@ -396,3 +396,62 @@ réel.
 Mesuré dans la page publiée : minoterie à 910 $ de terrain et 173 $/an de profit → rachat
 **1 429 $**, revente **1 429 $**. Terrain nu acheté 402 $ à un indépendant (335 + 20 %),
 revendu **335 $**.
+
+---
+
+## Le sol est un plancher absolu, et la carte s'agrandit
+
+### La machine à billets, repérée par le joueur
+
+La décote que j'avais posée sur un bâtiment déficitaire — jusqu'à la moitié du foncier —
+ouvrait un circuit à gain garanti, et le joueur l'a vu avant moi :
+
+> racheter une ferme déficitaire **507 $** alors que ses **725 $** de terrain restent
+> intacts · la démolir — la démolition conserve le sol · revendre le terrain **725 $**
+> · **+218 $ sortis de nulle part**, à répéter autant de fois qu'il y a d'affaires en
+> difficulté sur la carte.
+
+Le raisonnement était faux à la racine : **une exploitation déficitaire ne rend pas son
+terrain moins précieux.** Elle ne vaut simplement rien de plus que lui.
+
+```
+prix = terrain au cours du jour + max( 0 , 3 × profit des 12 derniers mois )
+```
+
+Les trois années de profit ne s'ajoutent que lorsqu'elles sont positives. Une affaire ruinée
+se paie au prix de sa terre, ni plus ni moins — l'intérêt de la ramasser reste entier
+puisqu'on prend le bâtiment pour rien, à charge de le redresser.
+
+**Vérifié dans la page publiée**, circuit complet racheter → démolir → revendre le terrain,
+sur *chaque* bâtiment déficitaire de la carte : **gain maximal 0,00 $**.
+
+### La carte : 380 × 265
+
+Les paliers de niveau vont jusqu'à 2 000 ménages, mais l'ancienne grille de 190 × 130 ne
+donnait que ~830 cases par territoire, et une ville y saturait vers 400 habitants. Le calcul
+du besoin est direct : au plein emploi chaque ménage réclame deux postes, un poste occupe
+une case — cinq pour un bureau — et le logement en prend une de plus. Une Métropole demande
+donc de l'ordre de **3 800 cases**.
+
+| Monde | Rayon | Cases/ville | 20 ans | 40 ans | 60 ans | Niveaux atteints |
+|---|---|---|---|---|---|---|
+| 190 × 130 | 19 | 824 | 246 | 269 | 269 | Comptoir, Bourg |
+| 240 × 165 | 26 | 1 323 | 239 | 323 | 366 | Bourg, Ville |
+| 290 × 200 | 32 | 1 939 | 373 | 447 | 482 | Bourg, Ville |
+| **380 × 265** | **44** | **4 155** | 329 | 481 | 538 | Ville, Grandeville |
+
+Retenu : **380 × 265, rayon 44, distance minimale 94.** Quarante cartes tirées au sort,
+**aucun échec** de placement des cinq villes.
+
+Coût mesuré dans le navigateur, sur un écran de téléphone : page prête en **2,35 s**,
+**22 Mo** de mémoire, **0,6 ms** par image en vue d'ensemble et **2,1 ms** zoomé — très
+au-dessous des 16 ms d'une image à 60 Hz. La simulation coûte **9,8 ms** par mois, quand un
+mois dure dix secondes de temps réel.
+
+### Ce que la carte ne résout pas
+
+À cent ans, une ville plafonne à **509 ménages** avec encore **2 918 cases libres** dans son
+territoire. La limite n'est donc plus spatiale : la ville cesse d'ouvrir des emplois parce
+qu'aucun nouveau bâtiment ne franchit le seuil de rentabilité, l'emploi reste sous les 86 %
+qui autorisent à loger, et la population s'arrête là. La Métropole est désormais **possible**
+— il faudra un joueur, ou un levier de plus, pour l'atteindre.
