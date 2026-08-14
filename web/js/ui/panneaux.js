@@ -434,9 +434,9 @@ export function voletBourse(monde, rendu) {
       <div class="fiche"><div class="etiq">PER du marché</div>
         <div class="v or">${per.toFixed(1)}</div>
         <div class="etiq" style="margin-top:2px">référence ${P.perReference}</div></div>
-      <div class="fiche"><div class="etiq">Capitaux vers la bourse</div>
+      <div class="fiche"><div class="etiq">Capitaux placés</div>
         <div class="v">${eur(monde.capitauxBourse || 0)}</div>
-        <div class="etiq" style="margin-top:2px">par mois · ${pct(P.partEnBourse)} de l'épargne</div></div>
+        <div class="etiq" style="margin-top:2px">par mois</div></div>
       <div class="fiche"><div class="etiq">Bénéfices cotés</div>
         <div class="v doux">${eur(monde.beneficesCotes || 0)}</div>
         <div class="etiq" style="margin-top:2px">par an</div></div>

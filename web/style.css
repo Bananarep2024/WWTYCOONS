@@ -1,43 +1,82 @@
 /* WWTycoons — la carte occupe tout l'écran, tout le reste flotte au-dessus.
-   Palette sépia et or : celle des papiers et des lampes de 1900, pas celle d'un
-   tableau de bord moderne. */
+
+   Le registre est celui de 1900 : le papier, l'encre, le titre de société, le
+   grand livre. Pas celui d'un tableau de bord moderne. Ce qui donne l'élégance
+   ici n'est pas l'effet mais la discipline — une échelle de gris chaude qui
+   sépare vraiment les plans, une romaine pour les chiffres qui comptent, une
+   linéale pour la donnée dense, et l'or employé assez rarement pour qu'il veuille
+   encore dire quelque chose quand il paraît. */
 
 :root {
-  --fond:    #14130f;
-  --fond2:   #1b1915;   /* les panneaux */
-  --fond3:   #262219;
-  --bord:    #3b352b;
-  --texte:   #ece6d6;
-  --doux:    #a89e88;
-  --faible:  #6f6656;
-  --or:      #e0b155;
-  --vert:    #5da560;
-  --rouge:   #c25a4e;
-  --voile:   rgba(20, 19, 15, .93);
+  /* Les plans, du plus enfoncé au plus saillant. L'ancienne palette tenait en
+     quatre bruns séparés par trois points de luminance : rien ne se détachait de
+     rien, et il fallait une bordure sur chaque élément pour le voir. */
+  --encre:   #0e0d0a;   /* le fond du monde */
+  --nuit:    #14120d;   /* la barre, les voiles */
+  --papier:  #1c1913;   /* les panneaux */
+  --relief:  #24201700; /* réservé */
+  --carte1:  #232016;   /* une carte au repos */
+  --carte2:  #2c2719;   /* une carte survolée ou choisie */
+  --creux:   #0b0a07;   /* le fond d'une piste de jauge */
+
+  /* Les traits. Deux seulement : le filet, presque invisible, qui range ; et le
+     trait marqué, qui délimite. */
+  --filet:   #2f2a1e;
+  --trait:   #443c29;
+
+  /* L'encre. */
+  --texte:   #efe9d9;
+  --doux:    #ada185;
+  --faible:  #776c56;
+
+  /* Les accents. L'or a deux états : plein pour ce qu'on peut toucher, sourd
+     pour ce qui n'est qu'ornement. */
+  --or:      #e3b661;
+  --orSourd: #8b7139;
+  --vert:    #6ba86b;
+  --rouge:   #cd6355;
+
+  --voile:   rgba(14, 13, 10, .94);
+
+  /* Une romaine pour les titres et les chiffres qui décident : c'est elle qui
+     fait la différence entre un tableur et un titre de société. Aucune police
+     n'est chargée — tout est déjà sur la machine, et la page reste hors ligne. */
+  --romaine: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino,
+             "Book Antiqua", Georgia, serif;
+  --lineale: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+
+  --r1: 3px; --r2: 6px; --r3: 10px;   /* les trois rayons, et pas un de plus */
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 button:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) {
-  * { transition-duration: .01ms !important; }
-}
+@media (prefers-reduced-motion: reduce) { * { transition-duration: .01ms !important; } }
 
 body {
-  background: var(--fond);
+  background: var(--encre);
   color: var(--texte);
-  font: 13px/1.45 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  font: 13px/1.5 var(--lineale);
   height: 100vh; height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 #carte { position: fixed; inset: 0; display: block; touch-action: none; }
 
-.etiq   { font-size: 9px; text-transform: uppercase; letter-spacing: .09em; color: var(--faible); }
-.val    { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; }
-.sous   { font-size: 10px; color: var(--doux); font-variant-numeric: tabular-nums; }
+/* Les micro-libellés en capitales. L'interlettrage est ce qui les rend lisibles
+   à cette taille — sans lui c'est un pâté. */
+.etiq {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .11em;
+  color: var(--faible); font-weight: 600; line-height: 1.3;
+}
+.val {
+  font-family: var(--romaine); font-size: 17px; font-weight: 600;
+  font-variant-numeric: tabular-nums; line-height: 1.15; letter-spacing: -.01em;
+}
+.sous { font-size: 10px; color: var(--doux); font-variant-numeric: tabular-nums; }
 .or { color: var(--or); } .vert { color: var(--vert); } .rouge { color: var(--rouge); }
 .doux { color: var(--doux); } .faible { color: var(--faible); }
 
@@ -45,42 +84,62 @@ body {
 
 #barre {
   position: fixed; top: 0; left: 0; right: 0; z-index: 10;
-  display: flex; align-items: stretch; gap: 8px;
-  padding: calc(6px + env(safe-area-inset-top)) 8px 6px;
-  background: linear-gradient(180deg, rgba(16,15,12,.95) 60%, rgba(16,15,12,0));
+  display: flex; align-items: stretch; gap: 10px;
+  padding: calc(8px + env(safe-area-inset-top)) 10px 8px;
+  background: linear-gradient(180deg, rgba(12,11,8,.96) 55%, rgba(12,11,8,0));
   pointer-events: none;
 }
 #barre > * { pointer-events: auto; }
 
-.jauges { display: flex; gap: 1px; background: var(--bord); border-radius: 4px; overflow: hidden; }
-.jauge  { background: var(--fond2); padding: 5px 10px; min-width: 78px; }
+/* Une seule plaque, divisée par des filets — et non trois boîtes accolées. */
+.jauges {
+  display: flex; align-items: stretch;
+  background: linear-gradient(180deg, #1f1c15, #171410);
+  border: 1px solid var(--filet); border-radius: var(--r2);
+  overflow: hidden;
+}
+.jauge { padding: 6px 13px; min-width: 86px; }
+.jauge + .jauge { border-left: 1px solid var(--filet); }
 
-.icones { display: flex; gap: 4px; flex: 1 1 auto; justify-content: center; }
+.icones { display: flex; gap: 3px; flex: 1 1 auto; justify-content: center; }
 .ico {
-  background: var(--fond2); border: 1px solid var(--bord); border-radius: 4px;
+  background: transparent; border: 1px solid transparent; border-radius: var(--r2);
   color: var(--doux); cursor: pointer; font-family: inherit;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 1px; padding: 4px 9px; min-width: 50px;
+  gap: 3px; padding: 6px 11px; min-width: 54px; position: relative;
+  transition: color .13s ease, background .13s ease;
 }
 .ico svg { width: 19px; height: 19px; fill: currentColor; }
-.ico span { font-size: 9px; letter-spacing: .03em; }
-.ico:hover, .ico.actif { color: var(--or); border-color: var(--or); }
-
-.horloge { display: flex; gap: 4px; }
-.cmd {
-  background: var(--fond2); color: var(--texte); border: 1px solid var(--bord);
-  border-radius: 4px; padding: 6px 11px; cursor: pointer; font: inherit; font-size: 13px;
-  min-width: 44px;
+.ico span { font-size: 9px; letter-spacing: .05em; text-transform: uppercase; font-weight: 600; }
+.ico:hover { color: var(--texte); background: rgba(255,255,255,.045); }
+/* L'onglet actif se marque par un filet d'or sous l'icône, pas par un cadre :
+   un cadre autour de chaque bouton donne une planche de boutons, pas une barre. */
+.ico.actif { color: var(--or); background: rgba(227,182,97,.09); }
+.ico.actif::after {
+  content: ''; position: absolute; left: 50%; transform: translateX(-50%); bottom: 2px;
+  width: 18px; height: 2px; border-radius: 1px; background: var(--or);
 }
-.cmd.majeur { background: var(--or); color: #1a1710; border-color: var(--or); font-weight: 700; }
+
+.horloge { display: flex; gap: 5px; }
+.cmd {
+  background: linear-gradient(180deg, #221e16, #191610);
+  color: var(--texte); border: 1px solid var(--filet);
+  border-radius: var(--r2); padding: 7px 12px; cursor: pointer;
+  font: inherit; font-size: 13px; min-width: 46px;
+  font-variant-numeric: tabular-nums;
+}
+.cmd:hover { border-color: var(--trait); }
+.cmd.majeur {
+  background: linear-gradient(180deg, #ecc271, #d9a648);
+  color: #191408; border-color: #b58c3c; font-weight: 700;
+  box-shadow: 0 1px 0 rgba(255,255,255,.22) inset;
+}
 
 /* ---------- Bandeau des événements ---------- */
-/* Il se place juste sous la barre ; quand il est là, le bandeau de filtre
-   descend d'un cran pour ne pas lui passer dessus. */
 
 #bandeauEvenements {
   position: fixed; z-index: 9; left: 50%; transform: translateX(-50%);
-  top: calc(64px + env(safe-area-inset-top));
+  top: calc(66px + env(safe-area-inset-top));
   display: flex; gap: 6px; padding: 0 12px;
   max-width: 100vw; overflow-x: auto; scrollbar-width: none;
 }
@@ -88,167 +147,375 @@ body {
 #bandeauEvenements.cachee { display: none; }
 
 .pastilleEvt {
-  display: flex; align-items: center; gap: 6px; flex: 0 0 auto;
-  background: var(--voile); border: 1px solid var(--bord); border-radius: 16px;
-  padding: 5px 12px; font-size: 12px; color: var(--texte);
+  display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
+  background: var(--voile); border: 1px solid var(--trait); border-radius: 999px;
+  padding: 6px 14px; color: var(--texte);
   cursor: pointer; font: inherit; font-size: 12px; white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0,0,0,.45);
 }
 .pastilleEvt .signe { font-size: 13px; }
-.pastilleEvt.rouge { border-color: #8d3b33; }
-.pastilleEvt.rouge .signe { color: #d9705f; }
-.pastilleEvt.vert { border-color: #3f6b47; }
-.pastilleEvt.vert .signe { color: #6fb37a; }
-.pastilleEvt .reste { color: var(--doux); font-size: 11px; }
+.pastilleEvt.rouge { border-color: #7d3a30; }
+.pastilleEvt.rouge .signe { color: #dd7a68; }
+.pastilleEvt.vert { border-color: #3d6647; }
+.pastilleEvt.vert .signe { color: #77bd82; }
+.pastilleEvt .reste {
+  color: var(--faible); font-size: 10px; text-transform: uppercase;
+  letter-spacing: .07em; font-weight: 600;
+}
 .pastilleEvt:hover { border-color: var(--or); }
 
-body.aEvenements #bandeauFiltre { top: calc(64px + 36px + env(safe-area-inset-top)); }
+body.aEvenements #bandeauFiltre { top: calc(66px + 38px + env(safe-area-inset-top)); }
 
 /* ---------- Bandeau du filtre actif ---------- */
 
 #bandeauFiltre {
   position: fixed; z-index: 9; left: 50%; transform: translateX(-50%);
-  top: calc(64px + env(safe-area-inset-top));
-  display: flex; align-items: center; gap: 10px;
-  background: var(--voile); border: 1px solid var(--bord); border-radius: 20px;
-  padding: 5px 6px 5px 14px; font-size: 12px; max-width: calc(100vw - 24px);
+  top: calc(66px + env(safe-area-inset-top));
+  display: flex; align-items: center; gap: 11px;
+  background: var(--voile); border: 1px solid var(--trait); border-radius: 999px;
+  padding: 6px 7px 6px 15px; font-size: 12px; max-width: calc(100vw - 24px);
+  box-shadow: 0 2px 10px rgba(0,0,0,.45);
 }
 #bandeauFiltre.cachee { display: none; }
 #bandeauEchelle {
-  width: 96px; height: 8px; border-radius: 4px; flex: 0 0 auto;
+  width: 96px; height: 7px; border-radius: 4px; flex: 0 0 auto;
   background: linear-gradient(90deg, #b0362d, #c97a2e, #ceb23a, #5da560);
 }
 #btnQuitterFiltre {
-  background: var(--fond3); color: var(--doux); border: 1px solid var(--bord);
-  border-radius: 14px; padding: 5px 11px; cursor: pointer; font: inherit; font-size: 11px;
+  background: rgba(255,255,255,.05); color: var(--doux); border: 1px solid var(--filet);
+  border-radius: 999px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: 11px;
 }
 #btnQuitterFiltre:hover { color: var(--or); border-color: var(--or); }
 
 /* ---------- Outils de navigation ---------- */
 
 #outils {
-  position: fixed; right: 10px; z-index: 8;
+  position: fixed; right: 12px; z-index: 8;
   top: 50%; transform: translateY(-50%);
   display: flex; flex-direction: column; gap: 6px;
 }
 #outils button {
-  width: 42px; height: 42px; border-radius: 50%;
+  width: 40px; height: 40px; border-radius: 50%;
   background: var(--voile); color: var(--doux);
-  border: 1px solid var(--bord); cursor: pointer; font: inherit; font-size: 17px;
+  border: 1px solid var(--filet); cursor: pointer; font: inherit; font-size: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
 }
+#outils button:hover { color: var(--texte); border-color: var(--trait); }
 #outils button:active { color: var(--or); border-color: var(--or); }
 
-/* ---------- Volet latéral (filtres, villes, marché, société, rail) ---------- */
+/* ---------- Volet latéral ---------- */
+/* Une feuille posée sur la carte : filet à gauche, ombre portée franche. Sans
+   l'ombre, le panneau et la carte se disputent le même plan. */
 
 #volet {
-  position: fixed; z-index: 20; top: 0; right: 0; bottom: 0; width: 340px; max-width: 88vw;
-  background: var(--fond2); border-left: 1px solid var(--bord);
+  position: fixed; z-index: 20; top: 0; right: 0; bottom: 0; width: 366px; max-width: 90vw;
+  background: var(--papier); border-left: 1px solid var(--trait);
+  box-shadow: -18px 0 44px rgba(0,0,0,.5);
   display: flex; flex-direction: column;
-  transition: transform .2s ease;
+  transition: transform .22s cubic-bezier(.22,.61,.36,1);
   padding-top: env(safe-area-inset-top);
 }
 #volet.cachee { transform: translateX(101%); }
 .voletTete {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 11px 14px; border-bottom: 1px solid var(--bord); flex: 0 0 auto;
+  padding: 15px 18px 13px; border-bottom: 1px solid var(--filet); flex: 0 0 auto;
 }
-.voletTete b { font-size: 14px; }
+.voletTete b {
+  font-family: var(--romaine); font-size: 19px; font-weight: 600; letter-spacing: -.01em;
+}
 #btnFermerVolet {
-  background: none; border: 0; color: var(--doux); font-size: 17px; cursor: pointer;
-  padding: 4px 8px; font-family: inherit;
+  background: none; border: 0; color: var(--faible); font-size: 18px; cursor: pointer;
+  padding: 4px 8px; font-family: inherit; border-radius: var(--r1);
 }
-#voletCorps { flex: 1 1 auto; overflow-y: auto; padding: 12px 14px calc(16px + env(safe-area-inset-bottom)); }
+#btnFermerVolet:hover { color: var(--texte); background: rgba(255,255,255,.06); }
+#voletCorps {
+  flex: 1 1 auto; overflow-y: auto;
+  padding: 16px 18px calc(20px + env(safe-area-inset-bottom));
+  scrollbar-width: thin; scrollbar-color: var(--trait) transparent;
+}
+#voletCorps::-webkit-scrollbar { width: 8px; }
+#voletCorps::-webkit-scrollbar-thumb { background: var(--trait); border-radius: 4px; }
 
+/* Le titre de section, avec son filet qui court jusqu'au bord : c'est ce qui
+   range une colonne longue sans ajouter la moindre boîte. */
 h3 {
-  font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
-  color: var(--faible); margin: 15px 0 7px; font-weight: 600;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px;
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: .13em;
+  color: var(--orSourd); margin: 22px 0 9px; font-weight: 700; line-height: 1.5;
 }
+h3::after { content: ''; flex: 1 1 24px; height: 1px; background: var(--filet); }
 h3:first-child { margin-top: 0; }
 
-/* Les filtres, en pastilles : on en voit beaucoup d'un coup et on vise au pouce. */
+/* ---------- Pastilles de filtre ---------- */
+
 .pastilles { display: flex; flex-wrap: wrap; gap: 5px; }
 .pastilles button {
-  background: var(--fond3); color: var(--texte); border: 1px solid var(--bord);
-  border-radius: 15px; padding: 7px 12px; cursor: pointer; font: inherit; font-size: 12px;
-  display: flex; align-items: center; gap: 6px;
+  background: var(--carte1); color: var(--texte); border: 1px solid var(--filet);
+  border-radius: 999px; padding: 7px 13px; cursor: pointer; font: inherit; font-size: 12px;
+  display: flex; align-items: center; gap: 7px;
+  transition: border-color .13s ease, background .13s ease;
 }
-.pastilles button:hover { border-color: var(--or); }
-.pastilles button.actif { background: var(--or); color: #1a1710; border-color: var(--or); font-weight: 600; }
-.pastilles .nuance { width: 9px; height: 9px; border-radius: 2px; flex: 0 0 auto; }
+.pastilles button:hover { border-color: var(--trait); background: var(--carte2); }
+.pastilles button.actif {
+  background: linear-gradient(180deg, #ecc271, #d9a648);
+  color: #191408; border-color: #b58c3c; font-weight: 600;
+}
+.pastilles .nuance {
+  width: 9px; height: 9px; border-radius: 2px; flex: 0 0 auto;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.35) inset;
+}
 
 .listeVilles { display: flex; flex-direction: column; gap: 6px; }
 .listeVilles button {
-  background: var(--fond3); border: 1px solid var(--bord); border-radius: 5px;
-  padding: 9px 11px; cursor: pointer; font: inherit; color: var(--texte);
+  background: var(--carte1); border: 1px solid var(--filet); border-radius: var(--r2);
+  padding: 10px 12px; cursor: pointer; font: inherit; color: var(--texte);
   display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
 }
-.listeVilles button:hover { border-color: var(--or); }
+.listeVilles button:hover { border-color: var(--trait); background: var(--carte2); }
 .listeVilles .cv { font-size: 11px; color: var(--doux); font-variant-numeric: tabular-nums; }
 
+/* ---------- Tableaux ---------- */
+
 table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
-th { text-align: left; font-weight: 500; color: var(--faible); font-size: 9px;
-     text-transform: uppercase; letter-spacing: .07em; padding: 4px 6px 4px 0; }
-td { padding: 5px 6px 5px 0; border-top: 1px solid #241f18; }
-td.n, th.n { text-align: right; }
-.puce { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
-.ligneBat { cursor: pointer; }
-.ligneBat:hover td { background: var(--fond3); }
-
-.barometre { margin-bottom: 9px; }
-.barometre .tete { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
-.barometre .piste { height: 7px; background: var(--fond); border-radius: 4px; overflow: hidden; }
-.barometre .jauge2 { height: 100%; border-radius: 4px; }
-
-.carteEvt {
-  background: var(--fond3); border: 1px solid var(--bord); border-left-width: 3px;
-  border-radius: 4px; padding: 8px 10px; margin-bottom: 9px;
+th {
+  text-align: left; font-weight: 700; color: var(--faible); font-size: 9px;
+  text-transform: uppercase; letter-spacing: .1em; padding: 0 8px 6px 0;
+  border-bottom: 1px solid var(--filet);
 }
+td { padding: 7px 8px 7px 0; border-top: 1px solid var(--filet); }
+tr:first-child td { border-top: 0; }
+td.n, th.n { text-align: right; }
+.puce {
+  display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 7px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.35) inset;
+}
+.ligneBat { cursor: pointer; }
+.ligneBat:hover td { background: var(--carte1); }
+
+/* ---------- Jauges ---------- */
+/* .miniPiste était écrit « .mini .miniPiste » : hors d'une carte de ville, la
+   règle ne s'appliquait pas et la jauge n'avait ni hauteur ni fond. Deux de ses
+   trois emplois — le marché et la fiche de bâtiment — étaient invisibles depuis
+   toujours. Elle est désormais autonome. */
+
+.miniPiste,
+.barometre .piste,
+.carteEvt .piste {
+  height: 5px; border-radius: 3px; background: var(--creux); overflow: hidden;
+  box-shadow: 0 1px 0 rgba(255,255,255,.04);
+}
+.miniPiste > div,
+.barometre .jauge2,
+.carteEvt .jauge2 { height: 100%; border-radius: 3px; transition: width .3s ease; }
+
+.barometre { margin-bottom: 11px; }
+.barometre .tete {
+  display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px;
+  font-variant-numeric: tabular-nums;
+}
+.carteEvt .jauge2 { background: var(--trait); }
+
+/* ---------- Cartes ---------- */
+/* Une seule anatomie pour toutes : même fond, même filet, même rayon, même
+   respiration. C'est la répétition qui fait l'ordre. */
+
+.carteEvt, .carteVille, .carteRes, .fiche, .ligneBatir {
+  background: linear-gradient(180deg, var(--carte1), #201d14);
+  border: 1px solid var(--filet); border-radius: var(--r2);
+}
+
+.carteEvt { border-left-width: 3px; padding: 11px 13px; margin-bottom: 9px; }
 .carteEvt.rouge { border-left-color: #8d3b33; }
 .carteEvt.vert  { border-left-color: #3f6b47; }
-.carteEvt .tete { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
-.carteEvt.rouge .signe { color: #d9705f; }
-.carteEvt.vert  .signe { color: #6fb37a; }
-.carteEvt .piste { height: 5px; background: var(--fond); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
-.carteEvt .jauge2 { height: 100%; background: var(--bord); border-radius: 3px; }
-.carteEvt .texteEvt { font-size: 12px; margin-bottom: 5px; }
+.carteEvt .tete {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 7px; gap: 10px;
+}
+.carteEvt .tete b { font-family: var(--romaine); font-size: 14px; font-weight: 600; }
+.carteEvt.rouge .signe { color: #dd7a68; }
+.carteEvt.vert  .signe { color: #77bd82; }
+.carteEvt .piste { margin-bottom: 8px; }
+.carteEvt .texteEvt { font-size: 12px; margin-bottom: 6px; line-height: 1.5; }
 .carteEvt .note { margin: 0; }
 
-.grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 7px; margin-bottom: 10px; }
-.fiche { background: var(--fond3); border: 1px solid var(--bord); border-radius: 4px; padding: 6px 9px; }
-.fiche .v { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* La grille de chiffres. min-width: 0 est ce qui empêche une cellule de grille
+   de refuser de rétrécir et de faire déborder toute la rangée. */
+.grille {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 7px; margin-bottom: 12px;
+}
+.fiche {
+  padding: 9px 11px; min-width: 0;
+  display: flex; flex-direction: column; justify-content: flex-start; gap: 3px;
+}
+.fiche .etiq { overflow-wrap: anywhere; }
+.fiche .v {
+  font-family: var(--romaine); font-size: 16px; font-weight: 600;
+  font-variant-numeric: tabular-nums; line-height: 1.15;
+}
+
+/* ---------- Boutons d'action ---------- */
 
 .actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .actions button {
-  background: var(--fond3); color: var(--texte); border: 1px solid var(--bord);
-  border-radius: 4px; padding: 9px 13px; cursor: pointer; font: inherit; font-size: 12px;
+  background: var(--carte1); color: var(--texte); border: 1px solid var(--filet);
+  border-radius: var(--r2); padding: 10px 14px; cursor: pointer; font: inherit; font-size: 12px;
+  transition: border-color .13s ease, color .13s ease, background .13s ease;
 }
-.actions button:hover:not(:disabled) { border-color: var(--or); color: var(--or); }
-.actions button:disabled { opacity: .35; cursor: not-allowed; }
-.actions button.primaire { background: var(--or); color: #1a1710; border-color: var(--or); font-weight: 600; }
+.actions button:hover:not(:disabled) { border-color: var(--or); color: var(--or); background: var(--carte2); }
+.actions button:disabled { opacity: .32; cursor: not-allowed; }
+.actions button.primaire {
+  background: linear-gradient(180deg, #ecc271, #d9a648);
+  color: #191408; border-color: #b58c3c; font-weight: 700;
+  box-shadow: 0 1px 0 rgba(255,255,255,.22) inset;
+}
+.actions button.primaire:hover:not(:disabled) { color: #191408; filter: brightness(1.06); }
 
 input[type=range] { width: 100%; accent-color: var(--or); }
-.note  { color: var(--doux); font-size: 11px; margin-top: 7px; line-height: 1.55; }
-.avert { color: var(--rouge); font-size: 11px; margin-top: 6px; }
+.note {
+  color: var(--doux); font-size: 11px; margin-top: 9px; line-height: 1.6;
+  padding-left: 10px; border-left: 1px solid var(--filet);
+}
+.avert { color: var(--rouge); font-size: 11px; margin-top: 7px; }
 
 /* ---------- Feuille d'inspection ---------- */
 
 #feuille {
   position: fixed; z-index: 15; left: 0; right: 0; bottom: 0;
-  background: var(--fond2); border-top: 1px solid var(--bord);
-  box-shadow: 0 -10px 30px rgba(0,0,0,.55);
-  transition: transform .2s ease; max-height: 64vh; overflow-y: auto;
-  border-radius: 10px 10px 0 0;
+  background: var(--papier); border-top: 1px solid var(--trait);
+  box-shadow: 0 -14px 40px rgba(0,0,0,.6);
+  transition: transform .22s cubic-bezier(.22,.61,.36,1);
+  max-height: 64vh; overflow-y: auto;
+  border-radius: var(--r3) var(--r3) 0 0;
+  scrollbar-width: thin; scrollbar-color: var(--trait) transparent;
 }
 #feuille.fermee { transform: translateY(101%); }
 #feuillePoignee {
-  height: 4px; width: 56px; background: var(--bord); border-radius: 2px;
-  margin: 9px auto 0; cursor: pointer;
+  height: 4px; width: 44px; background: var(--trait); border-radius: 2px;
+  margin: 10px auto 0; cursor: pointer;
 }
-#feuilleCorps { padding: 10px 15px calc(18px + env(safe-area-inset-bottom)); }
-#feuilleCorps h2 { font-size: 16px; margin-bottom: 2px; }
-#feuilleCorps .soustitre { color: var(--doux); font-size: 12px; margin-bottom: 11px; }
+#feuilleCorps { padding: 12px 18px calc(20px + env(safe-area-inset-bottom)); }
+#feuilleCorps h2 {
+  font-family: var(--romaine); font-size: 19px; font-weight: 600;
+  margin-bottom: 3px; letter-spacing: -.01em;
+}
+#feuilleCorps .soustitre { color: var(--doux); font-size: 12px; margin-bottom: 13px; }
 
+/* Sur grand écran, la feuille passait SOUS le volet : les dernières colonnes de
+   chaque grille étaient purement invisibles. Elle s'arrête maintenant au bord du
+   panneau quand celui-ci est ouvert. */
+@media (min-width: 761px) {
+  #feuille { transition: transform .22s cubic-bezier(.22,.61,.36,1), right .22s ease; }
+  body:has(#volet:not(.cachee)) #feuille { right: 366px; }
+}
 
-/* ---------- Téléphone ---------- */
+/* ---------- Le volet « Bâtir » ---------- */
+
+.listeBatir { display: flex; flex-direction: column; gap: 4px; }
+.ligneBatir {
+  display: grid; grid-template-columns: 14px 1fr auto; gap: 3px 9px;
+  align-items: center; text-align: left;
+  padding: 9px 11px; cursor: pointer; font: inherit; color: var(--texte);
+  transition: border-color .13s ease, background .13s ease;
+}
+.ligneBatir:hover:not(:disabled) { border-color: var(--trait); background: var(--carte2); }
+.ligneBatir:disabled { opacity: .34; cursor: not-allowed; }
+.ligneBatir.actif { border-color: var(--or); background: #2f2718; }
+/* Les trois cellules sont placées à la main. En placement automatique, .sousBat
+   s'étale des colonnes 2 à 4 et repousse le prix sur une troisième ligne, à
+   gauche — on lisait le nom, puis la mention, puis le prix, au lieu de comparer
+   d'un coup d'œil une colonne de prix alignée. */
+.ligneBatir .nomBat  { grid-row: 1; grid-column: 2; font-size: 13px; }
+.ligneBatir .prixBat {
+  grid-row: 1; grid-column: 3; align-self: baseline;
+  font-family: var(--romaine); font-size: 13px; font-weight: 600;
+  font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap;
+}
+.ligneBatir .sousBat {
+  grid-row: 2; grid-column: 2 / 4; font-size: 9px; color: var(--faible);
+  text-transform: uppercase; letter-spacing: .09em; font-weight: 600;
+}
+
+.avertBatir {
+  background: linear-gradient(180deg, #322914, #2a2211);
+  border: 1px solid var(--orSourd); border-radius: var(--r2);
+  padding: 11px 13px; margin-bottom: 11px; font-size: 12px; color: var(--texte);
+  line-height: 1.55;
+}
+.avertBatir button {
+  display: block; margin-top: 9px;
+  background: rgba(0,0,0,.25); color: var(--doux); border: 1px solid var(--filet);
+  border-radius: var(--r1); padding: 7px 13px; cursor: pointer; font: inherit; font-size: 11px;
+}
+.avertBatir button:hover { color: var(--or); border-color: var(--or); }
+
+/* ---------- Les cartes de ville ---------- */
+
+.listeCartesVilles { display: flex; flex-direction: column; gap: 7px; }
+
+.carteVille { padding: 12px 13px; cursor: pointer; transition: border-color .13s ease, background .13s ease; }
+.carteVille:hover { border-color: var(--trait); background: var(--carte2); }
+.carteVille.actif { border-color: var(--or); background: #2b2519; }
+
+.tetVille { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.tetVille > span:first-child { min-width: 0; }
+.tetVille b { font-family: var(--romaine); font-size: 15px; font-weight: 600; }
+.tetVille .attrait {
+  font-family: var(--romaine); font-size: 22px; font-weight: 600;
+  font-variant-numeric: tabular-nums; line-height: 1; text-align: right; flex: 0 0 auto;
+}
+.tetVille .cv { font-size: 11px; color: var(--doux); font-variant-numeric: tabular-nums; }
+
+.minis { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 12px; margin: 11px 0 9px; }
+.mini { min-width: 0; }
+.mini .miniTete {
+  display: flex; justify-content: space-between; gap: 6px;
+  font-size: 10px; color: var(--doux); margin-bottom: 4px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.mini .miniPiste { height: 4px; }
+
+.carteVille .pied {
+  font-size: 10.5px; color: var(--doux); border-top: 1px solid var(--filet);
+  padding-top: 7px; line-height: 1.55;
+}
+.carteVille .avert, .carteVille .note { margin-top: 6px; font-size: 10.5px; }
+
+/* ---------- Le marché : une carte par marchandise ---------- */
+
+.listeRes { display: flex; flex-direction: column; gap: 5px; }
+
+.carteRes { padding: 8px 11px; cursor: pointer; transition: border-color .13s ease, background .13s ease; }
+.carteRes .miniPiste { margin: 6px 0 5px; height: 4px; }
+.carteRes .prixRes .etiq { font-size: 8.5px; }
+.carteRes:hover { border-color: var(--trait); background: var(--carte2); }
+.carteRes.actif { border-color: var(--or); background: #2b2519; }
+
+.tetRes { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.tetRes > span:first-child { min-width: 0; }
+.tetRes .prixRes {
+  font-family: var(--romaine); font-size: 15px; font-weight: 600;
+  font-variant-numeric: tabular-nums; text-align: right; flex: 0 0 auto; line-height: 1.15;
+}
+/* Le libellé sous un grand chiffre ne se coupe jamais : « L'ACTION » sur deux
+   lignes déséquilibre toute la carte. */
+.prixRes .etiq, .attrait .etiq { white-space: nowrap; margin-top: 3px; }
+.piedRes {
+  display: flex; flex-wrap: wrap; gap: 3px 12px; justify-content: space-between;
+  font-size: 10.5px; color: var(--doux); font-variant-numeric: tabular-nums;
+}
+/* Chaque mention passe à la ligne entière ou pas du tout : une somme coupée
+   entre son chiffre et son « $ » est illisible. */
+.piedRes > span { white-space: nowrap; }
+
+svg.cours {
+  width: 100%; height: 96px; display: block; margin: 10px 0 3px;
+  background: var(--creux); border: 1px solid var(--filet); border-radius: var(--r1);
+}
+.legendeCours {
+  display: flex; justify-content: space-between; gap: 8px;
+  font-size: 10px; font-variant-numeric: tabular-nums; color: var(--faible);
+}
 
 /* ---------- Téléphone et tablette étroite ---------- */
 /* Les menus descendent en bas de l'écran : c'est là que se trouve le pouce, et
@@ -256,36 +523,45 @@ input[type=range] { width: 100%; accent-color: var(--or); }
    décision. La carte, elle, ne perd pas un pixel. */
 
 @media (max-width: 760px) {
-  #barre { gap: 6px; }
+  #barre { gap: 7px; padding: calc(7px + env(safe-area-inset-top)) 8px 7px; }
   .jauges { flex: 1 1 auto; }
-  .jauge { flex: 1 1 0; min-width: 0; padding: 5px 7px; }
-  .val { font-size: 13px; }
-  .etiq { font-size: 8px; }
+  .jauge { flex: 1 1 0; min-width: 0; padding: 6px 10px; }
+  .val { font-size: 15px; }
+  .etiq { font-size: 8px; letter-spacing: .09em; }
 
   .icones {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 12;
     flex: 0 0 auto; gap: 0;
-    background: var(--voile); border-top: 1px solid var(--bord);
-    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    background: var(--voile); border-top: 1px solid var(--trait);
+    padding: 7px 4px calc(7px + env(safe-area-inset-bottom));
+    box-shadow: 0 -6px 20px rgba(0,0,0,.4);
   }
-  .ico {
-    flex: 1 1 0; min-width: 0; border: 0; border-radius: 0;
-    background: none; padding: 5px 2px;
-  }
+  .ico { flex: 1 1 0; min-width: 0; border: 0; border-radius: 0; background: none; padding: 4px 2px; }
   .ico svg { width: 21px; height: 21px; }
-  .ico span { display: block; font-size: 9px; }
+  .ico span { display: block; font-size: 8px; letter-spacing: .04em; }
+  .ico:hover { background: none; }
   .ico.actif { color: var(--or); background: none; }
+  .ico.actif::after { bottom: -3px; }
 
-  #outils { top: auto; bottom: calc(72px + env(safe-area-inset-bottom)); transform: none; }
+  #outils { top: auto; bottom: calc(74px + env(safe-area-inset-bottom)); transform: none; right: 10px; }
   #outils button { width: 38px; height: 38px; font-size: 15px; }
 
-  #volet { width: 100%; max-width: none; top: auto;
-           height: calc(76vh - env(safe-area-inset-bottom));
-           bottom: calc(58px + env(safe-area-inset-bottom));
-           border-left: 0; border: 1px solid var(--bord); border-radius: 10px 10px 0 0; }
+  #volet {
+    width: 100%; max-width: none; top: auto;
+    height: calc(76vh - env(safe-area-inset-bottom));
+    bottom: calc(58px + env(safe-area-inset-bottom));
+    border-left: 0; border: 1px solid var(--trait);
+    border-radius: var(--r3) var(--r3) 0 0;
+    box-shadow: 0 -14px 40px rgba(0,0,0,.55);
+  }
   #volet.cachee { transform: translateY(140%); }
-  #feuille { max-height: 68vh; bottom: calc(58px + env(safe-area-inset-bottom));
-             border-radius: 10px 10px 0 0; }
+  .voletTete { padding: 13px 16px 11px; }
+  #voletCorps { padding: 14px 16px calc(18px + env(safe-area-inset-bottom)); }
+
+  #feuille {
+    max-height: 68vh; bottom: calc(58px + env(safe-area-inset-bottom));
+    border-radius: var(--r3) var(--r3) 0 0;
+  }
   /* Décalée de la barre du bas, il lui faut plus d'un tour complet pour sortir
      entièrement de l'écran. */
   #feuille.fermee { transform: translateY(calc(101% + 60px + env(safe-area-inset-bottom))); }
@@ -294,109 +570,4 @@ input[type=range] { width: 100%; accent-color: var(--or); }
 
 @media (max-width: 400px) {
   .jauge:nth-child(3) { display: none; }   /* la fortune vit dans « Société » */
-}
-
-
-/* ---------- Le volet « Bâtir » ---------- */
-/* Une ligne par bâtiment : nom, emprise, rendement visé, prix. C'est un
-   catalogue, pas une grille de pastilles — on compare des chiffres. */
-
-.listeBatir { display: flex; flex-direction: column; gap: 3px; }
-.ligneBatir {
-  display: grid; grid-template-columns: 14px 1fr auto; gap: 4px 8px;
-  align-items: center; text-align: left;
-  background: var(--fond3); border: 1px solid var(--bord); border-radius: 5px;
-  padding: 8px 10px; cursor: pointer; font: inherit; color: var(--texte);
-}
-.ligneBatir:hover:not(:disabled) { border-color: var(--or); }
-.ligneBatir:disabled { opacity: .38; cursor: not-allowed; }
-.ligneBatir.actif { border-color: var(--or); background: #2f2718; }
-.ligneBatir .nomBat  { font-size: 13px; }
-.ligneBatir .prixBat { font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
-.ligneBatir .sousBat {
-  grid-column: 2 / 4; font-size: 10px; color: var(--faible);
-  text-transform: uppercase; letter-spacing: .06em;
-}
-
-.avertBatir {
-  background: #2f2718; border: 1px solid var(--or); border-radius: 5px;
-  padding: 9px 11px; margin-bottom: 10px; font-size: 12px; color: var(--texte);
-}
-.avertBatir button {
-  display: block; margin-top: 7px;
-  background: var(--fond3); color: var(--doux); border: 1px solid var(--bord);
-  border-radius: 4px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: 11px;
-}
-.avertBatir button:hover { color: var(--or); border-color: var(--or); }
-
-/* Six icônes tiennent encore sur un téléphone, mais il faut serrer. */
-@media (max-width: 760px) {
-  .ico { padding: 5px 1px; }
-  .ico span { font-size: 8px; }
-}
-
-/* ---------- Les cartes de ville : l'attractivité et ses composantes ---------- */
-/* Le chiffre global ne dit rien d'actionnable seul. Les quatre composantes se
-   lisent côte à côte, sur la même échelle rouge → vert que le reste du jeu. */
-
-.listeCartesVilles { display: flex; flex-direction: column; gap: 7px; }
-
-.carteVille {
-  background: var(--fond3); border: 1px solid var(--bord); border-radius: 6px;
-  padding: 9px 11px; cursor: pointer;
-}
-.carteVille:hover { border-color: var(--or); }
-.carteVille.actif { border-color: var(--or); background: #2b2519; }
-
-.tetVille { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.tetVille .attrait {
-  font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums;
-  line-height: 1.05; text-align: right; flex: 0 0 auto;
-}
-
-.minis { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; margin: 8px 0 6px; }
-.mini .miniTete {
-  display: flex; justify-content: space-between; gap: 5px;
-  font-size: 10px; color: var(--doux); margin-bottom: 2px;
-  font-variant-numeric: tabular-nums;
-}
-.mini .miniPiste {
-  height: 4px; border-radius: 2px; background: rgba(255,255,255,.08); overflow: hidden;
-}
-.mini .miniPiste > div { height: 100%; border-radius: 2px; }
-
-.carteVille .pied {
-  font-size: 10.5px; color: var(--doux); border-top: 1px solid #241f18;
-  padding-top: 5px; line-height: 1.5;
-}
-.carteVille .avert, .carteVille .note { margin-top: 5px; font-size: 10.5px; }
-
-/* ---------- Le marché : une carte par marchandise ---------- */
-
-.listeRes { display: flex; flex-direction: column; gap: 5px; }
-
-.carteRes {
-  background: var(--fond3); border: 1px solid var(--bord); border-radius: 5px;
-  padding: 8px 10px; cursor: pointer;
-}
-.carteRes:hover { border-color: var(--or); }
-.carteRes.actif { border-color: var(--or); background: #2b2519; }
-
-.tetRes { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.tetRes .prixRes {
-  font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums;
-  text-align: right; flex: 0 0 auto; line-height: 1.15;
-}
-.piedRes {
-  display: flex; gap: 10px; justify-content: space-between;
-  font-size: 10.5px; color: var(--doux); font-variant-numeric: tabular-nums;
-}
-
-svg.cours {
-  width: 100%; height: 96px; display: block; margin: 9px 0 2px;
-  background: rgba(0,0,0,.20); border-radius: 4px;
-}
-.legendeCours {
-  display: flex; justify-content: space-between; gap: 8px;
-  font-size: 10px; font-variant-numeric: tabular-nums; color: var(--faible);
 }
