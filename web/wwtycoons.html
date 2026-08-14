@@ -5350,9 +5350,18 @@ class Rendu {
       const e = l.emprise;
       if (!e || !e.length) continue;
 
-      // Avancement : de l'ouverture du chantier à la date d'achèvement.
-      const avance = l.achevee ? 1
-        : Math.max(0, Math.min(1, l.date > 0 ? m.mois / l.date : 0));
+      // Avancement : de l'OUVERTURE du chantier à sa date d'achèvement.
+      //
+      // C'était `mois / date`, ce qui n'a de sens que si les travaux ont
+      // commencé au mois zéro. Depuis que la compagnie pose ses lignes l'une
+      // après l'autre, `date` est un mois absolu : une ligne ouverte au mois 55
+      // pour une livraison au mois 80 s'affichait à 69 % de rail posé dès son
+      // premier jour. Quatre lignes paraissaient ainsi se construire ensemble.
+      let avance = 0;
+      if (l.achevee) avance = 1;
+      else if (l.date !== null && l.debut !== null && l.date > l.debut) {
+        avance = Math.max(0, Math.min(1, (m.mois - l.debut) / (l.date - l.debut)));
+      }
       const posees = Math.round(e.length * avance);
       const parBout = posees / 2;
 
