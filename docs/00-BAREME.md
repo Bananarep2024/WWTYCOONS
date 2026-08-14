@@ -474,7 +474,67 @@ plutôt que sur trente ans de construction.
 
 ---
 
-## 13. Les trois formats
+## 13. Les événements
+
+Une économie qui ne connaît que sa propre mécanique devient prévisible : on trouve la bonne
+trajectoire, on la répète, et il n'y a plus rien à décider. Les événements sont ce qui casse
+la trajectoire.
+
+**Principe** — un événement ne mute jamais l'état de façon irréversible. Il s'inscrit dans une
+liste et la simulation **lit** ses modificateurs là où ils s'appliquent ; quand il expire, il
+disparaît et tout revient de soi-même. Les seules exceptions sont les mouvements de population :
+une épidémie qui a emporté des gens ne les rend pas.
+
+| Événement | Portée | Poids | Durée | Ampleur |
+|---|---|---|---|---|
+| **Sécheresse** ☀ | rendement des terres | 14 | 10 à 30 mois | 45 à 78 % de l'ordinaire |
+| **Grève** ✊ | régime des ateliers | 13 | 4 à 16 mois | 35 % du régime normal |
+| **Vague d'immigration** ⇥ | population | 11 | immédiat | +12 à +35 % de ménages |
+| **Récolte exceptionnelle** ✿ | rendement des terres | 10 | 6 à 14 mois | 120 à 155 % |
+| **Boom économique** △ | épargne | 10 | 10 à 24 mois | +35 à +90 % d'apport |
+| **Krach boursier** ↯ | destination de l'épargne | 9 | 8 à 20 mois | rien ne va plus en bourse |
+| **Crise économique** ▽ | destination de l'épargne | 9 | 10 à 26 mois | l'épargne dort en banque |
+| **Grippe espagnole** † | population | 7 | immédiat | −6 à −18 % de ménages |
+
+**Cadence** — les 24 premiers mois sont épargnés, le temps de bâtir de quoi encaisser. Ensuite
+un mois sur trente déclenche un tirage, et jamais plus de deux événements coexistent — ni deux
+du même type.
+
+**Local ou général** — 62 % des événements ne frappent qu'une ville. C'est le cas normal, et
+c'est lui qui rend le rail précieux : on achète le pain de la ville d'à côté. Deux exceptions
+de nature : la **finance** n'est jamais locale — il n'y a qu'une bourse et qu'une épargne ; la
+**grève** l'est toujours — on ne fait pas grève « en général » contre un salaire qui se fixe
+ville par ville.
+
+**La grève a une condition de sortie**, et c'est ce qui la distingue d'un simple malus : elle
+réclame +14 % sur le salaire de la ville et s'arrête d'elle-même dès qu'elle l'a obtenu — sans
+pouvoir forcer un employeur à payer ce qu'il n'encaisse pas, le plafond de capacité tenant
+toujours.
+
+**Une vague d'immigration ne crée pas de logements**, elle remplit ceux qui sont vides. Qui a
+bâti en avance encaisse la vague ; qui a bâti juste ce qu'il fallait la regarde passer.
+
+### Ce que cela fait, mesuré
+
+Le même monde joué deux fois, avec et sans un événement forcé de 24 mois (graine 7, ville 0) :
+
+| Événement | Nourriture | Céréales | Pain | Bourse |
+|---|---|---|---|---|
+| Sécheresse douce (0,78) | 100 → 100 % | +3 % | +9 % | — |
+| Sécheresse dure (0,45) | 100 → 78 % | **+74 %** | **+52 %** | — |
+| Récolte exceptionnelle | 98 → 100 % | −20 % | −10 % | — |
+| Grève générale | 100 → 96 % | — | +15 % | salaire +8 % |
+| Krach | — | — | — | **−100 %** |
+| Crise | — | — | — | **−100 %** |
+| Boom | — | — | — | **+191 %** |
+
+Sur trente ans et huit graines, les événements coûtent **0,5 % de population** : ils secouent
+sans saigner. C'est voulu — un événement doit créer une occasion et un danger, pas un impôt
+permanent qui n'appelle aucune décision.
+
+---
+
+## 14. Les trois formats
 
 | Élément | 20 min | 30 min | 60 min |
 |---|---|---|---|

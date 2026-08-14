@@ -161,6 +161,24 @@ export const P = {
   richessePlancher: 0.35,      // ce que vaut la plus mauvaise terre
   richesseExposant: 4.0,       // à quel point la bonne terre se paie
 
+  // --- Les événements ---
+  //
+  // Une économie qui ne connaît que sa propre mécanique devient prévisible : on
+  // trouve la bonne trajectoire, on la répète, il n'y a plus rien à décider. Les
+  // événements sont ce qui la casse.
+  graceEvenements: 24,         // on laisse la partie s'installer avant le premier
+  moisEntreEvenements: 30,     // un mois sur trente en déclenche un
+  evenementsSimultanes: 2,     // empiler les catastrophes ne se joue plus, ça se subit
+  partEvenementsLocaux: 0.62,  // le local est la règle — c'est lui qui rend le rail précieux
+
+  secheresseMin: 0.45, secheresseMax: 0.78,   // ce que rend la terre pendant
+  recolteMin: 1.20,    recolteMax: 1.55,
+  immigrationMin: 0.12, immigrationMax: 0.35, // ménages en plus, si les logements suivent
+  grippeMin: 0.06,     grippeMax: 0.18,       // ménages emportés
+  regimeDeGreve: 0.35,         // à quel régime tourne un atelier en grève
+  hausseExigee: 0.14,          // ce que la grève réclame sur le salaire
+  boomMin: 0.35,       boomMax: 0.90,         // l'épargne gonflée par des capitaux du dehors
+
   // Amorçage
   stockAmorcage: { planches: 800, briques: 400 },
 

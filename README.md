@@ -123,6 +123,11 @@ terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
 - **Potentiel de valorisation** — une jauge rouge → vert sur chaque case, bâtie ou non, et
   un filtre de carte : le sol du centre peut encore quadrupler quand celui de la lisière
   gagnera 49 %. Le rendement, lui, est le même partout à tout instant
+- **Huit événements** — sécheresse, récolte exceptionnelle, vague d'immigration, grippe
+  espagnole, grève générale ou sectorielle, krach, crise, boom. Locaux six fois sur dix, ce
+  qui rend le rail précieux : on achète le pain de la ville d'à côté. Une rangée de pastilles
+  sous la barre dit ce qui court et pour combien de mois ; un volet dit **par quel canal**
+  chacun touche l'économie. Un événement ne mute rien : il expire et tout revient de soi-même
 - **La bourse** : un PER endogène, formé comme un prix par la tension entre les capitaux que
   l'épargne dirige vers le marché et les bénéfices qu'on peut acheter — avec sa courbe sur
   180 mois. Les cinq **compagnies de chemin de fer** y sont cotées : on souscrit pendant les
@@ -157,8 +162,7 @@ terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
 
 ## Ce qui reste à faire
 
-Emprunt bancaire · émission d'actions · prises de contrôle · crises économiques ·
-directeurs · enchères sur les salaires et les matières · débauchage · multijoueur ·
-portage Unity.
+Emprunt bancaire · émission d'actions · prises de contrôle · directeurs · enchères sur les
+salaires et les matières · débauchage · multijoueur · portage Unity.
 
 Voir `docs/02-QUESTIONS-OUVERTES.md`.

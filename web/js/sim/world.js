@@ -19,6 +19,8 @@ import { Marche } from './market.js';
 import { Batiment } from './building.js';
 import { Societe, Chantier } from './company.js';
 import { piloterVille, piloterSociete } from './ai.js';
+import { tirerEvenements, facteurSol, facteurGreve, orientationEpargne,
+         salaireExige } from './evenements.js';
 
 export class Monde {
   // duree : nombre de mois, ou null pour une partie sans fin.
@@ -36,6 +38,13 @@ export class Monde {
     this.histoPER = [];
     this.capitauxBourse = 0;            // épargne dirigée vers la bourse ce mois
     this.tensionBourse = 1;
+    this.evenements = [];               // ce qui casse la trajectoire
+    // Le hasard du déroulement — chronique des événements, choix des filières
+    // surconstruites, dispersion des implantations — a sa propre source, tirée
+    // de la graine. Tant qu'il restait des Math.random() ici, deux parties de
+    // même graine divergeaient : le banc d'essai mesurait alors le bruit et non
+    // l'effet qu'on cherchait, ce qui a coûté une demi-journée à comprendre.
+    this.hasard = rng((graine ^ 0x5EED9) >>> 0);
     this.journal = [];
     this.offresDuMois = new Map();
 
@@ -338,7 +347,7 @@ export class Monde {
     const tirees = [];
     for (let k = 0; k < combien; k++) {
       const libres = FILIERES.filter(f => !tirees.includes(f));
-      const f = libres[Math.floor(Math.random() * libres.length)];
+      const f = libres[Math.floor(this.hasard() * libres.length)];
       tirees.push(f);
       this.surconstruire(v, f, 1 + t.surcapacite * P.ampleurSurcapacite);
     }
@@ -502,7 +511,7 @@ export class Monde {
     }
     if (dispersion > 0 && proches.length) {
       const bons = proches.filter(x => x.score >= meilleurScore - dispersion);
-      if (bons.length) return bons[Math.floor(Math.random() * bons.length)].cases;
+      if (bons.length) return bons[Math.floor(this.hasard() * bons.length)].cases;
     }
     return meilleur || secours;
   }
@@ -713,6 +722,7 @@ export class Monde {
     if (this.duree && this.mois >= this.duree) return false;
     this.mois++;
     this.offresDuMois.clear();   // une offre par mois et par adversaire
+    tirerEvenements(this, this.hasard);   // sécheresse, grève, krach…
     this.capitauxBourse = 0;     // l'épargne dirigée vers la bourse se recompte
 
     for (const m of this.marches) {
@@ -810,7 +820,12 @@ export class Monde {
       ['manufacture'],
     ];
 
-    for (const v of this.villes) v.__bats = this.tousBatiments(v);
+    for (const v of this.villes) {
+      v.__bats = this.tousBatiments(v);
+      // Le rendement des terres du mois : sécheresse, récolte exceptionnelle.
+      v.facteurSol = facteurSol(this, v);
+      v.greveDe = (cat) => facteurGreve(this, v, cat);
+    }
 
     for (let i = 0; i < VAGUES.length; i++) {
       for (const m of this.marches) m.calculerService();
@@ -921,10 +936,15 @@ export class Monde {
       // L'épargne se partage entre la brique et le titre. Ce qui part en bourse
       // ne bâtit plus la ville — c'est le prix à payer pour avoir un marché, et
       // c'est aux sociétés des joueurs de prendre le relais de la construction.
-      const surplus = Math.max(0, revenu - depense) * v.menages;
-      const enBourse = surplus * P.partEnBourse;
-      v.epargne += surplus - enBourse;
-      this.capitauxBourse += enBourse;
+      //
+      // Les événements financiers agissent ICI, et nulle part ailleurs : un
+      // krach renvoie les capitaux vers la brique, une crise les fait dormir en
+      // banque, un boom les gonfle d'un apport venu du dehors.
+      const o = orientationEpargne(this);
+      const surplus = Math.max(0, revenu - depense) * v.menages * o.apport;
+      v.epargne += surplus * o.versVille;
+      this.capitauxBourse += surplus * o.versBourse;
+      v.epargneDormante = surplus * (1 - o.versVille - o.versBourse);
 
       // Ce que le ménage gagne, ce qu'il dépense, ce qu'il met de côté. Trois
       // chiffres que le joueur doit pouvoir lire depuis n'importe quel logement :
@@ -1051,6 +1071,12 @@ export class Monde {
       cases += b.n * b.tauxReel;
     }
     if (cases > 0) cible = Math.min(cible, capaciteTotale / cases);
+
+    // Une grève tire le salaire vers le haut : c'est sa raison d'être, et c'est
+    // aussi sa condition de sortie. Elle ne peut pas forcer un employeur à payer
+    // ce qu'il n'encaisse pas — le plafond de capacité tient toujours.
+    const exige = salaireExige(this, v);
+    if (exige > 0) cible = Math.max(cible, Math.min(exige, P.salaireCase * P.salairePlafond));
 
     cible = Math.max(P.salaireCase * P.salairePlancher, cible);
     v.salaire += 0.25 * (cible - v.salaire);

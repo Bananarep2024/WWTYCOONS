@@ -20,6 +20,7 @@ const lire = (p) => readFileSync(new URL(p, RACINE), 'utf8');
 const MODULES = [
   'js/sim/params.js',
   'js/sim/mapgen.js',
+  'js/sim/evenements.js',
   'js/sim/market.js',
   'js/sim/building.js',
   'js/sim/company.js',

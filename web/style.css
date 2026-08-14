@@ -74,6 +74,35 @@ body {
 }
 .cmd.majeur { background: var(--or); color: #1a1710; border-color: var(--or); font-weight: 700; }
 
+/* ---------- Bandeau des événements ---------- */
+/* Il se place juste sous la barre ; quand il est là, le bandeau de filtre
+   descend d'un cran pour ne pas lui passer dessus. */
+
+#bandeauEvenements {
+  position: fixed; z-index: 9; left: 50%; transform: translateX(-50%);
+  top: calc(64px + env(safe-area-inset-top));
+  display: flex; gap: 6px; padding: 0 12px;
+  max-width: 100vw; overflow-x: auto; scrollbar-width: none;
+}
+#bandeauEvenements::-webkit-scrollbar { display: none; }
+#bandeauEvenements.cachee { display: none; }
+
+.pastilleEvt {
+  display: flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  background: var(--voile); border: 1px solid var(--bord); border-radius: 16px;
+  padding: 5px 12px; font-size: 12px; color: var(--texte);
+  cursor: pointer; font: inherit; font-size: 12px; white-space: nowrap;
+}
+.pastilleEvt .signe { font-size: 13px; }
+.pastilleEvt.rouge { border-color: #8d3b33; }
+.pastilleEvt.rouge .signe { color: #d9705f; }
+.pastilleEvt.vert { border-color: #3f6b47; }
+.pastilleEvt.vert .signe { color: #6fb37a; }
+.pastilleEvt .reste { color: var(--doux); font-size: 11px; }
+.pastilleEvt:hover { border-color: var(--or); }
+
+body.aEvenements #bandeauFiltre { top: calc(64px + 36px + env(safe-area-inset-top)); }
+
 /* ---------- Bandeau du filtre actif ---------- */
 
 #bandeauFiltre {
@@ -168,6 +197,20 @@ td.n, th.n { text-align: right; }
 .barometre .tete { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
 .barometre .piste { height: 7px; background: var(--fond); border-radius: 4px; overflow: hidden; }
 .barometre .jauge2 { height: 100%; border-radius: 4px; }
+
+.carteEvt {
+  background: var(--fond3); border: 1px solid var(--bord); border-left-width: 3px;
+  border-radius: 4px; padding: 8px 10px; margin-bottom: 9px;
+}
+.carteEvt.rouge { border-left-color: #8d3b33; }
+.carteEvt.vert  { border-left-color: #3f6b47; }
+.carteEvt .tete { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+.carteEvt.rouge .signe { color: #d9705f; }
+.carteEvt.vert  .signe { color: #6fb37a; }
+.carteEvt .piste { height: 5px; background: var(--fond); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
+.carteEvt .jauge2 { height: 100%; background: var(--bord); border-radius: 3px; }
+.carteEvt .texteEvt { font-size: 12px; margin-bottom: 5px; }
+.carteEvt .note { margin: 0; }
 
 .grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 7px; margin-bottom: 10px; }
 .fiche { background: var(--fond3); border: 1px solid var(--bord); border-radius: 4px; padding: 6px 9px; }

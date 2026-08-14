@@ -785,3 +785,86 @@ vers le marché ce mois-ci, les bénéfices cotés et la tension — puis une ca
 une carte par compagnie ferroviaire, avec cours, capitalisation, bénéfice, part détenue et
 sa valeur. En travaux, la carte porte le bouton de souscription et le compte à rebours ;
 cotée, elle porte la courbe du cours.
+
+---
+
+## Les événements, et le bug qu'ils ont révélé
+
+Huit accidents peuvent frapper la carte : sécheresse, récolte exceptionnelle, vague
+d'immigration, grippe espagnole, grève, krach, crise, boom. Le barème (§13) donne les poids,
+les durées et les ampleurs.
+
+### Un événement ne mute rien
+
+C'est la seule décision d'architecture qui compte ici. Un événement **ne touche jamais l'état
+du monde** : il s'inscrit dans `monde.evenements` et la simulation lit ses modificateurs là où
+ils s'appliquent — quatre lecteurs, quatre points d'application, et rien d'autre :
+
+| Lecteur | Lu par | Ce qu'il change |
+|---|---|---|
+| `facteurSol(monde, ville)` | `Batiment.capacite` | ce que rend une terre |
+| `facteurGreve(monde, ville, cat)` | `Batiment.produire` | le régime d'un atelier |
+| `orientationEpargne(monde)` | le partage de l'épargne | brique, titre, ou rien |
+| `salaireExige(monde, ville)` | `ajusterSalaire` | le plancher que réclame la grève |
+
+Quand un événement expire, il disparaît de la liste et tout revient de soi-même. Aucun code de
+« défaire ». Les seules exceptions sont les mouvements de population, appliqués une fois : une
+épidémie qui a emporté des gens ne les rend pas, et il n'y aurait aucun sens à ce qu'elle le
+fasse à sa date de fin.
+
+La conséquence pratique : ajouter un neuvième événement, c'est écrire une entrée de catalogue
+et, si son canal est nouveau, un lecteur de plus. Jamais une branche dans la boucle du mois.
+
+### La grève est le seul événement qui se négocie
+
+Les autres durent le temps qu'ils durent. La grève, elle, réclame **+14 % sur le salaire de la
+ville** et s'arrête dès qu'elle l'a obtenu. Elle ne peut pas forcer un employeur à payer ce
+qu'il n'encaisse pas — le plafond de capacité tient toujours, et une grève qui exige plus que
+la ville ne peut donner ira jusqu'à son terme sans rien obtenir.
+
+C'est ce qui en fait autre chose qu'un malus : le joueur peut y répondre.
+
+### Le bug que la mesure a mis au jour
+
+Le premier banc d'essai comparait le même monde avec et sans événement forcé. Les colonnes de
+référence étaient **différentes d'une ligne à l'autre** — le même monde témoin, rejoué, ne
+donnait pas le même résultat.
+
+Trois `Math.random()` traînaient dans `ai.js` et deux dans `world.js` : le choix de la filière
+surconstruite au départ, la dispersion des implantations, et les arbitrages où deux acteurs qui
+lisent le même marché ne doivent pas ouvrir le même chantier. Chacun se justifiait — mais tous
+tiraient hors de la graine.
+
+La partie n'était donc **pas reproductible**, et le banc d'essai mesurait le bruit. Sur la
+graine du contrôle, deux exécutions donnaient 1 383 et 742 ménages pour la même ville : un
+facteur deux, attribué à tort aux événements. Le contrôle affichait au passage un baromètre
+produits à 74 % qui n'existait pas.
+
+Le monde porte maintenant `monde.hasard`, tiré de la graine, et c'est lui que tout le monde
+consulte. Trois exécutions de la même graine donnent la même carte au ménage près.
+
+**La leçon est générale** : une simulation qu'on ne peut pas rejouer à l'identique ne se mesure
+pas. Le premier travail avant d'ajouter quoi que ce soit d'aléatoire, c'est de rendre l'aléa
+reproductible.
+
+### Ce que cela fait, une fois mesuré
+
+Sur trente ans et huit graines, les événements coûtent **0,5 % de population** — ils secouent
+sans saigner. Localement c'est autre chose : une sécheresse dure met les céréales à +74 % et le
+pain à +52 %, un krach met la bourse à zéro pendant quinze mois, un boom la multiplie par
+trois. La couverture est de 30 % des mois : un joueur passe le tiers de sa partie avec quelque
+chose en cours.
+
+L'équilibre voulu est celui-là. Un événement doit créer une occasion et un danger, pas un impôt
+permanent qui n'appelle aucune décision.
+
+### Ce que le joueur voit
+
+Une rangée de pastilles sous la barre, toujours à l'écran tant que quelque chose court : signe,
+nom, ville touchée, mois restants. Une sécheresse qu'on n'a pas vue venir n'est pas une
+difficulté, c'est une injustice.
+
+Chaque pastille ouvre le volet **Ce qui arrive** : pour chaque événement en cours, sa jauge
+d'avancement, son texte, et surtout **le canal exact par lequel il touche l'économie** — un
+événement qu'on subit sans comprendre ce qu'il fait n'apprend rien. Le volet garde ensuite la
+chronique des quatorze derniers, et reste accessible depuis l'onglet Villes.

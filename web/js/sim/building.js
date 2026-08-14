@@ -92,7 +92,12 @@ export class Batiment {
   // Capacité de production, qualité du sol comprise.
   get capacite() {
     if (!this.def.sort) return 0;
-    return this.def.debit * this.n * (this.def.qual ? facteurQualite(this.qualite) : 1);
+    // Le facteur de sol du mois — sécheresse, récolte exceptionnelle — ne joue
+    // que sur ce qui pousse. Une mine ne connaît pas la pluie.
+    const meteo = (this.def.qual === 'fertilite' && this.ville && this.ville.facteurSol)
+      ? this.ville.facteurSol : 1;
+    return this.def.debit * this.n
+      * (this.def.qual ? facteurQualite(this.qualite) : 1) * meteo;
   }
 
   besoinsIntrants() {
@@ -220,7 +225,11 @@ export class Batiment {
       return this.cloturer();
     }
 
-    const taux = this.activiteEffective * Math.min(ratioMat, partBras);
+    // Une grève ne renvoie pas les ouvriers chez eux : ils sont là, ils ne
+    // travaillent pas. L'atelier tourne au ralenti et continue de payer son
+    // entretien — c'est ce qui rend la grève coûteuse pour tout le monde.
+    const greve = this.ville && this.ville.greveDe ? this.ville.greveDe(this.def.cat) : 1;
+    const taux = this.activiteEffective * Math.min(ratioMat, partBras) * greve;
     this.tauxReel = taux;
     this.production = this.capacite * taux;
 

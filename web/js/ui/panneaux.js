@@ -9,6 +9,7 @@
 import { P, RES, RESSOURCES, BAT, TYPES_BAT, niveauVille, materiaux, coutRef,
          rendementVise } from '../sim/params.js';
 import { COULEURS, FILTRES_CASE, FILTRES_VILLE, echelle } from './render.js';
+import { EVENEMENTS } from '../sim/evenements.js';
 
 export const $ = (s) => document.querySelector(s);
 export const eur = (n) => (n < 0 ? '−' : '') + Math.abs(Math.round(n)).toLocaleString('fr-FR') + ' $';
@@ -169,6 +170,10 @@ export function voletVilles(monde) {
       Bâtir des logements <b>ne fait venir personne</b> : cela ouvre des portes que
       l'attractivité remplira, ou pas.
     </div>
+    <div class="pastilles"><button data-vue="evenements">${
+      monde.evenements.length
+        ? monde.evenements.map(e => e.def.signe).join(' ') + ' &nbsp;Ce qui arrive'
+        : 'Ce qui arrive — la chronique'}</button></div>
     ${monde.villeChoisie ? detailVille(monde, monde.villeChoisie) : ''}
   `;
 }
@@ -558,5 +563,134 @@ export function voletRail(monde) {
 
     <h3>Journal</h3>
     <div class="note">${monde.journal.slice(-8).reverse().join('<br>') || 'Rien à signaler.'}</div>
+  `;
+}
+
+// ---------------------------------------------------------------------------
+// Bâtir. Le volet qui manquait.
+//
+// Le joueur commence sans un pouce de terre. Pour bâtir il fallait deviner
+// qu'une case libre de la frontière était achetable, l'acheter, puis la
+// re-cliquer — deux gestes que rien n'annonçait, sur une case que la carte ne
+// distinguait pas des autres. On choisit maintenant le bâtiment d'abord, et la
+// carte montre elle-même où il peut aller.
+// ---------------------------------------------------------------------------
+
+const MENU_BATIR = [
+  ['Logement', ['maison', 'immeuble']],
+  ['Exploitation', ['coupe', 'carriere', 'mineCharbon', 'mineFer', 'ferme', 'ranch']],
+  ['Transformation', ['scierie', 'briqueterie', 'minoterie', 'abattoir', 'acierie']],
+  ['Manufacture', ['manufacture']],
+  ['Rapport et négoce', ['bureaux', 'entrepot']],
+];
+
+export function voletBatir(monde, rendu) {
+  const joueur = monde.joueur;
+  // Le devis se chiffre dans la ville qu'on regarde : les matériaux n'ont pas
+  // le même prix d'un marché à l'autre tant que le rail ne les a pas réunis.
+  const v = monde.villeChoisie || rendu.villeAuCentre() || monde.villes[0];
+  const m = v.marche;
+
+  const groupes = MENU_BATIR.map(([titre, types]) => {
+    const lignes = types.map(t => {
+      const def = BAT[t];
+      let materiel = 0;
+      for (const [r, q] of Object.entries(materiaux(t))) materiel += q * m.prix[r];
+      const cher = materiel / coutRef(t);
+      const choisi = rendu.pose === t;
+      const abordable = joueur.tresorerie >= materiel;
+      const vise = rendementVise(t);
+      return `<button class="ligneBatir ${choisi ? 'actif' : ''}" data-batir="${t}"
+                ${abordable ? '' : 'disabled'}>
+        <span class="puce" style="background:${COULEURS[t]}"></span>
+        <span class="nomBat">${def.nom}</span>
+        <span class="sousBat">${def.w}×${def.h}${vise ? ' · visé ' + Math.round(vise * 100) + ' %' : ''}</span>
+        <span class="prixBat ${cher > 1.25 ? 'rouge' : cher < 0.85 ? 'vert' : 'doux'}">${eur(materiel)}</span>
+      </button>`;
+    }).join('');
+    return `<h3>${titre}</h3><div class="listeBatir">${lignes}</div>`;
+  }).join('');
+
+  const enCours = rendu.pose
+    ? `<div class="avertBatir">Posez la <b>${BAT[rendu.pose].nom}</b> — touchez la carte.
+         Les cases possibles sont cerclées d'or.
+         <button id="btnAnnulerPose">Annuler</button></div>`
+    : `<div class="note">Choisissez un bâtiment, puis touchez la carte à l'endroit voulu.
+         Le terrain qui vous manque est acheté dans le même geste — on ne peut prendre
+         qu'une terre vierge touchant la frontière urbaine, ou celle d'un indépendant,
+         jamais celle d'un rival.</div>`;
+
+  return `<div class="grille">
+      <div class="fiche"><div class="etiq">Trésorerie</div>
+        <div class="v or">${eur(joueur.tresorerie)}</div></div>
+      <div class="fiche"><div class="etiq">Devis établi à</div>
+        <div class="v" style="font-size:12px">${v.nom}</div></div>
+    </div>
+    ${enCours}${groupes}
+    <div class="note">Le prix affiché est celui des <b>matériaux au marché du jour</b> ;
+      le foncier s'y ajoute selon l'endroit et vous est annoncé avant de valider. Le cash
+      part immédiatement, le chantier ne sort de terre qu'à la dernière brique livrée.</div>`;
+}
+
+// --- Les événements ---------------------------------------------------------
+//
+// Un événement qu'on subit sans comprendre ce qu'il fait n'apprend rien. Chaque
+// fiche dit donc trois choses : ce qui arrive, combien de temps cela dure, et
+// par quel canal exactement cela touche l'économie du joueur.
+
+const CANAL = {
+  sol: 'Le rendement des terres — fermes, ranchs, coupes, carrières et mines '
+     + 'sortent moins (ou plus) que leur ordinaire, sans que rien d\'autre ne change. '
+     + 'Le prix suit, puisqu\'il suit les flux.',
+  travail: 'Le régime des ateliers touchés, ramené à ' + pct(P.regimeDeGreve) + ' de la normale. '
+     + 'Les ouvriers ne sont pas partis : ils sont là et ne produisent pas. La grève cesse '
+     + 'd\'elle-même dès que le salaire de la ville atteint ce qu\'elle réclame.',
+  finance: 'La destination de l\'épargne des ménages : ce qui achète des titres, '
+     + 'ce qui bâtit, ce qui dort en banque.',
+  population: 'Le nombre d\'habitants, une fois pour toutes — un afflux ne remplit '
+     + 'que les logements déjà debout, et une épidémie ne rend pas ce qu\'elle a pris.',
+};
+
+function ficheEvenement(monde, e) {
+  const reste = Math.max(0, e.fin - monde.mois);
+  const total = Math.max(1, e.fin - e.debut);
+  const avance = Math.max(0, Math.min(1, (monde.mois - e.debut) / total));
+  return `
+    <div class="carteEvt ${e.def.teinte}">
+      <div class="tete">
+        <b><span class="signe">${e.def.signe}</span> ${e.def.nom}</b>
+        <span class="doux">${reste} mois</span>
+      </div>
+      <div class="piste"><div class="jauge2" style="width:${Math.round(100 * avance)}%"></div></div>
+      <div class="texteEvt">${e.def.texte(e)}.</div>
+      <div class="note">${CANAL[e.def.portee]}</div>
+    </div>`;
+}
+
+export function voletEvenements(monde) {
+  const actifs = monde.evenements.length
+    ? monde.evenements.map(e => ficheEvenement(monde, e)).join('')
+    : `<div class="note">Rien en cours. Ce qui ne durera pas : la carte connaît en moyenne
+       un accident tous les ${Math.round(P.moisEntreEvenements / 12)} ans, et jamais plus de
+       ${P.evenementsSimultanes} à la fois.</div>`;
+
+  // La chronique ne garde que ce qui porte un signe d'événement : le journal
+  // sert aussi aux rachats et aux mises en service.
+  const signes = Object.values(EVENEMENTS).map(d => d.signe);
+  const chronique = monde.journal
+    .filter(l => signes.some(s => l.includes(s)))
+    .slice(-14).reverse();
+
+  return `<h3>En cours</h3>
+    ${actifs}
+    <div class="note">
+      Un événement ne détruit rien : il déplace un curseur tant qu'il dure, puis le rend.
+      Les seules pertes sèches sont celles de population — la grippe et l'immigration
+      frappent une fois et ne se reprennent pas. Les ${Math.round(P.graceEvenements / 12)}
+      premières années sont épargnées, le temps de bâtir de quoi encaisser.
+    </div>
+
+    <h3>Chronique</h3>
+    <div class="note">${chronique.join('<br>') || 'La carte a été tranquille jusqu\'ici.'}</div>
   `;
 }

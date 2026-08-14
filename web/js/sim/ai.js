@@ -231,7 +231,7 @@ function besoinLePlusCriant(monde, ville, penchant) {
   // ouvrir le même chantier le même mois.
   const seuil = candidats[0].score * 0.75;
   const bonnes = candidats.filter(c => c.score >= seuil);
-  return bonnes[Math.floor(Math.random() * bonnes.length)];
+  return bonnes[Math.floor(monde.hasard() * bonnes.length)];
 }
 
 // L'épargne des ménages bâtit la ville. Les habitants construisent ce qui
@@ -276,7 +276,7 @@ function unChantierDeVille(monde, ville) {
   // ne doivent pas fatalement ouvrir le même chantier le même mois.
   const seuil = besoins[0].score * 0.75;
   const tete = besoins.filter(c => c.score >= seuil);
-  const ordre = [tete[Math.floor(Math.random() * tete.length)],
+  const ordre = [tete[Math.floor(monde.hasard() * tete.length)],
                  ...besoins].slice(0, 5);
 
   const essayes = new Set();
@@ -492,7 +492,7 @@ export function piloterSociete(monde, s) {
   // Les bureaux sont le seul argent qui vienne du dehors : une ville qui en
   // manque s'étiole. C'est un placement lent mais qui ne dépend d'aucun marché.
   if (!meilleur || meilleur.score < 1.2) {
-    const v = monde.villes[Math.floor(Math.random() * monde.villes.length)];
+    const v = monde.villes[Math.floor(monde.hasard() * monde.villes.length)];
     const bureaux = monde.tousBatiments(v).filter(b => b.def.cat === 'bur').length;
     if (bureaux < Math.ceil(v.menages / 78) && brasDisponibles(monde, v) > 25) {
       meilleur = { ville: v, type: 'bureaux', score: 1 };

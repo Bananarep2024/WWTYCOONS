@@ -76,6 +76,35 @@ body {
 }
 .cmd.majeur { background: var(--or); color: #1a1710; border-color: var(--or); font-weight: 700; }
 
+/* ---------- Bandeau des événements ---------- */
+/* Il se place juste sous la barre ; quand il est là, le bandeau de filtre
+   descend d'un cran pour ne pas lui passer dessus. */
+
+#bandeauEvenements {
+  position: fixed; z-index: 9; left: 50%; transform: translateX(-50%);
+  top: calc(64px + env(safe-area-inset-top));
+  display: flex; gap: 6px; padding: 0 12px;
+  max-width: 100vw; overflow-x: auto; scrollbar-width: none;
+}
+#bandeauEvenements::-webkit-scrollbar { display: none; }
+#bandeauEvenements.cachee { display: none; }
+
+.pastilleEvt {
+  display: flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  background: var(--voile); border: 1px solid var(--bord); border-radius: 16px;
+  padding: 5px 12px; font-size: 12px; color: var(--texte);
+  cursor: pointer; font: inherit; font-size: 12px; white-space: nowrap;
+}
+.pastilleEvt .signe { font-size: 13px; }
+.pastilleEvt.rouge { border-color: #8d3b33; }
+.pastilleEvt.rouge .signe { color: #d9705f; }
+.pastilleEvt.vert { border-color: #3f6b47; }
+.pastilleEvt.vert .signe { color: #6fb37a; }
+.pastilleEvt .reste { color: var(--doux); font-size: 11px; }
+.pastilleEvt:hover { border-color: var(--or); }
+
+body.aEvenements #bandeauFiltre { top: calc(64px + 36px + env(safe-area-inset-top)); }
+
 /* ---------- Bandeau du filtre actif ---------- */
 
 #bandeauFiltre {
@@ -170,6 +199,20 @@ td.n, th.n { text-align: right; }
 .barometre .tete { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
 .barometre .piste { height: 7px; background: var(--fond); border-radius: 4px; overflow: hidden; }
 .barometre .jauge2 { height: 100%; border-radius: 4px; }
+
+.carteEvt {
+  background: var(--fond3); border: 1px solid var(--bord); border-left-width: 3px;
+  border-radius: 4px; padding: 8px 10px; margin-bottom: 9px;
+}
+.carteEvt.rouge { border-left-color: #8d3b33; }
+.carteEvt.vert  { border-left-color: #3f6b47; }
+.carteEvt .tete { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+.carteEvt.rouge .signe { color: #d9705f; }
+.carteEvt.vert  .signe { color: #6fb37a; }
+.carteEvt .piste { height: 5px; background: var(--fond); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
+.carteEvt .jauge2 { height: 100%; background: var(--bord); border-radius: 3px; }
+.carteEvt .texteEvt { font-size: 12px; margin-bottom: 5px; }
+.carteEvt .note { margin: 0; }
 
 .grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 7px; margin-bottom: 10px; }
 .fiche { background: var(--fond3); border: 1px solid var(--bord); border-radius: 4px; padding: 6px 9px; }
@@ -420,6 +463,11 @@ svg.cours {
   </div>
 </header>
 
+<!-- Ce qui secoue la partie. Une sécheresse qu'on n'a pas vue venir n'est pas
+     une difficulté, c'est une injustice : les événements en cours sont donc
+     toujours à l'écran, et chaque pastille s'ouvre sur son détail. -->
+<div id="bandeauEvenements" class="cachee"></div>
+
 <!-- Le filtre actif, rappelé sous la barre : sans ce bandeau, on oublie qu'on
      regarde une donnée et non la carte. -->
 <div id="bandeauFiltre" class="cachee">
@@ -614,6 +662,24 @@ const P = {
   solPente: 0.18,              // q1 = 0,64 · q3 = 1,00 · q5 = 1,36
   richessePlancher: 0.35,      // ce que vaut la plus mauvaise terre
   richesseExposant: 4.0,       // à quel point la bonne terre se paie
+
+  // --- Les événements ---
+  //
+  // Une économie qui ne connaît que sa propre mécanique devient prévisible : on
+  // trouve la bonne trajectoire, on la répète, il n'y a plus rien à décider. Les
+  // événements sont ce qui la casse.
+  graceEvenements: 24,         // on laisse la partie s'installer avant le premier
+  moisEntreEvenements: 30,     // un mois sur trente en déclenche un
+  evenementsSimultanes: 2,     // empiler les catastrophes ne se joue plus, ça se subit
+  partEvenementsLocaux: 0.62,  // le local est la règle — c'est lui qui rend le rail précieux
+
+  secheresseMin: 0.45, secheresseMax: 0.78,   // ce que rend la terre pendant
+  recolteMin: 1.20,    recolteMax: 1.55,
+  immigrationMin: 0.12, immigrationMax: 0.35, // ménages en plus, si les logements suivent
+  grippeMin: 0.06,     grippeMax: 0.18,       // ménages emportés
+  regimeDeGreve: 0.35,         // à quel régime tourne un atelier en grève
+  hausseExigee: 0.14,          // ce que la grève réclame sur le salaire
+  boomMin: 0.35,       boomMax: 0.90,         // l'épargne gonflée par des capitaux du dehors
 
   // Amorçage
   stockAmorcage: { planches: 800, briques: 400 },
@@ -1163,6 +1229,255 @@ function estAchetable(monde, c) {
   return false;
 }
 
+// ===== js/sim/evenements.js ==========================================
+
+// ---------------------------------------------------------------------------
+// Les événements.
+//
+// Une économie qui ne connaît que sa propre mécanique finit par être prévisible :
+// on trouve la bonne trajectoire, on la répète, et il n'y a plus rien à décider.
+// Les événements sont ce qui casse la trajectoire — une sécheresse qui affame,
+// une vague d'immigration qui remplit les logements qu'on avait bâtis en avance,
+// un krach qui assèche la bourse au moment où l'on comptait dessus.
+//
+// PRINCIPE : un événement ne mute jamais l'état de façon irréversible. Il
+// s'inscrit dans une liste, et la simulation LIT ses modificateurs là où ils
+// s'appliquent. Quand il expire, il disparaît de la liste et tout revient de
+// soi-même. Les seules exceptions sont les mouvements de population — une
+// épidémie qui a emporté des gens ne les rend pas.
+// ---------------------------------------------------------------------------
+
+
+// Le catalogue. `poids` est la fréquence relative : la somme n'a pas à faire 1.
+const EVENEMENTS = {
+  secheresse: {
+    nom: 'Sécheresse', signe: '☀', teinte: 'rouge',
+    poids: 14, duree: [10, 30], portee: 'sol',
+    texte: (e) => `${e.ville ? e.ville.nom + ' souffre de la sécheresse' : 'La sécheresse frappe toute la carte'}`
+      + ` — les terres ne rendent que ${Math.round(e.ampleur * 100)} % de leur ordinaire`,
+  },
+  recolte: {
+    nom: 'Récolte exceptionnelle', signe: '✿', teinte: 'vert',
+    poids: 10, duree: [6, 14], portee: 'sol',
+    texte: (e) => `${e.ville ? 'Récolte exceptionnelle à ' + e.ville.nom : 'Récolte exceptionnelle partout'}`
+      + ` — les terres rendent ${Math.round(e.ampleur * 100)} % de leur ordinaire`,
+  },
+  immigration: {
+    nom: 'Vague d\'immigration', signe: '⇥', teinte: 'vert',
+    poids: 11, duree: [1, 1], portee: 'population',
+    texte: (e) => `Une vague d'immigration afflue`
+      + `${e.ville ? ' vers ' + e.ville.nom : ' sur toute la carte'}`
+      + ` — les logements vacants se remplissent`,
+  },
+  grippe: {
+    nom: 'Grippe espagnole', signe: '†', teinte: 'rouge',
+    poids: 7, duree: [1, 1], portee: 'population',
+    texte: (e) => `La grippe emporte ${Math.round((1 - e.ampleur) * 100)} % des habitants`
+      + `${e.ville ? ' de ' + e.ville.nom : ' de chaque ville'}`,
+  },
+  greve: {
+    nom: 'Grève', signe: '✊', teinte: 'rouge',
+    poids: 13, duree: [4, 16], portee: 'travail',
+    texte: (e) => `Grève ${e.secteur ? NOMS_SECTEUR[e.secteur] : 'générale'} à ${e.ville.nom}`
+      + ` — les ateliers tournent au ralenti tant que le salaire n'aura pas atteint`
+      + ` ${e.exige.toFixed(2)} $`,
+  },
+  krach: {
+    nom: 'Krach boursier', signe: '↯', teinte: 'rouge',
+    poids: 9, duree: [8, 20], portee: 'finance',
+    texte: () => `Krach boursier — l'épargne des ménages déserte le marché,`
+      + ` les capitaux se replient sur la brique`,
+  },
+  crise: {
+    nom: 'Crise économique', signe: '▽', teinte: 'rouge',
+    poids: 9, duree: [10, 26], portee: 'finance',
+    texte: () => `Crise économique — l'épargne reste en banque : elle ne bâtit plus`
+      + ` et n'achète plus de titres`,
+  },
+  boom: {
+    nom: 'Boom économique', signe: '△', teinte: 'vert',
+    poids: 10, duree: [10, 24], portee: 'finance',
+    texte: (e) => `Boom économique — des capitaux venus du dehors gonflent l'épargne`
+      + ` de ${Math.round((e.ampleur - 1) * 100)} %`,
+  },
+};
+
+const NOMS_SECTEUR = {
+  expl: 'des exploitations', trans: 'des ateliers',
+  manu: 'des manufactures', bur: 'des bureaux',
+};
+
+const SECTEURS = ['expl', 'trans', 'manu'];
+
+// ---------------------------------------------------------------------------
+
+function entre(rng, [a, b]) { return a + Math.floor(rng() * (b - a + 1)); }
+
+function tirerType(rng) {
+  const noms = Object.keys(EVENEMENTS);
+  const total = noms.reduce((s, n) => s + EVENEMENTS[n].poids, 0);
+  let r = rng() * total;
+  for (const n of noms) { r -= EVENEMENTS[n].poids; if (r <= 0) return n; }
+  return noms[0];
+}
+
+// Fabrique un événement du type demandé. `monde` sert à choisir une ville et à
+// lire l'état courant — un salaire exigé n'a de sens que rapporté au salaire du
+// jour.
+function creerEvenement(monde, type, rng = Math.random) {
+  const def = EVENEMENTS[type];
+  const e = {
+    type, def, debut: monde.mois,
+    fin: monde.mois + entre(rng, def.duree),
+    ville: null, secteur: null, ampleur: 1,
+  };
+
+  // Local ou général ? Une sécheresse générale est rare et brutale ; une
+  // sécheresse locale est la règle, et c'est elle qui rend le rail précieux —
+  // on achète le pain de la ville d'à côté.
+  //
+  // La finance, elle, n'est jamais locale : il n'y a qu'une bourse et qu'une
+  // épargne, et un krach qui ne frapperait qu'une ville n'aurait nulle part où
+  // s'appliquer. Une grève, à l'inverse, est toujours celle d'une ville — on ne
+  // fait pas grève « en général » contre un salaire qui se fixe ville par ville.
+  const local = def.portee !== 'finance'
+    && (type === 'greve' || rng() < P.partEvenementsLocaux);
+  if (local) e.ville = monde.villes[Math.floor(rng() * monde.villes.length)];
+
+  switch (type) {
+    case 'secheresse':
+      e.ampleur = P.secheresseMin + rng() * (P.secheresseMax - P.secheresseMin);
+      break;
+    case 'recolte':
+      e.ampleur = P.recolteMin + rng() * (P.recolteMax - P.recolteMin);
+      break;
+    case 'immigration':
+      e.ampleur = 1 + P.immigrationMin + rng() * (P.immigrationMax - P.immigrationMin);
+      break;
+    case 'grippe':
+      e.ampleur = 1 - (P.grippeMin + rng() * (P.grippeMax - P.grippeMin));
+      break;
+    case 'greve':
+      // Une grève générale une fois sur trois ; sinon un secteur seulement.
+      e.secteur = rng() < 0.34 ? null : SECTEURS[Math.floor(rng() * SECTEURS.length)];
+      e.exige = e.ville.salaire * (1 + P.hausseExigee);
+      break;
+    case 'boom':
+      e.ampleur = 1 + P.boomMin + rng() * (P.boomMax - P.boomMin);
+      break;
+  }
+  return e;
+}
+
+// ---------------------------------------------------------------------------
+// Le moteur, appelé une fois par mois.
+// ---------------------------------------------------------------------------
+
+function tirerEvenements(monde, rng = Math.random) {
+  // Les événements à effet immédiat sont appliqués puis retirés ; les autres
+  // vivent jusqu'à leur date de fin, ou jusqu'à ce que leur condition de sortie
+  // soit remplie — c'est le cas de la grève, qui s'arrête quand elle a obtenu
+  // ce qu'elle demandait.
+  monde.evenements = monde.evenements.filter(e => {
+    if (e.type === 'greve' && e.ville.salaire >= e.exige) {
+      monde.journal.push(`${monde.mois} · ✊ La grève de ${e.ville.nom} prend fin`
+        + ` — le salaire a atteint ${e.ville.salaire.toFixed(2)} $`);
+      return false;
+    }
+    if (monde.mois >= e.fin) {
+      monde.journal.push(`${monde.mois} · ${e.def.signe} ${e.def.nom} : c'est fini`);
+      return false;
+    }
+    return true;
+  });
+
+  // On ne surcharge pas : deux événements simultanés au plus, et jamais deux du
+  // même type. Une partie qui empile les catastrophes ne se joue plus, elle se
+  // subit.
+  if (monde.mois < P.graceEvenements) return;
+  if (monde.evenements.length >= P.evenementsSimultanes) return;
+  if (rng() > 1 / P.moisEntreEvenements) return;
+
+  const type = tirerType(rng);
+  if (monde.evenements.some(e => e.type === type)) return;
+
+  const e = creerEvenement(monde, type, rng);
+  monde.journal.push(`${monde.mois} · ${e.def.signe} ${e.def.texte(e)}`);
+
+  // Les événements de population frappent une fois et disparaissent.
+  if (e.def.portee === 'population') {
+    appliquerPopulation(monde, e);
+    return;
+  }
+  monde.evenements.push(e);
+}
+
+function appliquerPopulation(monde, e) {
+  const cibles = e.ville ? [e.ville] : monde.villes;
+  for (const v of cibles) {
+    const avant = v.menages;
+    // Une vague d'immigration ne crée pas de logements : elle remplit ceux qui
+    // sont vides. Qui a bâti en avance encaisse la vague, qui a bâti juste ce
+    // qu'il fallait la regarde passer.
+    v.menages = Math.max(4, Math.min(v.capaciteLogement || Infinity, v.menages * e.ampleur));
+    v.occupation = v.capaciteLogement > 0
+      ? Math.max(0, Math.min(1, v.menages / v.capaciteLogement)) : 0;
+    const delta = Math.round(v.menages - avant);
+    if (delta !== 0) {
+      monde.journal.push(`${monde.mois} ·    ${v.nom} : ${delta > 0 ? '+' : ''}${delta} ménages`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Les modificateurs. C'est par ici que la simulation lit les événements.
+// ---------------------------------------------------------------------------
+
+// Ce que rend la terre, rapporté à son ordinaire. Sécheresse et récolte se
+// multiplient : une récolte exceptionnelle pendant une sécheresse générale, ce
+// sont deux nouvelles qui se compensent en partie, et c'est très bien ainsi.
+function facteurSol(monde, ville) {
+  let f = 1;
+  for (const e of monde.evenements) {
+    if (e.def.portee !== 'sol') continue;
+    if (e.ville && e.ville !== ville) continue;
+    f *= e.ampleur;
+  }
+  return f;
+}
+
+// Le régime auquel tourne un atelier. Une grève ne renvoie pas les ouvriers chez
+// eux : ils sont là, ils ne travaillent pas.
+function facteurGreve(monde, ville, categorie) {
+  for (const e of monde.evenements) {
+    if (e.type !== 'greve' || e.ville !== ville) continue;
+    if (e.secteur && e.secteur !== categorie) continue;
+    return P.regimeDeGreve;
+  }
+  return 1;
+}
+
+// Ce que devient l'épargne des ménages : ce qui bâtit, ce qui achète des titres.
+// En crise, elle ne fait ni l'un ni l'autre — elle dort.
+function orientationEpargne(monde) {
+  let versBourse = P.partEnBourse, versVille = 1 - P.partEnBourse, apport = 1;
+  for (const e of monde.evenements) {
+    if (e.type === 'krach') { versVille += versBourse; versBourse = 0; }
+    if (e.type === 'crise') { versBourse = 0; versVille = 0; }
+    if (e.type === 'boom') apport *= e.ampleur;
+  }
+  return { versBourse, versVille, apport };
+}
+
+// La grève tire le salaire vers le haut : c'est sa raison d'être.
+function salaireExige(monde, ville) {
+  let s = 0;
+  for (const e of monde.evenements) {
+    if (e.type === 'greve' && e.ville === ville) s = Math.max(s, e.exige);
+  }
+  return s;
+}
+
 // ===== js/sim/market.js ==============================================
 
 // ---------------------------------------------------------------------------
@@ -1411,7 +1726,12 @@ class Batiment {
   // Capacité de production, qualité du sol comprise.
   get capacite() {
     if (!this.def.sort) return 0;
-    return this.def.debit * this.n * (this.def.qual ? facteurQualite(this.qualite) : 1);
+    // Le facteur de sol du mois — sécheresse, récolte exceptionnelle — ne joue
+    // que sur ce qui pousse. Une mine ne connaît pas la pluie.
+    const meteo = (this.def.qual === 'fertilite' && this.ville && this.ville.facteurSol)
+      ? this.ville.facteurSol : 1;
+    return this.def.debit * this.n
+      * (this.def.qual ? facteurQualite(this.qualite) : 1) * meteo;
   }
 
   besoinsIntrants() {
@@ -1539,7 +1859,11 @@ class Batiment {
       return this.cloturer();
     }
 
-    const taux = this.activiteEffective * Math.min(ratioMat, partBras);
+    // Une grève ne renvoie pas les ouvriers chez eux : ils sont là, ils ne
+    // travaillent pas. L'atelier tourne au ralenti et continue de payer son
+    // entretien — c'est ce qui rend la grève coûteuse pour tout le monde.
+    const greve = this.ville && this.ville.greveDe ? this.ville.greveDe(this.def.cat) : 1;
+    const taux = this.activiteEffective * Math.min(ratioMat, partBras) * greve;
     this.tauxReel = taux;
     this.production = this.capacite * taux;
 
@@ -2109,7 +2433,7 @@ function besoinLePlusCriant(monde, ville, penchant) {
   // ouvrir le même chantier le même mois.
   const seuil = candidats[0].score * 0.75;
   const bonnes = candidats.filter(c => c.score >= seuil);
-  return bonnes[Math.floor(Math.random() * bonnes.length)];
+  return bonnes[Math.floor(monde.hasard() * bonnes.length)];
 }
 
 // L'épargne des ménages bâtit la ville. Les habitants construisent ce qui
@@ -2154,7 +2478,7 @@ function unChantierDeVille(monde, ville) {
   // ne doivent pas fatalement ouvrir le même chantier le même mois.
   const seuil = besoins[0].score * 0.75;
   const tete = besoins.filter(c => c.score >= seuil);
-  const ordre = [tete[Math.floor(Math.random() * tete.length)],
+  const ordre = [tete[Math.floor(monde.hasard() * tete.length)],
                  ...besoins].slice(0, 5);
 
   const essayes = new Set();
@@ -2370,7 +2694,7 @@ function piloterSociete(monde, s) {
   // Les bureaux sont le seul argent qui vienne du dehors : une ville qui en
   // manque s'étiole. C'est un placement lent mais qui ne dépend d'aucun marché.
   if (!meilleur || meilleur.score < 1.2) {
-    const v = monde.villes[Math.floor(Math.random() * monde.villes.length)];
+    const v = monde.villes[Math.floor(monde.hasard() * monde.villes.length)];
     const bureaux = monde.tousBatiments(v).filter(b => b.def.cat === 'bur').length;
     if (bureaux < Math.ceil(v.menages / 78) && brasDisponibles(monde, v) > 25) {
       meilleur = { ville: v, type: 'bureaux', score: 1 };
@@ -2409,6 +2733,7 @@ function piloterSociete(monde, s) {
 
 
 
+
 class Monde {
   // duree : nombre de mois, ou null pour une partie sans fin.
   constructor({ nbVilles = 5, duree = null, graine = Date.now() } = {}) {
@@ -2425,6 +2750,13 @@ class Monde {
     this.histoPER = [];
     this.capitauxBourse = 0;            // épargne dirigée vers la bourse ce mois
     this.tensionBourse = 1;
+    this.evenements = [];               // ce qui casse la trajectoire
+    // Le hasard du déroulement — chronique des événements, choix des filières
+    // surconstruites, dispersion des implantations — a sa propre source, tirée
+    // de la graine. Tant qu'il restait des Math.random() ici, deux parties de
+    // même graine divergeaient : le banc d'essai mesurait alors le bruit et non
+    // l'effet qu'on cherchait, ce qui a coûté une demi-journée à comprendre.
+    this.hasard = rng((graine ^ 0x5EED9) >>> 0);
     this.journal = [];
     this.offresDuMois = new Map();
 
@@ -2727,7 +3059,7 @@ class Monde {
     const tirees = [];
     for (let k = 0; k < combien; k++) {
       const libres = FILIERES.filter(f => !tirees.includes(f));
-      const f = libres[Math.floor(Math.random() * libres.length)];
+      const f = libres[Math.floor(this.hasard() * libres.length)];
       tirees.push(f);
       this.surconstruire(v, f, 1 + t.surcapacite * P.ampleurSurcapacite);
     }
@@ -2891,7 +3223,7 @@ class Monde {
     }
     if (dispersion > 0 && proches.length) {
       const bons = proches.filter(x => x.score >= meilleurScore - dispersion);
-      if (bons.length) return bons[Math.floor(Math.random() * bons.length)].cases;
+      if (bons.length) return bons[Math.floor(this.hasard() * bons.length)].cases;
     }
     return meilleur || secours;
   }
@@ -3102,6 +3434,7 @@ class Monde {
     if (this.duree && this.mois >= this.duree) return false;
     this.mois++;
     this.offresDuMois.clear();   // une offre par mois et par adversaire
+    tirerEvenements(this, this.hasard);   // sécheresse, grève, krach…
     this.capitauxBourse = 0;     // l'épargne dirigée vers la bourse se recompte
 
     for (const m of this.marches) {
@@ -3199,7 +3532,12 @@ class Monde {
       ['manufacture'],
     ];
 
-    for (const v of this.villes) v.__bats = this.tousBatiments(v);
+    for (const v of this.villes) {
+      v.__bats = this.tousBatiments(v);
+      // Le rendement des terres du mois : sécheresse, récolte exceptionnelle.
+      v.facteurSol = facteurSol(this, v);
+      v.greveDe = (cat) => facteurGreve(this, v, cat);
+    }
 
     for (let i = 0; i < VAGUES.length; i++) {
       for (const m of this.marches) m.calculerService();
@@ -3310,10 +3648,15 @@ class Monde {
       // L'épargne se partage entre la brique et le titre. Ce qui part en bourse
       // ne bâtit plus la ville — c'est le prix à payer pour avoir un marché, et
       // c'est aux sociétés des joueurs de prendre le relais de la construction.
-      const surplus = Math.max(0, revenu - depense) * v.menages;
-      const enBourse = surplus * P.partEnBourse;
-      v.epargne += surplus - enBourse;
-      this.capitauxBourse += enBourse;
+      //
+      // Les événements financiers agissent ICI, et nulle part ailleurs : un
+      // krach renvoie les capitaux vers la brique, une crise les fait dormir en
+      // banque, un boom les gonfle d'un apport venu du dehors.
+      const o = orientationEpargne(this);
+      const surplus = Math.max(0, revenu - depense) * v.menages * o.apport;
+      v.epargne += surplus * o.versVille;
+      this.capitauxBourse += surplus * o.versBourse;
+      v.epargneDormante = surplus * (1 - o.versVille - o.versBourse);
 
       // Ce que le ménage gagne, ce qu'il dépense, ce qu'il met de côté. Trois
       // chiffres que le joueur doit pouvoir lire depuis n'importe quel logement :
@@ -3440,6 +3783,12 @@ class Monde {
       cases += b.n * b.tauxReel;
     }
     if (cases > 0) cible = Math.min(cible, capaciteTotale / cases);
+
+    // Une grève tire le salaire vers le haut : c'est sa raison d'être, et c'est
+    // aussi sa condition de sortie. Elle ne peut pas forcer un employeur à payer
+    // ce qu'il n'encaisse pas — le plafond de capacité tient toujours.
+    const exige = salaireExige(this, v);
+    if (exige > 0) cible = Math.max(cible, Math.min(exige, P.salaireCase * P.salairePlafond));
 
     cible = Math.max(P.salaireCase * P.salairePlancher, cible);
     v.salaire += 0.25 * (cible - v.salaire);
@@ -4546,6 +4895,7 @@ class Rendu {
 
 
 
+
 const $ = (s) => document.querySelector(s);
 const eur = (n) => (n < 0 ? '−' : '') + Math.abs(Math.round(n)).toLocaleString('fr-FR') + ' $';
 const pct = (n) => Math.round(n * 100) + ' %';
@@ -4705,6 +5055,10 @@ function voletVilles(monde) {
       Bâtir des logements <b>ne fait venir personne</b> : cela ouvre des portes que
       l'attractivité remplira, ou pas.
     </div>
+    <div class="pastilles"><button data-vue="evenements">${
+      monde.evenements.length
+        ? monde.evenements.map(e => e.def.signe).join(' ') + ' &nbsp;Ce qui arrive'
+        : 'Ce qui arrive — la chronique'}</button></div>
     ${monde.villeChoisie ? detailVille(monde, monde.villeChoisie) : ''}
   `;
 }
@@ -5094,6 +5448,135 @@ function voletRail(monde) {
 
     <h3>Journal</h3>
     <div class="note">${monde.journal.slice(-8).reverse().join('<br>') || 'Rien à signaler.'}</div>
+  `;
+}
+
+// ---------------------------------------------------------------------------
+// Bâtir. Le volet qui manquait.
+//
+// Le joueur commence sans un pouce de terre. Pour bâtir il fallait deviner
+// qu'une case libre de la frontière était achetable, l'acheter, puis la
+// re-cliquer — deux gestes que rien n'annonçait, sur une case que la carte ne
+// distinguait pas des autres. On choisit maintenant le bâtiment d'abord, et la
+// carte montre elle-même où il peut aller.
+// ---------------------------------------------------------------------------
+
+const MENU_BATIR = [
+  ['Logement', ['maison', 'immeuble']],
+  ['Exploitation', ['coupe', 'carriere', 'mineCharbon', 'mineFer', 'ferme', 'ranch']],
+  ['Transformation', ['scierie', 'briqueterie', 'minoterie', 'abattoir', 'acierie']],
+  ['Manufacture', ['manufacture']],
+  ['Rapport et négoce', ['bureaux', 'entrepot']],
+];
+
+function voletBatir(monde, rendu) {
+  const joueur = monde.joueur;
+  // Le devis se chiffre dans la ville qu'on regarde : les matériaux n'ont pas
+  // le même prix d'un marché à l'autre tant que le rail ne les a pas réunis.
+  const v = monde.villeChoisie || rendu.villeAuCentre() || monde.villes[0];
+  const m = v.marche;
+
+  const groupes = MENU_BATIR.map(([titre, types]) => {
+    const lignes = types.map(t => {
+      const def = BAT[t];
+      let materiel = 0;
+      for (const [r, q] of Object.entries(materiaux(t))) materiel += q * m.prix[r];
+      const cher = materiel / coutRef(t);
+      const choisi = rendu.pose === t;
+      const abordable = joueur.tresorerie >= materiel;
+      const vise = rendementVise(t);
+      return `<button class="ligneBatir ${choisi ? 'actif' : ''}" data-batir="${t}"
+                ${abordable ? '' : 'disabled'}>
+        <span class="puce" style="background:${COULEURS[t]}"></span>
+        <span class="nomBat">${def.nom}</span>
+        <span class="sousBat">${def.w}×${def.h}${vise ? ' · visé ' + Math.round(vise * 100) + ' %' : ''}</span>
+        <span class="prixBat ${cher > 1.25 ? 'rouge' : cher < 0.85 ? 'vert' : 'doux'}">${eur(materiel)}</span>
+      </button>`;
+    }).join('');
+    return `<h3>${titre}</h3><div class="listeBatir">${lignes}</div>`;
+  }).join('');
+
+  const enCours = rendu.pose
+    ? `<div class="avertBatir">Posez la <b>${BAT[rendu.pose].nom}</b> — touchez la carte.
+         Les cases possibles sont cerclées d'or.
+         <button id="btnAnnulerPose">Annuler</button></div>`
+    : `<div class="note">Choisissez un bâtiment, puis touchez la carte à l'endroit voulu.
+         Le terrain qui vous manque est acheté dans le même geste — on ne peut prendre
+         qu'une terre vierge touchant la frontière urbaine, ou celle d'un indépendant,
+         jamais celle d'un rival.</div>`;
+
+  return `<div class="grille">
+      <div class="fiche"><div class="etiq">Trésorerie</div>
+        <div class="v or">${eur(joueur.tresorerie)}</div></div>
+      <div class="fiche"><div class="etiq">Devis établi à</div>
+        <div class="v" style="font-size:12px">${v.nom}</div></div>
+    </div>
+    ${enCours}${groupes}
+    <div class="note">Le prix affiché est celui des <b>matériaux au marché du jour</b> ;
+      le foncier s'y ajoute selon l'endroit et vous est annoncé avant de valider. Le cash
+      part immédiatement, le chantier ne sort de terre qu'à la dernière brique livrée.</div>`;
+}
+
+// --- Les événements ---------------------------------------------------------
+//
+// Un événement qu'on subit sans comprendre ce qu'il fait n'apprend rien. Chaque
+// fiche dit donc trois choses : ce qui arrive, combien de temps cela dure, et
+// par quel canal exactement cela touche l'économie du joueur.
+
+const CANAL = {
+  sol: 'Le rendement des terres — fermes, ranchs, coupes, carrières et mines '
+     + 'sortent moins (ou plus) que leur ordinaire, sans que rien d\'autre ne change. '
+     + 'Le prix suit, puisqu\'il suit les flux.',
+  travail: 'Le régime des ateliers touchés, ramené à ' + pct(P.regimeDeGreve) + ' de la normale. '
+     + 'Les ouvriers ne sont pas partis : ils sont là et ne produisent pas. La grève cesse '
+     + 'd\'elle-même dès que le salaire de la ville atteint ce qu\'elle réclame.',
+  finance: 'La destination de l\'épargne des ménages : ce qui achète des titres, '
+     + 'ce qui bâtit, ce qui dort en banque.',
+  population: 'Le nombre d\'habitants, une fois pour toutes — un afflux ne remplit '
+     + 'que les logements déjà debout, et une épidémie ne rend pas ce qu\'elle a pris.',
+};
+
+function ficheEvenement(monde, e) {
+  const reste = Math.max(0, e.fin - monde.mois);
+  const total = Math.max(1, e.fin - e.debut);
+  const avance = Math.max(0, Math.min(1, (monde.mois - e.debut) / total));
+  return `
+    <div class="carteEvt ${e.def.teinte}">
+      <div class="tete">
+        <b><span class="signe">${e.def.signe}</span> ${e.def.nom}</b>
+        <span class="doux">${reste} mois</span>
+      </div>
+      <div class="piste"><div class="jauge2" style="width:${Math.round(100 * avance)}%"></div></div>
+      <div class="texteEvt">${e.def.texte(e)}.</div>
+      <div class="note">${CANAL[e.def.portee]}</div>
+    </div>`;
+}
+
+function voletEvenements(monde) {
+  const actifs = monde.evenements.length
+    ? monde.evenements.map(e => ficheEvenement(monde, e)).join('')
+    : `<div class="note">Rien en cours. Ce qui ne durera pas : la carte connaît en moyenne
+       un accident tous les ${Math.round(P.moisEntreEvenements / 12)} ans, et jamais plus de
+       ${P.evenementsSimultanes} à la fois.</div>`;
+
+  // La chronique ne garde que ce qui porte un signe d'événement : le journal
+  // sert aussi aux rachats et aux mises en service.
+  const signes = Object.values(EVENEMENTS).map(d => d.signe);
+  const chronique = monde.journal
+    .filter(l => signes.some(s => l.includes(s)))
+    .slice(-14).reverse();
+
+  return `<h3>En cours</h3>
+    ${actifs}
+    <div class="note">
+      Un événement ne détruit rien : il déplace un curseur tant qu'il dure, puis le rend.
+      Les seules pertes sèches sont celles de population — la grippe et l'immigration
+      frappent une fois et ne se reprennent pas. Les ${Math.round(P.graceEvenements / 12)}
+      premières années sont épargnées, le temps de bâtir de quoi encaisser.
+    </div>
+
+    <h3>Chronique</h3>
+    <div class="note">${chronique.join('<br>') || 'La carte a été tranquille jusqu\'ici.'}</div>
   `;
 }
 
@@ -5724,7 +6207,36 @@ function boucle(t) {
 
 // --- Affichage --------------------------------------------------------------
 
-function rafraichirTout() { rafraichirBarre(); rafraichirVolet(); rafraichirFeuille(); }
+function rafraichirTout() {
+  rafraichirBarre(); rafraichirEvenements(); rafraichirVolet(); rafraichirFeuille();
+}
+
+// Les événements en cours, rappelés en permanence sous la barre. On ne les
+// dessine que lorsqu'ils changent : reconstruire la rangée à chaque mois ferait
+// clignoter les pastilles sous le doigt.
+let signatureEvts = '';
+
+function rafraichirEvenements() {
+  const b = $('#bandeauEvenements');
+  const sig = monde.evenements.map(e => `${e.type}${e.ville ? e.ville.nom : ''}${e.fin}`).join('|')
+    + '#' + monde.mois;
+  if (sig === signatureEvts) return;
+  signatureEvts = sig;
+
+  document.body.classList.toggle('aEvenements', monde.evenements.length > 0);
+  if (!monde.evenements.length) { b.classList.add('cachee'); b.innerHTML = ''; return; }
+
+  b.classList.remove('cachee');
+  b.innerHTML = monde.evenements.map(e => {
+    const reste = Math.max(0, e.fin - monde.mois);
+    const ou = e.ville ? ` · ${e.ville.nom}` : '';
+    return `<button class="pastilleEvt ${e.def.teinte}">`
+      + `<span class="signe">${e.def.signe}</span>`
+      + `<span>${e.def.nom}${ou}</span>`
+      + `<span class="reste">${reste} mois</span></button>`;
+  }).join('');
+  b.querySelectorAll('.pastilleEvt').forEach(p => p.onclick = () => ouvrirVolet('evenements'));
+}
 
 function rafraichirBarre() {
   const s = monde.joueur;
@@ -5749,7 +6261,7 @@ function rafraichirBarre() {
 
 const TITRES = { filtres: 'Filtres', villes: 'Les villes', marche: 'Le marché',
                  societe: 'Ma société', rail: 'Le chemin de fer', batir: 'Bâtir',
-                 bourse: 'La bourse' };
+                 bourse: 'La bourse', evenements: 'Ce qui arrive' };
 
 function ouvrirVolet(vue) {
   vueVolet = vue;
@@ -5778,12 +6290,16 @@ function rafraichirVolet() {
     : vueVolet === 'societe' ? voletSociete(monde)
     : vueVolet === 'batir'   ? voletBatir(monde, rendu)
     : vueVolet === 'bourse'  ? voletBourse(monde, rendu)
+    : vueVolet === 'evenements' ? voletEvenements(monde)
     : voletRail(monde);
   corps.scrollTop = haut;
   brancherVolet(corps);
 }
 
 function brancherVolet(corps) {
+  // Un volet peut renvoyer vers un autre : la fiche d'une ville mène à ce qui
+  // lui arrive, et réciproquement.
+  corps.querySelectorAll('[data-vue]').forEach(b => b.onclick = () => ouvrirVolet(b.dataset.vue));
   corps.querySelectorAll('[data-filtre]').forEach(b => b.onclick = () => {
     appliquerFiltre(b.dataset.filtre || null, null);
     rafraichirVolet();

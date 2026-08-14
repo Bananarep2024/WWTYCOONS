@@ -9,7 +9,7 @@ import { P, RES, BAT } from './sim/params.js';
 import { Monde } from './sim/world.js';
 import { Rendu, FILTRES_CASE, FILTRES_VILLE } from './ui/render.js';
 import { $, eur, pct, voletFiltres, voletVilles, voletMarche, voletSociete, voletRail,
-         voletBatir, voletBourse }
+         voletBatir, voletBourse, voletEvenements }
   from './ui/panneaux.js';
 import { contenuFeuille, empriseDepuis, empriseConstructible, devis }
   from './ui/feuille.js';
@@ -49,7 +49,36 @@ function boucle(t) {
 
 // --- Affichage --------------------------------------------------------------
 
-function rafraichirTout() { rafraichirBarre(); rafraichirVolet(); rafraichirFeuille(); }
+function rafraichirTout() {
+  rafraichirBarre(); rafraichirEvenements(); rafraichirVolet(); rafraichirFeuille();
+}
+
+// Les événements en cours, rappelés en permanence sous la barre. On ne les
+// dessine que lorsqu'ils changent : reconstruire la rangée à chaque mois ferait
+// clignoter les pastilles sous le doigt.
+let signatureEvts = '';
+
+function rafraichirEvenements() {
+  const b = $('#bandeauEvenements');
+  const sig = monde.evenements.map(e => `${e.type}${e.ville ? e.ville.nom : ''}${e.fin}`).join('|')
+    + '#' + monde.mois;
+  if (sig === signatureEvts) return;
+  signatureEvts = sig;
+
+  document.body.classList.toggle('aEvenements', monde.evenements.length > 0);
+  if (!monde.evenements.length) { b.classList.add('cachee'); b.innerHTML = ''; return; }
+
+  b.classList.remove('cachee');
+  b.innerHTML = monde.evenements.map(e => {
+    const reste = Math.max(0, e.fin - monde.mois);
+    const ou = e.ville ? ` · ${e.ville.nom}` : '';
+    return `<button class="pastilleEvt ${e.def.teinte}">`
+      + `<span class="signe">${e.def.signe}</span>`
+      + `<span>${e.def.nom}${ou}</span>`
+      + `<span class="reste">${reste} mois</span></button>`;
+  }).join('');
+  b.querySelectorAll('.pastilleEvt').forEach(p => p.onclick = () => ouvrirVolet('evenements'));
+}
 
 function rafraichirBarre() {
   const s = monde.joueur;
@@ -74,7 +103,7 @@ function rafraichirBarre() {
 
 const TITRES = { filtres: 'Filtres', villes: 'Les villes', marche: 'Le marché',
                  societe: 'Ma société', rail: 'Le chemin de fer', batir: 'Bâtir',
-                 bourse: 'La bourse' };
+                 bourse: 'La bourse', evenements: 'Ce qui arrive' };
 
 function ouvrirVolet(vue) {
   vueVolet = vue;
@@ -103,12 +132,16 @@ function rafraichirVolet() {
     : vueVolet === 'societe' ? voletSociete(monde)
     : vueVolet === 'batir'   ? voletBatir(monde, rendu)
     : vueVolet === 'bourse'  ? voletBourse(monde, rendu)
+    : vueVolet === 'evenements' ? voletEvenements(monde)
     : voletRail(monde);
   corps.scrollTop = haut;
   brancherVolet(corps);
 }
 
 function brancherVolet(corps) {
+  // Un volet peut renvoyer vers un autre : la fiche d'une ville mène à ce qui
+  // lui arrive, et réciproquement.
+  corps.querySelectorAll('[data-vue]').forEach(b => b.onclick = () => ouvrirVolet(b.dataset.vue));
   corps.querySelectorAll('[data-filtre]').forEach(b => b.onclick = () => {
     appliquerFiltre(b.dataset.filtre || null, null);
     rafraichirVolet();
