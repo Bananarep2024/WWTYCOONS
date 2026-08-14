@@ -368,8 +368,59 @@ export class Monde {
   // Un propriétaire indépendant vend à qui le demande, au prix du marché majoré
   // de 20 %, sans limite de fréquence. C'est le raccourci payant : on n'attend
   // pas d'avoir bâti, on rachète — plus cher.
+  // Le prix d'un bâtiment tenu par un indépendant — et, au centime près, celui
+  // qu'on en tire quand on le revend.
+  //
+  //   prix = terrain au cours du jour + 3 années de profit
+  //
+  // Le profit est celui des douze derniers mois réellement écoulés : on n'achète
+  // pas une promesse, on achète un compte d'exploitation. Trois ans, c'est le
+  // délai qu'un acheteur accepte de payer d'avance — au-delà il préfère bâtir.
+  //
+  // Un bâtiment qui perd de l'argent vaut donc MOINS que son terrain : c'est ce
+  // qui rend les affaires en difficulté intéressantes à ramasser. Le prix ne
+  // tombe pourtant jamais sous la moitié du foncier — sous ce seuil il vaudrait
+  // mieux raser et repartir, et le sol, lui, garde sa valeur quoi qu'il arrive.
   prixRachatIndependant(b) {
-    return b.valeur(this.multiple) * P.surprixIndependants;
+    const terrain = b.terrainCourant;
+    return Math.max(terrain * P.plancherCession,
+                    terrain + P.anneesDeProfit * b.profitAnnuel);
+  }
+
+  // Le même prix, vu du vendeur. C'est délibérément la même formule : un marché
+  // où l'on achèterait cher pour revendre bon marché ne serait pas un marché,
+  // ce serait une taxe.
+  prixDeCession(b) { return this.prixRachatIndependant(b); }
+
+  // Vendre un bâtiment. Il repasse aux indépendants — quelqu'un le reprend
+  // toujours, au prix que dit le compte d'exploitation — et les cases avec lui.
+  vendreBatiment(b, societe) {
+    if (b.societe !== societe) return false;
+    const prix = this.prixDeCession(b);
+    societe.encaisser(prix);
+    societe.batiments = societe.batiments.filter(x => x !== b);
+    b.societe = null;
+    b.versEntrepot = false;
+    (b.ville.batIndependants ||= []).push(b);
+    for (const c of b.cases) c.proprio = 'ind';
+    this.journal.push(`${this.mois} · ${societe.nom} cède ${BAT[b.type].nom} à ${b.ville.nom} — ${Math.round(prix)} $`);
+    return true;
+  }
+
+  // Vendre une case nue. On la reprend au prix du marché, sans la majoration de
+  // 20 % : ce surprix est ce qu'un indépendant fait payer pour vendre hors de
+  // son tour, et l'on ne se le verse pas à soi-même.
+  prixCessionTerrain(ville, c) {
+    return prixTerrain((c.ville || ville).niveau, c.distanceGare, qualiteMax(c));
+  }
+
+  vendreTerrain(ville, c, societe) {
+    if (c.proprio !== societe.id || c.bat || c.chantier) return false;
+    const prix = this.prixCessionTerrain(ville, c);
+    societe.encaisser(prix);
+    c.proprio = 'ind';
+    c.prixPaye = prix;
+    return true;
   }
 
   acheterBatiment(b, societe) {

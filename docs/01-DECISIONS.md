@@ -378,3 +378,21 @@ réel.
 | **Mesuré** | Une aciérie dont **trois des quatre cases ne touchent rien** se pose désormais. Emplacements possibles au premier mois : 1 191 pour un 1×1, 2 058 pour un 2×1, **2 646 pour un 2×2** — le carré en a davantage que la case seule, puisqu'il peut s'ancrer de quatre façons. |
 | **La frontière devient visible** | Le liseré doré des cases achetables ne s'affichait que sous les filtres « prix du sol » et « mes possessions ». Il apparaît maintenant aussi dès qu'on inspecte un terrain : sans le voir, le joueur croit la règle plus dure qu'elle n'est. |
 | **Le texte de la fiche** | « Hors de portée » disait « il faut toucher une terre déjà vendue **ou bâtie** », ce qui laissait entendre qu'un bâtiment comptait. Il dit maintenant explicitement qu'un bâtiment n'est pas nécessaire. |
+
+---
+
+## Le prix d'un bâtiment, et le marché qui va dans les deux sens
+
+| Point | Décision |
+|---|---|
+| **Le prix d'un bâtiment d'indépendant** | `terrain au cours du jour + 3 années de profit`, le profit étant celui des **douze derniers mois réellement écoulés**. On n'achète pas une promesse, on achète un compte d'exploitation. Trois ans, c'est le délai qu'un acheteur accepte de payer d'avance ; au-delà il préfère bâtir. Remplace l'ancien `valeur de marché × 1,20`, qui reposait sur le multiple boursier et n'avait aucun sens pour un actif qui ne se cote pas. |
+| **Une affaire ruinée vaut moins que son terrain** | Le profit entre au prix avec son signe. Une ferme à 725 $ de terrain qui perd 73 $/an se rachète **507 $**. C'est ce qui rend les affaires en difficulté intéressantes à ramasser. |
+| **Le plancher** | Jamais moins que **la moitié du foncier**. Sous ce seuil il vaudrait mieux raser et repartir — et le sol, lui, garde sa valeur quoi qu'il arrive. |
+| **La vente au même prix** | `prixDeCession` **est** `prixRachatIndependant`. Un marché où l'on achèterait cher pour revendre bon marché ne serait pas un marché, ce serait une taxe. Le bâtiment repasse aux indépendants et continue de tourner ; les cases suivent. |
+| **La vente d'un terrain nu** | Au prix du marché du jour, **sans la majoration de 20 %** : ce surprix est ce qu'un indépendant fait payer pour vendre hors de son tour, et l'on ne se le verse pas à soi-même. Acheter tôt et revendre quand la ville a grandi reste rentable — c'est le niveau de la ville qui fait le prix, pas la transaction. |
+| **Vendre ou démolir** | Les deux boutons côte à côte, et la note dit lequel choisir : vendre quand on veut l'argent, démolir quand on veut la **place**. |
+| **Le détail du prix, à l'écran** | La fiche d'un indépendant montre la décomposition en clair — terrain, trois années de profit avec le profit annuel constaté, total — plutôt qu'un chiffre nu. Un joueur qui ne voit pas d'où sort un prix ne peut pas décider. |
+
+Mesuré dans la page publiée : minoterie à 910 $ de terrain et 173 $/an de profit → rachat
+**1 429 $**, revente **1 429 $**. Terrain nu acheté 402 $ à un indépendant (335 + 20 %),
+revendu **335 $**.

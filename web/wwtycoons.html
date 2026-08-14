@@ -496,7 +496,9 @@ const P = {
   nomsNiveau: ['Comptoir', 'Bourg', 'Ville', 'Grandeville', 'Métropole'],
   attenuationDistance: 0.04,   // 1 / (1 + 0,04 × cases)
   partIndependants: 0.30,
-  surprixIndependants: 1.20,
+  surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
+  anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
+  plancherCession: 0.50,       // jamais moins que la moitié de son foncier
 
   chantiersVilleParMois: 6,       // ce qu'une ville peut lancer en un mois
   rendementMinimalPourBatir: 0.05,  // sous ce rendement attendu, on ne bâtit pas
@@ -2512,8 +2514,59 @@ class Monde {
   // Un propriétaire indépendant vend à qui le demande, au prix du marché majoré
   // de 20 %, sans limite de fréquence. C'est le raccourci payant : on n'attend
   // pas d'avoir bâti, on rachète — plus cher.
+  // Le prix d'un bâtiment tenu par un indépendant — et, au centime près, celui
+  // qu'on en tire quand on le revend.
+  //
+  //   prix = terrain au cours du jour + 3 années de profit
+  //
+  // Le profit est celui des douze derniers mois réellement écoulés : on n'achète
+  // pas une promesse, on achète un compte d'exploitation. Trois ans, c'est le
+  // délai qu'un acheteur accepte de payer d'avance — au-delà il préfère bâtir.
+  //
+  // Un bâtiment qui perd de l'argent vaut donc MOINS que son terrain : c'est ce
+  // qui rend les affaires en difficulté intéressantes à ramasser. Le prix ne
+  // tombe pourtant jamais sous la moitié du foncier — sous ce seuil il vaudrait
+  // mieux raser et repartir, et le sol, lui, garde sa valeur quoi qu'il arrive.
   prixRachatIndependant(b) {
-    return b.valeur(this.multiple) * P.surprixIndependants;
+    const terrain = b.terrainCourant;
+    return Math.max(terrain * P.plancherCession,
+                    terrain + P.anneesDeProfit * b.profitAnnuel);
+  }
+
+  // Le même prix, vu du vendeur. C'est délibérément la même formule : un marché
+  // où l'on achèterait cher pour revendre bon marché ne serait pas un marché,
+  // ce serait une taxe.
+  prixDeCession(b) { return this.prixRachatIndependant(b); }
+
+  // Vendre un bâtiment. Il repasse aux indépendants — quelqu'un le reprend
+  // toujours, au prix que dit le compte d'exploitation — et les cases avec lui.
+  vendreBatiment(b, societe) {
+    if (b.societe !== societe) return false;
+    const prix = this.prixDeCession(b);
+    societe.encaisser(prix);
+    societe.batiments = societe.batiments.filter(x => x !== b);
+    b.societe = null;
+    b.versEntrepot = false;
+    (b.ville.batIndependants ||= []).push(b);
+    for (const c of b.cases) c.proprio = 'ind';
+    this.journal.push(`${this.mois} · ${societe.nom} cède ${BAT[b.type].nom} à ${b.ville.nom} — ${Math.round(prix)} $`);
+    return true;
+  }
+
+  // Vendre une case nue. On la reprend au prix du marché, sans la majoration de
+  // 20 % : ce surprix est ce qu'un indépendant fait payer pour vendre hors de
+  // son tour, et l'on ne se le verse pas à soi-même.
+  prixCessionTerrain(ville, c) {
+    return prixTerrain((c.ville || ville).niveau, c.distanceGare, qualiteMax(c));
+  }
+
+  vendreTerrain(ville, c, societe) {
+    if (c.proprio !== societe.id || c.bat || c.chantier) return false;
+    const prix = this.prixCessionTerrain(ville, c);
+    societe.encaisser(prix);
+    c.proprio = 'ind';
+    c.prixPaye = prix;
+    return true;
   }
 
   acheterBatiment(b, societe) {
@@ -4387,7 +4440,17 @@ function ficheTerrain(monde, v, c) {
   const achetable = estAchetable(monde, c) || c.proprio === 'ind';
   let actions = '';
   if (aMoi) {
-    actions = menuConstruire(monde, v, c);
+    const revente = monde.prixCessionTerrain(v, c);
+    actions = menuConstruire(monde, v, c)
+      + `<h3>Ou s'en défaire</h3>
+         <div class="actions">
+           <button id="btnVendreTerrain">Vendre le terrain — ${eur(revente)}</button>
+         </div>
+         <div class="note">Un indépendant le reprend au prix du marché du jour, sans la
+           majoration de 20 % : ce surprix est ce qu'un indépendant fait payer pour vendre
+           hors de son tour, et l'on ne se le verse pas à soi-même. Acheter tôt et revendre
+           quand la ville a grandi reste donc rentable — c'est le niveau de la ville qui
+           fait le prix, pas la transaction.</div>`;
   } else if (achetable) {
     const peut = joueur.tresorerie >= prix;
     actions = `<div class="actions">
@@ -4756,23 +4819,47 @@ function ficheBatiment(monde, b, c) {
         <div class="note">Curseur à zéro : plus de matières achetées, plus de salaires versés.
         Le bâtiment reste debout moyennant un entretien réduit à 10 % de sa masse salariale.</div>`;
     }
-    actions += `<div class="actions" style="margin-top:10px">
-      <button id="btnDemolir">Démolir</button></div>
-      <div class="note">Vous conservez le terrain, ne récupérez aucun matériau, et la case est
-      libre le mois suivant. C'est le seul moyen, pour une ville saturée, de se densifier.</div>`;
+    const cession = monde.prixDeCession(b);
+    const terrain = b.terrainCourant;
+    actions += `<h3>S'en défaire</h3>
+      <div class="actions">
+        <button class="primaire" id="btnVendre">Vendre — ${eur(cession)}</button>
+        <button id="btnDemolir">Démolir</button>
+      </div>
+      <div class="note"><b>Vendre</b> : un indépendant le reprend au prix que dit son compte
+        d'exploitation — ${eur(terrain)} de terrain ${b.profitAnnuel >= 0 ? '+' : '−'}
+        ${eur(Math.abs(P.anneesDeProfit * b.profitAnnuel))} de ${P.anneesDeProfit} années de
+        profit. C'est exactement le prix auquel vous l'auriez racheté : on n'achète pas cher
+        pour revendre bon marché.
+        ${cession <= terrain * P.plancherCession + 0.5
+          ? ' Ici le plancher joue — une affaire ruinée ne descend jamais sous la moitié de son foncier.'
+          : ''}</div>
+      <div class="note"><b>Démolir</b> : vous conservez le terrain, ne récupérez aucun
+        matériau, et la case est libre le mois suivant. À préférer quand c'est la PLACE que
+        vous voulez, et non l'argent.</div>`;
 
   } else if (independant) {
-    // Un indépendant vend à qui le demande, au prix du marché majoré de 20 %.
+    // Un indépendant vend à qui le demande — au prix de son compte d'exploitation.
     const prix = monde.prixRachatIndependant(b);
+    const terrain = b.terrainCourant;
     const peut = joueur.tresorerie >= prix;
+    const troisAns = P.anneesDeProfit * b.profitAnnuel;
     actions = `<h3>L'acquérir</h3>
       <div class="actions">
         <button class="primaire" id="btnRacheter" ${peut ? '' : 'disabled'}>
           Racheter — ${eur(prix)}</button>
       </div>
-      <div class="note">Un propriétaire indépendant vend à qui le demande, au prix du marché
-      majoré de 20 % — ${eur(b.valeur(monde.multiple))} + 20 %. C'est cher, et c'est le
-      raccourci : on n'attend pas d'avoir bâti.</div>
+      <table style="margin-top:8px">
+        <tr><td>Terrain, au cours du jour</td><td class="n">${eur(terrain)}</td></tr>
+        <tr><td>${P.anneesDeProfit} années de profit
+          <span class="faible">(12 derniers mois : ${eur(b.profitAnnuel)}/an)</span></td>
+          <td class="n ${troisAns >= 0 ? 'vert' : 'rouge'}">${troisAns >= 0 ? '+' : ''}${eur(troisAns)}</td></tr>
+        <tr><td><b>Prix</b></td><td class="n"><b>${eur(prix)}</b></td></tr>
+      </table>
+      <div class="note">Un indépendant vend à qui le demande. On n'achète pas une promesse,
+      on achète un compte d'exploitation : une affaire qui perd de l'argent vaut MOINS que
+      son terrain — sans jamais tomber sous la moitié du foncier, car le sol, lui, garde sa
+      valeur quoi qu'il arrive.</div>
       ${peut ? '' : '<div class="avert">Trésorerie insuffisante.</div>'}`;
 
   } else {
@@ -5069,6 +5156,18 @@ function brancherFeuille(c) {
     monde.demolir(c.bat); rendu.rafraichirIndex(); fermerFeuille(); rafraichirTout();
   };
 
+  // Céder ce qu'on possède, au même prix qu'on l'aurait payé.
+  const vnd = $('#btnVendre');
+  if (vnd && c.bat) vnd.onclick = () => {
+    if (monde.vendreBatiment(c.bat, joueur)) {
+      rendu.rafraichirIndex(); rafraichirTout();
+    }
+  };
+  const vTer = $('#btnVendreTerrain');
+  if (vTer && c.ville && !c.bat) vTer.onclick = () => {
+    if (monde.vendreTerrain(c.ville, c, joueur)) rafraichirTout();
+  };
+
   // Racheter à un indépendant : il vend toujours, au prix majoré.
   const rach = $('#btnRacheter');
   if (rach && c.bat) rach.onclick = () => {
@@ -5238,7 +5337,10 @@ addEventListener('resize', () => rendu.dimensionner());
 rendu.emprise = (c, type) => empriseConstructible(monde, c, type);
 rendu.villeAuCentre = () => monde.villeChoisie || monde.villes[0];
 
-window.__rendu = rendu; window.__monde = monde; window.__feuille = contenuFeuille; window.__feuille = contenuFeuille;
+window.__rendu = rendu; window.__monde = monde; window.__feuille = contenuFeuille;
+// Ouvrir la fiche d'une case par programme : le banc d'essai s'en sert pour
+// vérifier les fiches sans avoir à viser un pixel sur la carte.
+window.__inspecter = (c) => { rendu.selection = c; ouvrirFeuille(); rafraichirFeuille(); }; window.__feuille = contenuFeuille;
 
 rendu.dimensionner();
 rendu.rafraichirIndex();

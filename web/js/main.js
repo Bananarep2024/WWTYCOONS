@@ -260,6 +260,18 @@ function brancherFeuille(c) {
     monde.demolir(c.bat); rendu.rafraichirIndex(); fermerFeuille(); rafraichirTout();
   };
 
+  // Céder ce qu'on possède, au même prix qu'on l'aurait payé.
+  const vnd = $('#btnVendre');
+  if (vnd && c.bat) vnd.onclick = () => {
+    if (monde.vendreBatiment(c.bat, joueur)) {
+      rendu.rafraichirIndex(); rafraichirTout();
+    }
+  };
+  const vTer = $('#btnVendreTerrain');
+  if (vTer && c.ville && !c.bat) vTer.onclick = () => {
+    if (monde.vendreTerrain(c.ville, c, joueur)) rafraichirTout();
+  };
+
   // Racheter à un indépendant : il vend toujours, au prix majoré.
   const rach = $('#btnRacheter');
   if (rach && c.bat) rach.onclick = () => {
@@ -429,7 +441,10 @@ addEventListener('resize', () => rendu.dimensionner());
 rendu.emprise = (c, type) => empriseConstructible(monde, c, type);
 rendu.villeAuCentre = () => monde.villeChoisie || monde.villes[0];
 
-window.__rendu = rendu; window.__monde = monde; window.__feuille = contenuFeuille; window.__feuille = contenuFeuille;
+window.__rendu = rendu; window.__monde = monde; window.__feuille = contenuFeuille;
+// Ouvrir la fiche d'une case par programme : le banc d'essai s'en sert pour
+// vérifier les fiches sans avoir à viser un pixel sur la carte.
+window.__inspecter = (c) => { rendu.selection = c; ouvrirFeuille(); rafraichirFeuille(); }; window.__feuille = contenuFeuille;
 
 rendu.dimensionner();
 rendu.rafraichirIndex();

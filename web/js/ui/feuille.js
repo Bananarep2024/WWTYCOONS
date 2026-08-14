@@ -72,7 +72,17 @@ function ficheTerrain(monde, v, c) {
   const achetable = estAchetable(monde, c) || c.proprio === 'ind';
   let actions = '';
   if (aMoi) {
-    actions = menuConstruire(monde, v, c);
+    const revente = monde.prixCessionTerrain(v, c);
+    actions = menuConstruire(monde, v, c)
+      + `<h3>Ou s'en défaire</h3>
+         <div class="actions">
+           <button id="btnVendreTerrain">Vendre le terrain — ${eur(revente)}</button>
+         </div>
+         <div class="note">Un indépendant le reprend au prix du marché du jour, sans la
+           majoration de 20 % : ce surprix est ce qu'un indépendant fait payer pour vendre
+           hors de son tour, et l'on ne se le verse pas à soi-même. Acheter tôt et revendre
+           quand la ville a grandi reste donc rentable — c'est le niveau de la ville qui
+           fait le prix, pas la transaction.</div>`;
   } else if (achetable) {
     const peut = joueur.tresorerie >= prix;
     actions = `<div class="actions">
@@ -441,23 +451,47 @@ function ficheBatiment(monde, b, c) {
         <div class="note">Curseur à zéro : plus de matières achetées, plus de salaires versés.
         Le bâtiment reste debout moyennant un entretien réduit à 10 % de sa masse salariale.</div>`;
     }
-    actions += `<div class="actions" style="margin-top:10px">
-      <button id="btnDemolir">Démolir</button></div>
-      <div class="note">Vous conservez le terrain, ne récupérez aucun matériau, et la case est
-      libre le mois suivant. C'est le seul moyen, pour une ville saturée, de se densifier.</div>`;
+    const cession = monde.prixDeCession(b);
+    const terrain = b.terrainCourant;
+    actions += `<h3>S'en défaire</h3>
+      <div class="actions">
+        <button class="primaire" id="btnVendre">Vendre — ${eur(cession)}</button>
+        <button id="btnDemolir">Démolir</button>
+      </div>
+      <div class="note"><b>Vendre</b> : un indépendant le reprend au prix que dit son compte
+        d'exploitation — ${eur(terrain)} de terrain ${b.profitAnnuel >= 0 ? '+' : '−'}
+        ${eur(Math.abs(P.anneesDeProfit * b.profitAnnuel))} de ${P.anneesDeProfit} années de
+        profit. C'est exactement le prix auquel vous l'auriez racheté : on n'achète pas cher
+        pour revendre bon marché.
+        ${cession <= terrain * P.plancherCession + 0.5
+          ? ' Ici le plancher joue — une affaire ruinée ne descend jamais sous la moitié de son foncier.'
+          : ''}</div>
+      <div class="note"><b>Démolir</b> : vous conservez le terrain, ne récupérez aucun
+        matériau, et la case est libre le mois suivant. À préférer quand c'est la PLACE que
+        vous voulez, et non l'argent.</div>`;
 
   } else if (independant) {
-    // Un indépendant vend à qui le demande, au prix du marché majoré de 20 %.
+    // Un indépendant vend à qui le demande — au prix de son compte d'exploitation.
     const prix = monde.prixRachatIndependant(b);
+    const terrain = b.terrainCourant;
     const peut = joueur.tresorerie >= prix;
+    const troisAns = P.anneesDeProfit * b.profitAnnuel;
     actions = `<h3>L'acquérir</h3>
       <div class="actions">
         <button class="primaire" id="btnRacheter" ${peut ? '' : 'disabled'}>
           Racheter — ${eur(prix)}</button>
       </div>
-      <div class="note">Un propriétaire indépendant vend à qui le demande, au prix du marché
-      majoré de 20 % — ${eur(b.valeur(monde.multiple))} + 20 %. C'est cher, et c'est le
-      raccourci : on n'attend pas d'avoir bâti.</div>
+      <table style="margin-top:8px">
+        <tr><td>Terrain, au cours du jour</td><td class="n">${eur(terrain)}</td></tr>
+        <tr><td>${P.anneesDeProfit} années de profit
+          <span class="faible">(12 derniers mois : ${eur(b.profitAnnuel)}/an)</span></td>
+          <td class="n ${troisAns >= 0 ? 'vert' : 'rouge'}">${troisAns >= 0 ? '+' : ''}${eur(troisAns)}</td></tr>
+        <tr><td><b>Prix</b></td><td class="n"><b>${eur(prix)}</b></td></tr>
+      </table>
+      <div class="note">Un indépendant vend à qui le demande. On n'achète pas une promesse,
+      on achète un compte d'exploitation : une affaire qui perd de l'argent vaut MOINS que
+      son terrain — sans jamais tomber sous la moitié du foncier, car le sol, lui, garde sa
+      valeur quoi qu'il arrive.</div>
       ${peut ? '' : '<div class="avert">Trésorerie insuffisante.</div>'}`;
 
   } else {

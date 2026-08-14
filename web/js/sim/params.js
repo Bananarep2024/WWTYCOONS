@@ -65,7 +65,9 @@ export const P = {
   nomsNiveau: ['Comptoir', 'Bourg', 'Ville', 'Grandeville', 'Métropole'],
   attenuationDistance: 0.04,   // 1 / (1 + 0,04 × cases)
   partIndependants: 0.30,
-  surprixIndependants: 1.20,
+  surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
+  anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
+  plancherCession: 0.50,       // jamais moins que la moitié de son foncier
 
   chantiersVilleParMois: 6,       // ce qu'une ville peut lancer en un mois
   rendementMinimalPourBatir: 0.05,  // sous ce rendement attendu, on ne bâtit pas

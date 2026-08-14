@@ -119,7 +119,9 @@ terme** : un mois dure dix secondes, et elle court tant qu'on la fait courir.
 - **Depuis un logement, la ville** : chômage, jauges de nourriture et de produits
   manufacturés, salaire de case, revenu du ménage et taux d'épargne — un immeuble ne vaut
   que par le pouvoir d'achat de ceux qui l'habitent
-- **Racheter** le bâtiment d'un indépendant, **faire une offre** sur celui d'un rival
+- **Racheter** le bâtiment d'un indépendant et **le revendre**, au même prix : terrain au
+  cours du jour + 3 années de profit sur les 12 derniers mois. Vente des terrains nus aussi.
+- **Faire une offre** sur le bâtiment d'un rival
 - **Filtre de rentabilité** par type de bâtiment, sur la même échelle rouge → vert
 - Marché foncier : contiguïté, propriétaires indépendants, prix selon le niveau et la distance
 - Douze ressources, trois niveaux de filière, qualité de sol de 1 à 5 par case
