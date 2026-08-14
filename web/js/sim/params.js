@@ -83,7 +83,29 @@ export const P = {
   facteurNiveau: [1.0, 1.3, 1.8, 2.6, 4.0],
   seuilsNiveau: [100, 250, 500, 1000, 2000],   // en ménages
   nomsNiveau: ['Comptoir', 'Bourg', 'Ville', 'Grandeville', 'Métropole'],
-  attenuationDistance: 0.04,   // 1 / (1 + 0,04 × cases)
+  // L'atténuation du prix du sol avec la distance à la gare, PAR NIVEAU.
+  //
+  // C'était une constante, et c'était l'erreur : le rapport centre / périphérie
+  // restait alors figé pour toujours, et quand la ville montait d'un palier tout
+  // le monde était multiplié par le même nombre. Or dans un hameau le centre ne
+  // vaut guère plus que la lisière, tandis que dans une métropole il vaut vingt
+  // fois plus. L'atténuation doit donc se DURCIR avec le niveau.
+  //
+  // Elle est PROPORTIONNELLE au facteur de niveau, et ce n'est pas un détail :
+  // c'est la seule progression qui garantisse qu'aucune case ne perde jamais de
+  // valeur quand la ville grandit. Une première version montait plus vite —
+  // 0,020 à 0,130 — et une case de lisière passait alors de 271 à 257 $ au
+  // passage au Bourg. « Mon terrain vaut moins parce que la ville a grandi » est
+  // exactement ce qu'un joueur ne doit jamais lire.
+  //
+  //   attenuation[n] = 0,028 × facteurNiveau[n]
+  //
+  // Le potentiel de valorisation va alors de ×4,00 contre la gare à ×1,49 à
+  // quarante-cinq cases, en croissant à chaque palier partout. Et c'est de là
+  // que vient tout le reste : une résidence encaisse la hausse du sol par son
+  // loyer, un atelier ne fait que la subir dans son prix de revient. L'économie
+  // range la ville toute seule.
+  attenuationDistance: [0.0280, 0.0364, 0.0504, 0.0728, 0.1120],
   partIndependants: 0.30,
   surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
   anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
@@ -253,10 +275,24 @@ export function facteurQualite(q) {
 // qui donne son sel à l'achat précoce — la terre est chère AVANT qu'on ait bâti.
 export function prixTerrain(niveau, distanceGare, richesse = 3) {
   const fn = P.facteurNiveau[niveau - 1];
-  const fd = 1 / (1 + P.attenuationDistance * distanceGare);
+  const fd = 1 / (1 + P.attenuationDistance[niveau - 1] * distanceGare);
   const fq = P.richessePlancher
            + (1 - P.richessePlancher) * Math.pow(richesse / 3, P.richesseExposant);
   return P.terrainRef * fn * fd * fq;
+}
+
+// Ce que cette case vaudra si la ville va au bout, rapporté à ce qu'elle vaut
+// aujourd'hui.
+//
+// C'est le seul chiffre qui distingue le centre de la périphérie, puisque le
+// rendement, lui, est le même partout à tout instant — le loyer étant indexé sur
+// le foncier, il s'ajuste et le taux ne bouge pas. Ce qui diffère, c'est la
+// PENTE : bâtir au centre en début de partie, c'est acheter un loyer qui
+// quadruplera ; bâtir en lisière, c'est acheter un loyer qui gagnera 11 %.
+export function potentielTerrain(niveau, distanceGare, richesse = 3) {
+  const ici = prixTerrain(niveau, distanceGare, richesse);
+  if (ici <= 0) return 1;
+  return prixTerrain(P.facteurNiveau.length, distanceGare, richesse) / ici;
 }
 
 // La meilleure ressource d'une case décide de ce qu'elle vaut : le sol se paie

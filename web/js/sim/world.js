@@ -696,7 +696,10 @@ export class Monde {
       // tout le chômage.
       const revenu = P.employesParMenage * v.salaire * v.barometres.emploi;
       const prixNourr = Math.min(m.prix.pain, m.prix.viande);
-      const dispo = Math.max(0, revenu - 5);            // hors loyer approximé
+      // Le loyer se prélève avant tout le reste, et c'est celui qu'on paie
+      // vraiment — pas un forfait.
+      v.loyer = this.loyerMoyen(v);
+      const dispo = Math.max(0, revenu - v.loyer);
       const partNourr = Math.min(1, dispo / Math.max(0.01, prixNourr));
       const reste = Math.max(0, dispo - partNourr * prixNourr);
       const partProd = Math.min(1, reste / Math.max(0.01, m.prix.produits));
@@ -875,7 +878,8 @@ export class Monde {
       const revenu = P.employesParMenage * v.salaire * v.barometres.emploi;
       const depense = v.nourrObtenue / Math.max(1, v.menages)
                         * Math.min(m.prix.pain, m.prix.viande)
-                    + v.prodObtenue / Math.max(1, v.menages) * m.prix.produits + 5;
+                    + v.prodObtenue / Math.max(1, v.menages) * m.prix.produits
+                    + (v.loyer === undefined ? P.loyerBase : v.loyer);
       v.epargne += Math.max(0, revenu - depense) * v.menages;
 
       // Ce que le ménage gagne, ce qu'il dépense, ce qu'il met de côté. Trois
@@ -981,7 +985,7 @@ export class Monde {
     // sort. Or l'épargne des ménages est le SEUL capital qui bâtisse la ville :
     // un salaire trop bas ne fait pas des entreprises rentables, il fait une
     // ville qui ne se construit jamais.
-    const panier = Math.min(m.prix.pain, m.prix.viande) + m.prix.produits + P.loyerBase;
+    const panier = this.panier(v);   // loyer réel compris
     const emploi = Math.max(0.4, v.barometres.emploi);
     const subsistance = panier * (1 + P.epargneVisee) / (P.employesParMenage * emploi);
     cible = Math.max(cible, subsistance);
@@ -1024,9 +1028,34 @@ export class Monde {
   // L'aisance vaut 1,00 quand le ménage boucle son mois au centime près. Elle
   // monte au-dessus quand il lui reste de quoi épargner — et l'épargne est ce
   // qui bâtit la ville, si bien qu'une ville aisée s'équipe, donc attire encore.
+  // Le loyer moyen effectivement pratiqué dans la ville.
+  //
+  // Le budget du ménage provisionnait 5 $ forfaitaires alors que le loyer suit
+  // le foncier — jusqu'à 8,75 $ au centre d'une Métropole. Tant que le gradient
+  // était plat l'écart restait anecdotique ; avec une atténuation qui se durcit
+  // par palier, il devient matériel, et un ménage paierait un loyer que son
+  // panier n'a pas prévu. Le pouvoir d'achat, donc l'attractivité, donc la
+  // démographie s'en trouveraient faussés sans que rien ne le signale.
+  // Mémorisé au mois : il parcourt tout le parc, et il est demandé cinq fois par
+  // ville et par mois — panier, aisance, attractivité, migrations, salaire —
+  // plus une fois par image quand le volet des villes est ouvert. Sans ce cache
+  // le coût d'un mois simulé doublait, de 9,8 à 18,6 ms.
+  loyerMoyen(v) {
+    if (v._loyerMois === this.mois) return v._loyerCache;
+    let total = 0, foyers = 0;
+    for (const b of this.tousBatiments(v)) {
+      if (b.def.cat !== 'loge') continue;
+      total += b.loyerPlein;
+      foyers += b.def.menages;
+    }
+    v._loyerMois = this.mois;
+    v._loyerCache = foyers > 0 ? total / foyers : P.loyerBase;
+    return v._loyerCache;
+  }
+
   panier(v) {
     const m = v.marche;
-    return Math.min(m.prix.pain, m.prix.viande) + m.prix.produits + P.loyerBase;
+    return Math.min(m.prix.pain, m.prix.viande) + m.prix.produits + this.loyerMoyen(v);
   }
 
   aisance(v) {

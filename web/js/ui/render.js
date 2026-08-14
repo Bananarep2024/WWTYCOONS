@@ -11,7 +11,8 @@
 // qu'on demande, jamais l'état de repos de la carte.
 // ---------------------------------------------------------------------------
 
-import { P, RES, RELIEFS, BAT, prixTerrain, qualiteMax } from '../sim/params.js';
+import { P, RES, RELIEFS, BAT, prixTerrain, qualiteMax, potentielTerrain }
+  from '../sim/params.js';
 import { estAchetable } from '../sim/mapgen.js';
 import { sprite, videCache, COULEURS } from './sprites.js';
 
@@ -51,6 +52,21 @@ export const FILTRES_CASE = {
   terrain:   { nom: 'Prix du sol',
                lire: (c) => 1 - Math.min(1, (prixTerrain(c.ville ? c.ville.niveau : 1,
                                               c.distanceGare, qualiteMax(c)) - 40) / 500) },
+
+  // Le potentiel de valorisation : ce que la case vaudra si la ville va au bout,
+  // rapporté à ce qu'elle vaut aujourd'hui.
+  //
+  // C'est le seul chiffre qui distingue le centre de la périphérie, puisque le
+  // rendement est le même partout à tout instant — le loyer étant indexé sur le
+  // foncier, il s'ajuste et le taux ne bouge pas. Ce qui diffère, c'est la
+  // PENTE. On normalise sur l'amplitude complète du barème, de ×1 à ×4, pour
+  // que la couleur veuille dire la même chose d'une ville à l'autre.
+  potentiel: { nom: 'Potentiel de valorisation',
+               lire: (c) => {
+                 if (!c.ville) return 0;
+                 const p = potentielTerrain(c.ville.niveau, c.distanceGare, qualiteMax(c));
+                 return Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[4] - 1)));
+               } },
 };
 
 // Les filtres par ville : l'emploi, le salaire et les baromètres ne se

@@ -7,7 +7,8 @@
 // ---------------------------------------------------------------------------
 
 import { P, BAT, RES, RELIEFS, QUALITES, materiaux, coutRef, prixTerrain,
-         rendementVise, facteurQualite, qualiteMax } from '../sim/params.js';
+         rendementVise, facteurQualite, qualiteMax, potentielTerrain }
+  from '../sim/params.js';
 import { estAchetable } from '../sim/mapgen.js';
 import { COULEURS, echelle } from './render.js';
 import { eur, pct, rgb } from './panneaux.js';
@@ -105,9 +106,55 @@ function ficheTerrain(monde, v, c) {
     + `<div class="grille">
         <div class="fiche"><div class="etiq">Prix du sol</div><div class="v">${eur(prix)}</div></div>
         <div class="fiche"><div class="etiq">Facteur ville</div><div class="v">×${P.facteurNiveau[v.niveau - 1].toFixed(1)}</div></div>
-        <div class="fiche"><div class="etiq">Facteur distance</div><div class="v">×${(1 / (1 + P.attenuationDistance * c.distanceGare)).toFixed(2)}</div></div>
+        <div class="fiche"><div class="etiq">Facteur distance</div>
+          <div class="v">×${(1 / (1 + P.attenuationDistance[v.niveau - 1] * c.distanceGare)).toFixed(2)}</div></div>
       </div>`
+    + jaugePotentiel(v, c)
     + actions;
+}
+
+// La jauge de potentiel de valorisation.
+//
+// Le rendement d'un logement est le même partout à tout instant : le loyer est
+// indexé sur le foncier, donc il s'ajuste et le taux ne bouge pas. Ce qui
+// distingue le centre, c'est la PENTE — bâtir contre la gare au premier mois,
+// c'est acheter un loyer qui quadruplera ; bâtir en lisière, un loyer qui
+// gagnera 11 %. Sans cette jauge, rien à l'écran ne le dirait.
+function jaugePotentiel(v, c, bat) {
+  const richesse = qualiteMax(c);
+  const p = potentielTerrain(v.niveau, c.distanceGare, richesse);
+  const t = Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[4] - 1)));
+  const auj = prixTerrain(v.niveau, c.distanceGare, richesse);
+  const suivant = v.niveau < 5 ? prixTerrain(v.niveau + 1, c.distanceGare, richesse) : null;
+  const bout = prixTerrain(5, c.distanceGare, richesse);
+
+  // Le même mouvement du sol enrichit une résidence et appauvrit un atelier :
+  // le loyer suit le foncier, la recette d'un atelier n'en dépend pas.
+  let dit = `Le sol de cette case peut encore <b>${p.toFixed(2)} ×</b> sa valeur.`;
+  if (bat && bat.def.cat === 'loge') {
+    dit += ' Le loyer étant indexé sur le foncier, <span class="vert">votre loyer suivra</span> —'
+         + ' et votre rendement montera d\'autant, puisqu\'il se calcule sur ce que vous avez payé.';
+  } else if (bat) {
+    dit += ' La recette d\'un atelier ne dépend pas du sol :'
+         + ' <span class="rouge">seul votre prix de revient suivra</span>, donc votre rendement'
+         + ' baissera. L\'industrie a intérêt à la périphérie, l\'habitation au centre.';
+  } else {
+    dit += ' Une résidence encaisserait cette hausse par son loyer ; un atelier ne ferait que'
+         + ' la subir dans son prix de revient.';
+  }
+
+  return `<h3>Potentiel de valorisation</h3>
+    <div class="miniPiste" style="margin-bottom:6px">
+      <div style="width:${(t * 100).toFixed(0)}%;background:${rgb(echelle(t))}"></div>
+    </div>
+    <div class="grille">
+      <div class="fiche"><div class="etiq">Aujourd'hui</div><div class="v">${eur(auj)}</div></div>
+      ${suivant ? `<div class="fiche"><div class="etiq">${P.nomsNiveau[v.niveau]}</div>
+        <div class="v doux">${eur(suivant)}</div></div>` : ''}
+      <div class="fiche"><div class="etiq">Métropole</div>
+        <div class="v" style="color:${rgb(echelle(t))}">${eur(bout)}</div></div>
+    </div>
+    <div class="note">${dit}</div>`;
 }
 
 // --- Le menu de construction ------------------------------------------------
@@ -428,6 +475,7 @@ function ficheBatiment(monde, b, c) {
       <div class="fiche"><div class="etiq">Quartier</div>
         <div class="v doux" style="font-size:12px">${NOMS_QUARTIER[b.cases[0].quartier] || '—'}</div></div>
     </div>
+    ${jaugePotentiel(b.ville, b.cases[0], b)}
     ${def.qual ? `<div class="note">Sol de qualité <b>${b.qualite.toFixed(1)} / 5</b> : cette
       exploitation sort ${facteurQualite(b.qualite).toFixed(2)}× ce que sortirait la même sur une terre
       moyenne. Un handicap de terrain ne fait aucun bruit — il se lit uniquement dans la

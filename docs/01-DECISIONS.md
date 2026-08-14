@@ -592,3 +592,92 @@ Mesuré à 1/30 avec les départs hétérogènes et la carte agrandie :
 Chômage 16 %, nourriture 100 %, produits 94 %, attractivité 98 %, salaire 21,2 $ — et encore
 **2 538 cases libres** par territoire. Sur la partie de référence, les cinq villes passent
 de 55 ménages à 618–1 063 en vingt ans : quatre au niveau **Ville**, une **Grandeville**.
+
+---
+
+## Le centre se convoite par la pente, pas par le taux
+
+Le rendement d'un logement est le même partout à tout instant, et c'est un équilibre, pas un
+défaut : le loyer étant indexé sur le foncier — `rdt × (terrain + construction) / 12 +
+entretien` — il s'ajuste et le taux ne bouge pas. Un rendement central supérieur serait
+d'ailleurs **instable** : tout le monde y achèterait jusqu'à ce que le prix du sol remonte et
+ramène le taux à l'équilibre.
+
+Ce qui distingue le centre, c'est la **pente**.
+
+### L'atténuation se durcit avec le niveau de la ville
+
+`attenuationDistance` était une constante — 0,04 quel que soit le palier. Le rapport centre /
+périphérie restait donc figé pour toujours : quand la ville montait d'un cran, tout le monde
+était multiplié par le même nombre. Or dans un hameau le centre ne vaut guère plus que la
+lisière, tandis que dans une métropole il vaut vingt fois plus.
+
+```
+attenuation[n] = 0,028 × facteurNiveau[n]   →   [0,0280 · 0,0364 · 0,0504 · 0,0728 · 0,1120]
+```
+
+**La proportionnalité n'est pas cosmétique : c'est elle qui garantit qu'aucune case ne perd
+jamais de valeur.** Une première version montait plus vite — 0,020 à 0,130 — et une case de
+lisière passait de 271 à 257 $ au passage au Bourg. « Mon terrain vaut moins parce que la
+ville a grandi » est exactement ce qu'un joueur ne doit jamais lire. Le banc d'essai vérifie
+désormais cette monotonie sur les quatre paliers et soixante distances : le plus faible gain
+mesuré est de **+7 %**.
+
+| Distance | Comptoir | Bourg | Ville | Grandeville | Métropole | **Potentiel** |
+|---|---|---|---|---|---|---|
+| 0 — la gare | 100 $ | 130 $ | 180 $ | 260 $ | 400 $ | **×4,00** |
+| 5 | 88 $ | 111 $ | 148 $ | 205 $ | 256 $ | ×2,92 |
+| 10 | 78 $ | 96 $ | 124 $ | 164 $ | 189 $ | ×2,42 |
+| 20 | 64 $ | 76 $ | 94 $ | 118 $ | 124 $ | ×1,93 |
+| 30 | 54 $ | 63 $ | 75 $ | 91 $ | 92 $ | ×1,68 |
+| 45 — la lisière | 44 $ | 51 $ | 60 $ | 71 $ | 66 $ | **×1,49** |
+
+### Ce que ça donne pour un propriétaire
+
+| Maison bâtie au Comptoir et conservée | Loyer Comptoir | Loyer Métropole | **Rendement sur coût historique** |
+|---|---|---|---|
+| Contre la gare | 5,00 $ | 8,75 $ | **31,1 %** |
+| À 10 cases | 4,73 $ | 6,11 $ | 21,4 % |
+| À 30 cases | 4,43 $ | 4,90 $ | 17,4 % |
+| À 45 cases | 4,30 $ | 4,58 $ | **16,5 %** |
+
+Celui qui **achète aujourd'hui** en Métropole touche 15,0 % partout : le taux ne bouge pas.
+La récompense n'est pas un meilleur rendement, c'est d'avoir bâti tôt et tenu.
+
+### Et l'industrie s'en va d'elle-même en périphérie
+
+Une recette d'atelier ne dépend pas du sol — le terrain qui monte ne fait qu'alourdir son
+prix de revient :
+
+| Scierie | Comptoir | Métropole |
+|---|---|---|
+| Au centre | 19,9 % | **13,8 %** |
+| À 45 cases | 21,7 % | 21,0 % |
+
+Six points perdus au centre, sept dixièmes à la lisière. **Aucune règle d'urbanisme n'est
+nécessaire : l'économie range la ville toute seule**, et racheter l'atelier vieillissant du
+centre pour le démolir et bâtir des logements devient une opération rentable.
+
+### La jauge
+
+`potentielTerrain(niveau, distance, richesse)` = ce que la case vaudra en Métropole rapporté
+à ce qu'elle vaut aujourd'hui. Elle apparaît à trois endroits :
+
+- **un filtre de carte**, « Potentiel de valorisation », sur l'échelle commune rouge → vert ;
+- **la fiche d'un terrain**, avec le prix d'aujourd'hui, celui du palier suivant et celui de
+  la Métropole ;
+- **la fiche d'un bâtiment**, avec un texte qui change selon la catégorie — *« votre loyer
+  suivra »* pour une résidence, *« seul votre prix de revient suivra, donc votre rendement
+  baissera »* pour un atelier. C'est là que le joueur comprend l'asymétrie sans qu'on la lui
+  explique.
+
+### Le loyer provisionné devient le loyer réel
+
+Le budget du ménage retenait **5 $ forfaitaires** quand le loyer suit le foncier — jusqu'à
+8,75 $ au centre d'une Métropole. Tant que le gradient était plat l'écart restait anecdotique ;
+il devient matériel, et le ménage paierait un loyer que son panier n'a pas prévu, faussant
+silencieusement le pouvoir d'achat, donc l'attractivité, donc la démographie. `loyerMoyen(v)`
+calcule la moyenne pondérée réellement pratiquée dans la ville, et remplace le forfait dans
+le panier, dans le budget et dans le salaire de subsistance. Mémorisé au mois : il est
+demandé cinq fois par ville et par mois, plus une fois par image quand le volet des villes
+est ouvert.

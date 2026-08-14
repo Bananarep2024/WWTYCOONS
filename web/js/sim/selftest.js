@@ -1,6 +1,6 @@
 // Banc d'essai : vérifie que le barème code bien ce que dit docs/00-BAREME.md,
 // puis fait tourner vingt ans de simulation sans joueur.
-import { P, BAT, RES, materiaux, coutRef, loyer, prixTerrain } from './params.js';
+import { P, BAT, RES, materiaux, coutRef, loyer, prixTerrain, potentielTerrain } from './params.js';
 import { Monde } from './world.js';
 
 let ko = 0;
@@ -70,7 +70,25 @@ console.log('\n=== Formation des prix ===');
 console.log('\n=== Foncier ===');
 ok('case contre la gare, comptoir', prixTerrain(1, 0), 100, 0.01);
 ok('case contre la gare, métropole', prixTerrain(5, 0), 400, 0.01);
-ok('case à 32 cases, métropole', prixTerrain(5, 32), 175.4, 0.02);
+ok('case à 32 cases, métropole', prixTerrain(5, 32), 88.0, 0.02);
+ok('case à 32 cases, comptoir', prixTerrain(1, 32), 52.72, 0.02);
+
+// Le gradient se durcit avec le niveau : c'est là tout le mécanisme.
+ok('potentiel du centre, comptoir', potentielTerrain(1, 0), 4.00, 0.01);
+ok('potentiel à 30 cases, comptoir', potentielTerrain(1, 30), 1.677, 0.02);
+
+// ET AUCUNE CASE NE PERD JAMAIS DE VALEUR quand la ville monte d'un palier.
+// C'est ce que garantit une atténuation proportionnelle au facteur de niveau,
+// et c'est la seule chose qui rende le mécanisme lisible pour un joueur.
+{
+  let pire = Infinity, ou = '';
+  for (let n = 1; n <= 4; n++) for (let d = 0; d <= 60; d++) {
+    const r = prixTerrain(n + 1, d) / prixTerrain(n, d);
+    if (r < pire) { pire = r; ou = `niveau ${n}→${n + 1} à ${d} cases`; }
+  }
+  ok(`plus faible gain d'un palier (${ou})`, pire, 1.10, 0.10);
+  if (pire < 1) console.log('FAIL  une case PERD de la valeur en montant de palier');
+}
 
 console.log('\n=== Vingt ans de simulation, sans joueur ===');
 const monde = new Monde({ nbVilles: 5, duree: 240, graine: 12345 });
