@@ -196,6 +196,11 @@ export const P = {
   // Amorçage
   stockAmorcage: { planches: 800, briques: 400 },
 
+  // Ce qu'on peut pousser la carte au-delà de ses bords, en fraction d'écran.
+  // Sans ce débordement, une ville de lisière reste collée au bord et l'on ne
+  // peut jamais la placer au milieu de la vue pour la regarder tranquillement.
+  debordement: 0.20,
+
   // Carte — une seule grille pour tout le monde
   //
   // La taille n'est pas décorative : elle décide du dernier palier atteignable.

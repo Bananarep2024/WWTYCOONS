@@ -134,8 +134,13 @@ export class Rendu {
   // elle est plus petite, elle reste centrée.
   recadrer() {
     const eL = this.monde.L * this.pas, eH = this.monde.H * this.pas;
-    const mx = Math.max(0, (eL - this.w) / 2);
-    const my = Math.max(0, (eH - this.h) / 2);
+    // On autorise un débordement d'une fraction d'ÉCRAN au-delà des bords —
+    // pas une fraction de carte, qui vaudrait dix fois plus au zoom minimal et
+    // rien du tout au zoom maximal. Ainsi le geste se comporte pareil partout,
+    // et une ville de lisière peut enfin venir au milieu de la vue.
+    const dx = this.w * P.debordement, dy = this.h * P.debordement;
+    const mx = Math.max(0, (eL - this.w) / 2) + dx;
+    const my = Math.max(0, (eH - this.h) / 2) + dy;
     this.cx = Math.max(-mx, Math.min(mx, this.cx));
     this.cy = Math.max(-my, Math.min(my, this.cy));
   }
