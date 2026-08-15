@@ -322,8 +322,17 @@ Mesuré sur 6 cartes : une ville tient **58 cases de qualité ≥ 4** dans sa re
 soit **29 fermes** — l'ordre de grandeur voulu. Le bruit est resserré à [11, 5] cases d'échelle,
 si bien que les sommets forment de petites taches et non des régions.
 
-**Rendement de référence** : 15,3 % sur sol neutre, **28,8 % sur une case de niveau 5** —
-identique pour les six exploitations. La transformation garde ses 20 % et la manufacture ses 25 %.
+**La recette par ouvrier est une constante : `débit × prix de référence`.** L'emploi suivant le
+sol exactement comme la production, la qualité s'annule dans ce rapport — c'est donc lui, et non
+la qualité, qui doit passer devant le salaire. Les débits d'exploitation sont relevés d'un quart
+(30 par case pour les mines et coupes, 12,5 pour les fermes et ranchs) : la recette par ouvrier
+passe de 24 $ à **30 $**, contre un salaire qui s'établit autour de 21 $.
+
+À 24 $ elle n'y arrivait pas : mesurée en partie, la meilleure ferme du jeu affichait **0,07 $ de
+marge à l'unité** et se mettait en sommeil. Elle en dégage 0,78 $ et rapporte 118 $ par mois.
+
+La qualité du sol reste ce qui décide de la **taille** d'une exploitation — donc du profit qu'une
+case rapporte, et de ce que vaut cette case.
 
 Le stock d'amorçage passe à 3 000 planches : une exploitation coûte désormais 700 $ la case et
 800 planches n'en bâtissaient plus que quatre.

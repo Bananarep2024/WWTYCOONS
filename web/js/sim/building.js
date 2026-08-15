@@ -95,7 +95,10 @@ export class Batiment {
   get emplois() {
     if (this.def.cat === 'bur') return this.def.postes;
     const k = echelleDe(this.type);
-    return this.n * k * (this.def.qual ? facteurQualite(this.qualite) : 1);
+    if (!this.def.qual) return this.n * k;
+    // L'emploi suit le sol MOINS VITE que la production : c'est tout l'écart qui
+    // fait la valeur d'une bonne terre.
+    return this.n * k * Math.pow(facteurQualite(this.qualite), P.exposantEmploi);
   }
 
   get masseSalarialePleine() {
@@ -109,10 +112,12 @@ export class Batiment {
     // que sur ce qui pousse. Une mine ne connaît pas la pluie.
     const meteo = (this.def.qual === 'fertilite' && this.ville && this.ville.facteurSol)
       ? this.ville.facteurSol : 1;
-    // La sortie suit exactement l'emploi — même échelle, même qualité de sol.
-    // C'est le même fait dit deux fois : une bonne case est une case qui fait
-    // travailler plus de monde, et qui sort donc plus.
-    return this.def.debit * this.emplois * meteo;
+    // La production suit la qualité EN PLEIN : une case de niveau 5 sort cinq
+    // fois une case de niveau 1. L'emploi, lui, ne suit qu'à la racine — d'où la
+    // marge par ouvrier que donne une bonne terre.
+    const k = echelleDe(this.type);
+    const sol = this.def.qual ? facteurQualite(this.qualite) : 1;
+    return this.def.debit * this.n * k * sol * meteo;
   }
 
   besoinsIntrants() {

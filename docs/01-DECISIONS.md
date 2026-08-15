@@ -1088,3 +1088,63 @@ ville autosuffisante est servie en plein.
 Sous chaque marchandise d'un marché fusionné, la liste des villes : « autosuffisante · +476
 exportés » ou « 70 % de ses besoins · importe 200 ». Le taux global ne disait plus rien de ce que
 vit chaque ville, et c'est pourtant cette lecture qui décide où bâtir.
+
+
+---
+
+## La marge par ouvrier, et pourquoi le bon sol ne suffisait pas
+
+Signalé en jouant : des fermes bâties sur des cases 4 et 5, tous les voyants au vert, les villes
+reliées — et un déficit, avec 0,07 $ de marge à l'unité.
+
+Reproduit exactement. Sur la meilleure case du jeu : **26,69 $ de recette par ouvrier pour un
+salaire de 22,43 $**. Seize pour cent de marge, si bien que la moindre hausse de salaire mettait
+la ferme en sommeil.
+
+### Ce que j'avais manqué
+
+L'emploi suit le sol exactement comme la production. La qualité s'annule donc dans le rapport
+recette ÷ ouvrier, qui vaut simplement `débit × prix`. **Une bonne case ne donne aucune marge
+supplémentaire par ouvrier — elle donne un bâtiment plus grand.** Et cette constante, 24 $, était
+tout juste au niveau du salaire.
+
+### La fausse piste
+
+Faire suivre l'emploi moins vite que la production — racine carrée — pour que le bon sol rende
+davantage par ouvrier. La courbe obtenue était superbe : 13,86 $ par ouvrier à q1, 30,98 $ à q5.
+
+Effondrement complet. À qualité 1, qui couvre 85 % de la carte, la racine carrée fait **monter**
+l'emploi au lieu de le baisser : 2,31 ouvriers par case contre 1,33. Toute la base extractive
+devient déficitaire, et bois, planches, briques, acier et produits finissent au plafond de prix.
+
+Le pivot d'une loi de puissance est traître : ce qu'on gagne au-dessus, on le perd au-dessous, et
+le au-dessous était la carte presque entière.
+
+### Le correctif
+
+Les débits d'exploitation montent d'un quart. La recette par ouvrier passe de 24 $ à 30 $ contre
+un salaire qui redescend à 20,4 $ — la main-d'œuvre étant moins tendue, le salaire baisse de
+lui-même, ce qui creuse encore la marge.
+
+| | Avant | Après |
+|---|---|---|
+| Marge à l'unité, meilleure ferme | 0,348 $ | **0,780 $** |
+| Résultat mensuel | +34,8 $ | **+118,3 $** |
+| Recette par ouvrier / salaire | 26,69 / 22,43 | **29,98 / 20,38** |
+
+Mesuré sur quatre multiplicateurs, ×1,25 est le point : ×1,5 et ×1,8 assèchent la population de
+moitié sans rien gagner d'autre.
+
+### Ce que ça donne
+
+Sur 8 cartes à vingt-cinq ans : **1 794 ménages par ville, aucune ville en crise, aucune morte**,
+emploi 85 %, nourriture 98 %, **produits manufacturés 94 %** — contre 64 % avant. C'est le monde
+le plus sain que le modèle ait produit.
+
+### Ce qui reste ouvert
+
+Le rendement d'une exploitation sur sol neutre est monté à 51 %, très au-dessus des 15 % du
+barème. Le ramener demanderait de tripler son capital, ce qui a été mesuré deux fois comme
+fatal : la filière du bois ne supporte pas cette intensité matière, l'entretien étant lui aussi
+payé en planches. L'exploitation sur bonne terre est donc, assumé, le placement le plus rentable
+du jeu — c'est le prix de la rareté des îlots.

@@ -165,6 +165,31 @@ export const P = {
   // Sur une exploitation elle se combine à la qualité du sol : 1,3 ouvrier sur
   // une case de niveau 1, 6,7 sur une de niveau 5.
   echelleIndustrielle: 4,
+  // À quel point l'EMPLOI suit la qualité du sol — en plein, comme la production.
+  //
+  // Essayé à la racine carrée, pour que le bon sol rende davantage par ouvrier :
+  // désastre. À qualité 1, qui couvre 85 % de la carte, l'emploi MONTE au lieu
+  // de baisser, toute la base extractive devient déficitaire et le monde
+  // s'effondre — bois, planches, briques et acier au plafond de prix.
+  //
+  // Emploi et production suivant le sol à l'identique, la recette par ouvrier
+  // est une CONSTANTE : débit × prix. C'est donc elle, et non la qualité, qu'il
+  // faut mettre au-dessus du salaire — d'où les débits relevés d'un quart, qui
+  // portent la recette par ouvrier de 24 $ à 30 $ contre un salaire de 21,7 $.
+  // La qualité du sol reste ce qui décide de la TAILLE d'une exploitation, et
+  // donc du profit qu'une case rapporte.
+  //
+  // Les deux ont d'abord suivi à l'identique, ce qui paraissait cohérent — et
+  // supprimait tout intérêt au bon sol : il ajoutait des ouvriers en proportion
+  // exacte de ce qu'il produisait, si bien que la recette par ouvrier ne
+  // dépendait plus de la terre. Mesuré sur la meilleure case du jeu : 26,69 $ de
+  // recette par ouvrier pour un salaire de 22,43 $, seize pour cent de marge, et
+  // la moindre hausse de salaire mettait la ferme en sommeil.
+  //
+  // À la racine carrée, une case de niveau 5 emploie 2,2 fois une case de
+  // niveau 1 tout en produisant 5 fois plus : elle rend donc 2,2 fois plus par
+  // ouvrier, et c'est CELA qui fait la valeur d'une bonne terre.
+  exposantEmploi: 1,
   // La rareté des bonnes cases, en part de la carte entière. On ne s'appuie plus
   // sur la forme du bruit — on CLASSE les cases et on découpe à ces quantiles.
   partQualite: [0.858, 0.100, 0.036, 0.004, 0.002],   // q1 … q5, somme = 1
@@ -266,12 +291,12 @@ export const NOURRITURES = ['pain', 'viande'];
 // produit n fois ces quantités. (§20 : « une case, un employé, une production »)
 
 export const BAT = {
-  coupe:       { nom: 'Coupe forestière', cases: 1, w: 1, h: 1, sort: 'bois',     debit: 24, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'bois',      cat: 'expl' },
-  carriere:    { nom: 'Carrière',         cases: 1, w: 1, h: 1, sort: 'argile',   debit: 24, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'argile',    cat: 'expl' },
-  mineCharbon: { nom: 'Mine de charbon',  cases: 1, w: 1, h: 1, sort: 'charbon',  debit: 24, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'charbon',   cat: 'expl' },
-  mineFer:     { nom: 'Mine de fer',      cases: 1, w: 1, h: 1, sort: 'minerai',  debit: 24, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'minerai',   cat: 'expl' },
-  ferme:       { nom: 'Ferme céréalière', cases: 2, w: 2, h: 1, sort: 'cereales', debit: 10, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
-  ranch:       { nom: 'Ranch',            cases: 2, w: 2, h: 1, sort: 'betail',   debit: 10, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
+  coupe:       { nom: 'Coupe forestière', cases: 1, w: 1, h: 1, sort: 'bois',     debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'bois',      cat: 'expl' },
+  carriere:    { nom: 'Carrière',         cases: 1, w: 1, h: 1, sort: 'argile',   debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'argile',    cat: 'expl' },
+  mineCharbon: { nom: 'Mine de charbon',  cases: 1, w: 1, h: 1, sort: 'charbon',  debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'charbon',   cat: 'expl' },
+  mineFer:     { nom: 'Mine de fer',      cases: 1, w: 1, h: 1, sort: 'minerai',  debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'minerai',   cat: 'expl' },
+  ferme:       { nom: 'Ferme céréalière', cases: 2, w: 2, h: 1, sort: 'cereales', debit: 12.5, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
+  ranch:       { nom: 'Ranch',            cases: 2, w: 2, h: 1, sort: 'betail',   debit: 12.5, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
 
   scierie:     { nom: 'Scierie',      cases: 2, w: 2, h: 1, sort: 'planches', debit: 12, intrants: { bois: 24 },              cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
   briqueterie: { nom: 'Briqueterie',  cases: 2, w: 2, h: 1, sort: 'briques',  debit: 12, intrants: { argile: 24 },            cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },

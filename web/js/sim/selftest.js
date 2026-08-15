@@ -22,8 +22,8 @@ const rdt = (type, marge) => {
 // rapports du barème tiennent. Une exploitation se lit ici à qualité 3 : c'est à
 // qualité 5 qu'elle atteint son rendement visé, le sol commandant tout.
 const k = P.echelleIndustrielle;
-ok('coupe forestière (sol neutre)', rdt('coupe', 4 * k), 15.3, 0.03);
-ok('ferme céréalière (sol neutre)', rdt('ferme', 4 * k), 15.3, 0.03);
+ok('coupe forestière (sol neutre)', rdt('coupe', 10 * k), 51.3, 0.03);
+ok('ferme céréalière (sol neutre)', rdt('ferme', 10 * k), 51.3, 0.03);
 ok('maison', rdt('maison', 5), 15, 0.03);
 ok('scierie', rdt('scierie', 16), 20, 0.03);
 ok('minoterie', rdt('minoterie', 16), 20, 0.03);
@@ -38,8 +38,12 @@ const marge = (t) => {
   for (const [r, q] of Object.entries(d.intrants || {})) c += q * RES[r].prix;
   return d.debit * RES[d.sort].prix - c;
 };
-ok('coupe forestière', marge('coupe'), 4, 0.01);
-ok('ferme céréalière', marge('ferme'), 4, 0.01);
+// L'exploitation dégage 10 $ par case et non 4 : sa recette par ouvrier — une
+// constante, l'emploi suivant le sol comme la production — doit passer devant le
+// salaire, qui s'établit autour de 22 $. À 24 $ de recette elle n'y arrivait pas,
+// et la meilleure ferme du jeu affichait 0,07 $ de marge à l'unité.
+ok('coupe forestière', marge('coupe'), 10, 0.01);
+ok('ferme céréalière', marge('ferme'), 10, 0.01);
 ok('scierie', marge('scierie'), 16, 0.01);
 ok('briqueterie', marge('briqueterie'), 16, 0.01);
 ok('minoterie', marge('minoterie'), 16, 0.01);
