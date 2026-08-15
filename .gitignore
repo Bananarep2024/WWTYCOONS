@@ -1,5 +1,6 @@
 node_modules/
 *.log
+web/_verif.html
 .DS_Store
 node_modules
 package.json
