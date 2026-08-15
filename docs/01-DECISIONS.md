@@ -1200,6 +1200,34 @@ par mois** absorbe le mois creux tout en laissant un commerce réellement étein
 dizaine de mois. Sur la graine 12345, les cinq villes finissent alors au-dessus du témoin :
 1 605 ménages en moyenne contre 1 219.
 
+### Le rattrapage doit être borné, sinon il tue les villes jeunes
+
+Première version : le rattrapage entrait dans les besoins sans limite. Sur les 8 cartes de contrôle,
+2 villes sur 40 y sont mortes — les deux sur la même carte, et **avant le mois 60**, pas dans la
+famine tardive que cette carte connaît déjà au témoin.
+
+En séparant les deux règles sur cette carte, la responsabilité est nette :
+
+| graine 7 | Fort-Union | Roche-Noire | Val-de-Fer | Grands-Bois | Confluent | moyenne |
+|---|---|---|---|---|---|---|
+| témoin | 996 | 687 | 849 | 845 | 773 | 830 |
+| prix seul | 844 | 1 473 | 1 737 | 1 398 | 811 | 1 253 |
+| freinte seule | 3 518 | 2 684 | 3 584 | 2 629 | 2 286 | 2 940 |
+| les deux, sans borne | **0** | 2 933 | **0** | 2 633 | 2 509 | 1 615 |
+
+**C'est la règle de prix qui tue, pas la freinte.** Une ville neuve démarre avec 3 000 planches
+d'amorçage face à des besoins minuscules : des dizaines de mois de couverture. Le rattrapage
+annulait ses besoins effectifs, le prix des planches s'écrasait, personne n'y bâtissait de scierie,
+et l'amorçage épuisé la ville n'avait aucune industrie du bois. La freinte seule n'a pas ce défaut
+— elle *mange* l'amorçage, ce qui rétablit le signal de prix tôt et fait bâtir les scieries.
+
+Mais la freinte seule ne donne pas de matelas non plus : elle borne le tas par le haut sans jamais
+pousser personne à en tenir un. Mesurée seule sur 8 cartes, elle laisse **bois 0,0 · céréales 0,0 ·
+planches 0,2 mois** — le tas a disparu, le matelas avec.
+
+Il faut donc les deux, et **borner le rattrapage à ± la moitié de la consommation réelle**. Le
+matelas module le signal de prix, il ne le remplace pas.
+
 ### Ce qu'on n'a pas fait
 
 Retirer le plancher au prix de revient sur un marché engorgé achève plus vite un troupeau

@@ -172,14 +172,24 @@ le mangeait ni ne le faisait grossir. Une partie de trente ans finissait avec 23
 Le marché déclare donc ce qu'il veut **tenir**, et l'écart à ce matelas s'ajoute à ses besoins :
 
 ```
-Matelas visé      = 1,0 × besoins du mois           (matelasMois)
-Besoins effectifs = besoins du mois + (matelas visé − stock) ÷ 6     ⩾ 0
-                                                    (moisDeRestockage)
+Matelas visé      = 1,0 × besoins du mois                    (matelasMois)
+Rattrapage brut   = (matelas visé − stock) ÷ 6               (moisDeRestockage)
+Rattrapage        = borné à ± 0,50 × besoins du mois         (correctionMatelas)
+Besoins effectifs = besoins du mois + rattrapage             ⩾ 0
 ```
 
 Une cave à sec achète au-delà de sa consommation et fait monter le prix ; une cave pleine achète
 moins et le fait tomber. À l'équilibre exact — stock = matelas — le terme s'annule et on retrouve
 la loi du §4.2 mot pour mot.
+
+> **Le matelas module le signal de prix, il ne le remplace pas**, et la borne n'est pas un
+> garde-fou de confort. Sans elle, une ville neuve se fait tuer par son propre amorçage : elle
+> démarre avec 3 000 planches (§ *stockAmorcage*) face à des besoins minuscules, soit des dizaines
+> de mois de couverture ; le rattrapage annulait alors ses besoins effectifs, écrasait le prix des
+> planches, et personne n'y bâtissait de scierie. L'amorçage épuisé, la ville n'avait aucune
+> industrie du bois et s'éteignait — sur la graine 7, deux villes sur cinq mortes avant le mois 60.
+> Avec la borne, une cave pleine fait au plus tomber la tension de moitié, soit −34 % sur le prix :
+> un signal net, mais la ville continue d'exister aux yeux du marché.
 
 Et **ce qui dort au-dessus du matelas se perd** : le grain s'échauffe, la bête maigrit, le charbon
 s'effrite. 10 % de l'excédent par mois (`freinteExcedent`). Sans cette freinte, un tas constitué une

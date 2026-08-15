@@ -40,6 +40,7 @@ export const P = {
   // monter le prix ; un marché engorgé achète moins et le fait tomber.
   matelasMois: 1.0,            // le matelas visé, en mois de consommation
   moisDeRestockage: 6,         // sur combien de mois on comble ou on purge l'écart
+  correctionMatelas: 0.50,     // le rattrapage ne déplace les besoins que de ± la moitié
 
   // Et ce qui dort au-dessus du matelas se perd : le grain s'échauffe, la bête
   // maigrit, le charbon s'effrite sous la pluie. Sans cette freinte, un tas

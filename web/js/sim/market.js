@@ -143,7 +143,20 @@ export class Marche {
       // c'est elle plus ce qu'il faut acheter pour ramener la cave au matelas.
       // À la cave pleine ce terme est négatif et fait tomber le prix — c'est
       // par là qu'un tas cesse d'être invisible.
-      const ecart = (this.matelasVise(r) - this.stock[r]) / P.moisDeRestockage;
+      //
+      // Il est BORNÉ à une fraction de la consommation, et cette borne n'est pas
+      // un garde-fou de confort : sans elle, une ville neuve se fait tuer par
+      // son propre amorçage. Elle démarre avec 3 000 planches et des besoins
+      // minuscules — des dizaines de mois de couverture — si bien que le terme
+      // de rattrapage annulait ses besoins effectifs, écrasait le prix des
+      // planches, et personne n'y bâtissait de scierie. L'amorçage épuisé, la
+      // ville n'avait aucune industrie du bois et s'éteignait. Sur la graine 7,
+      // deux villes sur cinq y sont mortes avant le mois 60.
+      //
+      // Le matelas MODULE le signal de prix, il ne le remplace pas.
+      const brut = (this.matelasVise(r) - this.stock[r]) / P.moisDeRestockage;
+      const borne = P.correctionMatelas * this.besoins[r];
+      const ecart = Math.max(-borne, Math.min(borne, brut));
       const besoinsEff = Math.max(0, this.besoins[r] + ecart);
 
       let tension;
