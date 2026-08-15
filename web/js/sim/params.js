@@ -40,7 +40,13 @@ export const P = {
   // monter le prix ; un marché engorgé achète moins et le fait tomber.
   matelasMois: 1.0,            // le matelas visé, en mois de consommation
   moisDeRestockage: 6,         // sur combien de mois on comble ou on purge l'écart
-  correctionMatelas: 0.50,     // le rattrapage ne déplace les besoins que de ± la moitié
+  // Le rattrapage ne déplace les besoins que d'un quart, dans un sens comme
+  // dans l'autre. Balayé sur 8 cartes × 30 ans : ±0,80 laisse une ville morte,
+  // ±0,50 en laisse deux — c'est encore assez pour qu'une ville neuve endormie
+  // sur son amorçage n'existe plus aux yeux du marché. ±0,25 : aucune morte,
+  // aucune crise, 2 180 ménages par ville et un matelas d'au moins 0,57 mois
+  // sur chaque matière première.
+  correctionMatelas: 0.25,
 
   // Et ce qui dort au-dessus du matelas se perd : le grain s'échauffe, la bête
   // maigrit, le charbon s'effrite sous la pluie. Sans cette freinte, un tas

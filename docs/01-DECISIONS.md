@@ -1225,8 +1225,20 @@ Mais la freinte seule ne donne pas de matelas non plus : elle borne le tas par l
 pousser personne à en tenir un. Mesurée seule sur 8 cartes, elle laisse **bois 0,0 · céréales 0,0 ·
 planches 0,2 mois** — le tas a disparu, le matelas avec.
 
-Il faut donc les deux, et **borner le rattrapage à ± la moitié de la consommation réelle**. Le
+Il faut donc les deux, et **borner le rattrapage à ± un quart de la consommation réelle**. Le
 matelas module le signal de prix, il ne le remplace pas.
+
+La borne a été balayée sur 8 cartes × 30 ans, freinte tenue à 0,10 :
+
+| borne | ménages | crises | mortes | plus maigre matelas |
+|---|---|---|---|---|
+| ±0,80 | 1 960 | 2 | 1 | 0,56 mois |
+| ±0,50 | 1 941 | 2 | 2 | 0,75 mois |
+| **±0,25** | **2 180** | **0** | **0** | **0,57 mois** |
+
+Un quart de la consommation est déjà assez de latitude pour effacer une ville jeune du marché : la
+demi-mesure ne suffisait pas. À ±0,25, la plus petite ville de chaque carte tient entre 1 327 et
+2 169 ménages, et chaque matière première garde son matelas.
 
 ### Ce qu'on n'a pas fait
 

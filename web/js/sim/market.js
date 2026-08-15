@@ -153,7 +153,10 @@ export class Marche {
       // ville n'avait aucune industrie du bois et s'éteignait. Sur la graine 7,
       // deux villes sur cinq y sont mortes avant le mois 60.
       //
-      // Le matelas MODULE le signal de prix, il ne le remplace pas.
+      // Le matelas MODULE le signal de prix, il ne le remplace pas. Et la borne
+      // doit être serrée : à ±0,50 il restait deux villes mortes sur quarante,
+      // à ±0,80 une. Un quart de la consommation est déjà assez de latitude
+      // pour effacer une ville jeune du marché.
       const brut = (this.matelasVise(r) - this.stock[r]) / P.moisDeRestockage;
       const borne = P.correctionMatelas * this.besoins[r];
       const ecart = Math.max(-borne, Math.min(borne, brut));

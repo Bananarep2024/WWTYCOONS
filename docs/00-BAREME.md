@@ -174,7 +174,7 @@ Le marché déclare donc ce qu'il veut **tenir**, et l'écart à ce matelas s'aj
 ```
 Matelas visé      = 1,0 × besoins du mois                    (matelasMois)
 Rattrapage brut   = (matelas visé − stock) ÷ 6               (moisDeRestockage)
-Rattrapage        = borné à ± 0,50 × besoins du mois         (correctionMatelas)
+Rattrapage        = borné à ± 0,25 × besoins du mois         (correctionMatelas)
 Besoins effectifs = besoins du mois + rattrapage             ⩾ 0
 ```
 
@@ -188,8 +188,13 @@ la loi du §4.2 mot pour mot.
 > de mois de couverture ; le rattrapage annulait alors ses besoins effectifs, écrasait le prix des
 > planches, et personne n'y bâtissait de scierie. L'amorçage épuisé, la ville n'avait aucune
 > industrie du bois et s'éteignait — sur la graine 7, deux villes sur cinq mortes avant le mois 60.
-> Avec la borne, une cave pleine fait au plus tomber la tension de moitié, soit −34 % sur le prix :
-> un signal net, mais la ville continue d'exister aux yeux du marché.
+> Avec la borne, une cave pleine fait au plus tomber la tension d'un quart, soit **−16 %** sur le
+> prix : un signal net, mais la ville continue d'exister aux yeux du marché.
+>
+> La borne a été balayée sur 8 cartes × 30 ans, freinte tenue à 0,10. ±0,80 laisse une ville morte,
+> ±0,50 en laisse deux — un quart de la consommation est déjà assez de latitude pour effacer une
+> ville jeune. **±0,25** : aucune morte, aucune crise, 2 180 ménages par ville, et un matelas d'au
+> moins 0,57 mois sur chaque matière première.
 
 Et **ce qui dort au-dessus du matelas se perd** : le grain s'échauffe, la bête maigrit, le charbon
 s'effrite. 10 % de l'excédent par mois (`freinteExcedent`). Sans cette freinte, un tas constitué une
