@@ -105,7 +105,7 @@ export function genererMonde(nbVilles, graine) {
   // --- 1. Le relief -------------------------------------------------------
   const fAlt = fractal(rnd, [38, 17, 7], [1, 0.5, 0.22]);
   const fHum = fractal(rnd, [29, 11], [1, 0.4]);
-  const bQ = {}; for (const q of QUALITES) bQ[q] = fractal(rnd, [21, 9], [1, 0.45]);
+  const bQ = {}; for (const q of QUALITES) bQ[q] = fractal(rnd, P.echellesQualite, [1, 0.45]);
 
   const cases = new Array(L * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < L; x++) {
@@ -144,18 +144,42 @@ export function genererMonde(nbVilles, graine) {
   // On garde ici la valeur CONTINUE, sans l'arrondir : le champ de vocation
   // (étape 3 bis) va la remodeler, et arrondir deux fois de suite écraserait les
   // nuances qu'on vient de calculer.
-  for (const c of cases) {
-    const biais = RELIEFS[c.relief].biais;
+  // On calcule d'abord le score brut de chaque case, puis on CLASSE : les seuils
+  // sont les quantiles de la distribution réelle, ce qui rend la rareté exacte.
+  const score = {};
+  for (const nom of QUALITES) {
+    const t = new Float64Array(cases.length);
+    for (let i = 0; i < cases.length; i++) {
+      const c = cases[i];
+      t[i] = bQ[nom](c.x, c.y) * RELIEFS[c.relief].biais[nom];
+    }
+    score[nom] = t;
+  }
+
+  const seuils = {};
+  for (const nom of QUALITES) {
+    const tri = Float64Array.from(score[nom]).sort();
+    seuils[nom] = [];
+    let cumul = 0;
+    for (let k = 0; k < P.partQualite.length - 1; k++) {
+      cumul += P.partQualite[k];
+      seuils[nom].push(tri[Math.min(tri.length - 1, Math.floor(cumul * tri.length))]);
+    }
+  }
+
+  for (let i = 0; i < cases.length; i++) {
     const brut = {};
     for (const nom of QUALITES) {
-      // Le biais de relief s'applique AVANT la borne, jamais après : une montagne
-      // multiplie le minerai par 1,6, et borner d'abord laissait passer des
-      // valeurs brutes à 8 que l'étirement ramenait ensuite à 5 sous n'importe
-      // quel plafond — les vocations pauvres ne tenaient pas.
-      brut[nom] = Math.max(1, Math.min(5, (bQ[nom](c.x, c.y) * 4.2 + 0.9) * biais[nom]));
+      const v = score[nom][i];
+      let q = P.partQualite.length;                 // le sommet par défaut
+      for (let k = 0; k < seuils[nom].length; k++) {
+        if (v < seuils[nom][k]) { q = k + 1; break; }
+      }
+      brut[nom] = q;
     }
-    c.qBrut = brut;
+    cases[i].qBrut = brut;
   }
+
 
   // --- 3. Les sites de ville ----------------------------------------------
   // On tire des candidats et on ne garde que ceux qui respectent la distance

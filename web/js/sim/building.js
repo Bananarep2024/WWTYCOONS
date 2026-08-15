@@ -10,7 +10,7 @@
 // ---------------------------------------------------------------------------
 
 import { P, BAT, materiaux, coutRef, loyer, prixTerrain, rendementVise,
-         facteurQualite, qualiteMax } from './params.js';
+         facteurQualite, qualiteMax, echelleDe } from './params.js';
 
 let _idBatiment = 1;
 
@@ -85,8 +85,21 @@ export class Batiment {
   // Le ménage ne pouvait plus s'offrir son panier, le baromètre des produits
   // tombait à 59 % sans qu'aucun produit ne manque sur les étals, et la ville
   // s'installait sur le pivot pour vingt ans.
+  // Combien d'ouvriers le bâtiment porte.
+  //
+  // Une case n'est plus un poste : l'échelle industrielle en met plusieurs, et
+  // sur une exploitation la qualité du sol multiplie encore — un filon de
+  // niveau 5 fait vivre cinq fois plus de monde qu'un sol de niveau 1, sur la
+  // même surface. C'est ce qui rend une bonne case précieuse : non pas plus
+  // rentable à l'ouvrier, mais capable d'en porter beaucoup plus.
+  get emplois() {
+    if (this.def.cat === 'bur') return this.def.postes;
+    const k = echelleDe(this.type);
+    return this.n * k * (this.def.qual ? facteurQualite(this.qualite) : 1);
+  }
+
   get masseSalarialePleine() {
-    return this.n * (this.ville ? this.ville.salaire : P.salaireCase);
+    return this.emplois * (this.ville ? this.ville.salaire : P.salaireCase);
   }
 
   // Capacité de production, qualité du sol comprise.
@@ -96,13 +109,18 @@ export class Batiment {
     // que sur ce qui pousse. Une mine ne connaît pas la pluie.
     const meteo = (this.def.qual === 'fertilite' && this.ville && this.ville.facteurSol)
       ? this.ville.facteurSol : 1;
-    return this.def.debit * this.n
-      * (this.def.qual ? facteurQualite(this.qualite) : 1) * meteo;
+    // La sortie suit exactement l'emploi — même échelle, même qualité de sol.
+    // C'est le même fait dit deux fois : une bonne case est une case qui fait
+    // travailler plus de monde, et qui sort donc plus.
+    return this.def.debit * this.emplois * meteo;
   }
 
   besoinsIntrants() {
     const out = {};
-    for (const [r, q] of Object.entries(this.def.intrants || {})) out[r] = q * this.n * this.activite;
+    const k = echelleDe(this.type);
+    for (const [r, q] of Object.entries(this.def.intrants || {})) {
+      out[r] = q * this.n * k * this.activite;
+    }
     return out;
   }
 
@@ -113,8 +131,9 @@ export class Batiment {
     if (!this.def.sort) return 0;
     const recette = this.capacite * marche.prix[this.def.sort];
     let couts = this.masseSalarialePleine;
+    const k = echelleDe(this.type);
     for (const [r, q] of Object.entries(this.def.intrants || {})) {
-      couts += q * this.n * marche.prix[r];
+      couts += q * this.n * k * marche.prix[r];
     }
     return recette - couts;
   }
@@ -357,7 +376,7 @@ export class Batiment {
     if (this.def.cat === 'loge') return 0;                  // une maison n'emploie personne
     if (this.def.cat === 'bur') return this.def.postes;
     if (this.def.cat === 'neg') return this.n;
-    return this.n * (this.activiteEffective ?? this.activite);
+    return this.emplois * (this.activiteEffective ?? this.activite);
   }
 
   // Ce qu'il emploie RÉELLEMENT, une fois le mois écoulé. C'est ce chiffre — et

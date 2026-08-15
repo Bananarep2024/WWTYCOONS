@@ -17,8 +17,13 @@ const rdt = (type, marge) => {
   const ent = c * P.entretienAnnuel / 12;
   return (marge * n - ent) * 12 / (c + terrain) * 100;
 };
-ok('coupe forestière', rdt('coupe', 4), 15, 0.03);
-ok('ferme céréalière', rdt('ferme', 4), 15, 0.03);
+// Les marges sont données PAR CASE et à qualité neutre ; l'échelle industrielle
+// les multiplie comme elle multiplie le coût de construction, si bien que les
+// rapports du barème tiennent. Une exploitation se lit ici à qualité 3 : c'est à
+// qualité 5 qu'elle atteint son rendement visé, le sol commandant tout.
+const k = P.echelleIndustrielle;
+ok('coupe forestière (sol neutre)', rdt('coupe', 4 * k), 15.3, 0.03);
+ok('ferme céréalière (sol neutre)', rdt('ferme', 4 * k), 15.3, 0.03);
 ok('maison', rdt('maison', 5), 15, 0.03);
 ok('scierie', rdt('scierie', 16), 20, 0.03);
 ok('minoterie', rdt('minoterie', 16), 20, 0.03);
@@ -141,12 +146,19 @@ ok('case à 32 cases, comptoir', prixTerrain(1, 32), 52.72, 0.02);
 // centre moins cher que leur lisière.
 ok('prime foncière de la meilleure terre', prixTerrain(3, 0, 5) / prixTerrain(3, 0, 1),
    facteurQualite(5) / facteurQualite(1), 0.001);
-ok('… et elle vaut la prime de rendement', facteurQualite(5) / facteurQualite(1), 2.125, 0.01);
+ok('… et elle vaut la prime de rendement', facteurQualite(5) / facteurQualite(1), 5, 0.001);
 // La distance doit peser plus que la richesse, sans quoi la carte du prix du sol
 // ne se lit plus comme un gradient urbain.
-ok('la distance pèse plus que la richesse',
+ok('la distance pèse autant que le sol',
    prixTerrain(3, 0, 3) / prixTerrain(3, 60, 3),
    4.02, 0.02);
+
+// UNE CASE DE NIVEAU 5 VAUT CINQ CASES DE NIVEAU 1 — en production, en emploi et
+// en prix du sol à la fois. C'est la même loi qui commande les trois, et c'est
+// ce qui fait qu'une bonne case n'est pas plus rentable : elle est plus grande.
+ok('production ×5 entre q1 et q5', facteurQualite(5) / facteurQualite(1), 5, 0.001);
+ok('prix du sol ×5 entre q1 et q5',
+   prixTerrain(1, 0, 5) / prixTerrain(1, 0, 1), 5, 0.001);
 
 // Le gradient se durcit avec le niveau : c'est là tout le mécanisme.
 ok('potentiel du centre, comptoir', potentielTerrain(1, 0), 4.00, 0.01);

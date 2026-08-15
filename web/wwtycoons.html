@@ -862,10 +862,21 @@ const P = {
   rendementMinimalPourBatir: 0.05,  // sous ce rendement attendu, on ne bâtit pas
 
   // Le sol
-  // sortie d'une exploitation = débit de base × (solPlancher + solPente × qualité)
+  // sortie d'une exploitation = débit × qualité ÷ qualiteNeutre × échelle industrielle
   // calibré pour valoir 1,00 à la qualité 3, comme le barème le suppose
-  solPlancher: 0.46,
-  solPente: 0.18,              // q1 = 0,64 · q3 = 1,00 · q5 = 1,36
+  qualiteNeutre: 3,            // la qualité qui vaut 1 : q1 = 0,33 · q5 = 1,67
+  // L'ÉCHELLE INDUSTRIELLE : combien d'ouvriers tient une case, à qualité
+  // neutre. Une case n'est plus un poste. Elle vaut pour l'exploitation comme
+  // pour l'atelier, si bien que tous les rapports du barème restent exacts —
+  // débits, intrants, salaires et coûts de construction montent ensemble.
+  //
+  // Sur une exploitation elle se combine à la qualité du sol : 1,3 ouvrier sur
+  // une case de niveau 1, 6,7 sur une de niveau 5.
+  echelleIndustrielle: 4,
+  // La rareté des bonnes cases, en part de la carte entière. On ne s'appuie plus
+  // sur la forme du bruit — on CLASSE les cases et on découpe à ces quantiles.
+  partQualite: [0.858, 0.100, 0.036, 0.004, 0.002],   // q1 … q5, somme = 1
+  echellesQualite: [11, 5],    // l'échelle du bruit : des îlots, pas des régions
 
   // --- Les événements ---
   //
@@ -902,7 +913,7 @@ const P = {
   porteeVocation: 30,
 
   // Amorçage
-  stockAmorcage: { planches: 800, briques: 400 },
+  stockAmorcage: { planches: 3000, briques: 1500 },
 
   // Ce qu'on peut pousser la carte au-delà de ses bords, en fraction d'écran.
   // Sans ce débordement, une ville de lisière reste collée au bord et l'on ne
@@ -963,12 +974,12 @@ const NOURRITURES = ['pain', 'viande'];
 // produit n fois ces quantités. (§20 : « une case, un employé, une production »)
 
 const BAT = {
-  coupe:       { nom: 'Coupe forestière', cases: 1, w: 1, h: 1, sort: 'bois',     debit: 24, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'bois',      cat: 'expl' },
-  carriere:    { nom: 'Carrière',         cases: 1, w: 1, h: 1, sort: 'argile',   debit: 24, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'argile',    cat: 'expl' },
-  mineCharbon: { nom: 'Mine de charbon',  cases: 1, w: 1, h: 1, sort: 'charbon',  debit: 24, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'charbon',   cat: 'expl' },
-  mineFer:     { nom: 'Mine de fer',      cases: 1, w: 1, h: 1, sort: 'minerai',  debit: 24, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'minerai',   cat: 'expl' },
-  ferme:       { nom: 'Ferme céréalière', cases: 2, w: 2, h: 1, sort: 'cereales', debit: 10, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'fertilite', cat: 'expl' },
-  ranch:       { nom: 'Ranch',            cases: 2, w: 2, h: 1, sort: 'betail',   debit: 10, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'fertilite', cat: 'expl' },
+  coupe:       { nom: 'Coupe forestière', cases: 1, w: 1, h: 1, sort: 'bois',     debit: 24, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'bois',      cat: 'expl' },
+  carriere:    { nom: 'Carrière',         cases: 1, w: 1, h: 1, sort: 'argile',   debit: 24, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'argile',    cat: 'expl' },
+  mineCharbon: { nom: 'Mine de charbon',  cases: 1, w: 1, h: 1, sort: 'charbon',  debit: 24, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'charbon',   cat: 'expl' },
+  mineFer:     { nom: 'Mine de fer',      cases: 1, w: 1, h: 1, sort: 'minerai',  debit: 24, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'minerai',   cat: 'expl' },
+  ferme:       { nom: 'Ferme céréalière', cases: 2, w: 2, h: 1, sort: 'cereales', debit: 10, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
+  ranch:       { nom: 'Ranch',            cases: 2, w: 2, h: 1, sort: 'betail',   debit: 10, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
 
   scierie:     { nom: 'Scierie',      cases: 2, w: 2, h: 1, sort: 'planches', debit: 12, intrants: { bois: 24 },              cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
   briqueterie: { nom: 'Briqueterie',  cases: 2, w: 2, h: 1, sort: 'briques',  debit: 12, intrants: { argile: 24 },            cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
@@ -986,9 +997,24 @@ const BAT = {
 const TYPES_BAT = Object.keys(BAT);
 
 // Coût total de construction d'un bâtiment, en quantités de matériaux.
+// L'échelle ne concerne QUE l'exploitation. Une case de sol porte plusieurs
+// ouvriers ; un atelier, non — il transforme ce qu'on lui livre, et sa taille
+// est celle de ses murs.
+//
+// Essayé de l'étendre à la transformation, pour garder tous les rapports du
+// barème : catastrophe mesurée sur neuf réglages, la meilleure combinaison
+// laissant encore une ville sur quinze morte et les produits manufacturés à
+// 32 %. Un atelier quatre fois plus gros consomme quatre fois plus d'intrants
+// et coûte quatre fois plus cher à bâtir, ce qui étrangle la filière à ses deux
+// bouts en même temps. Seule l'exploitation change d'échelle, et l'atelier
+// s'ajuste en nombre.
+function echelleDe(type) {
+  return BAT[type].cat === 'expl' ? P.echelleIndustrielle : 1;
+}
+
 function materiaux(type) {
-  const b = BAT[type], out = {};
-  for (const [r, q] of Object.entries(b.mat)) out[r] = q * b.cases;
+  const b = BAT[type], out = {}, k = echelleDe(type);
+  for (const [r, q] of Object.entries(b.mat)) out[r] = q * b.cases * k;
   return out;
 }
 
@@ -1045,8 +1071,19 @@ function niveauVille(menages) {
 // un coût FIXE, ce facteur 5 sur l'écart de production devient un facteur 5
 // sur la MARGE : une coupe forestière rapporterait 99 % l'an sur qualité 5 et
 // perdrait 68 % sur qualité 1. La courbe est donc resserrée.
+// Ce que vaut une case, rapporté à la terre moyenne.
+//
+// C'était une droite plate — 0,64 à q1, 1,36 à q5, un rapport de 2,1 — qui
+// faisait de la qualité du sol un détail. Elle est désormais PROPORTIONNELLE à
+// la qualité : une case de niveau 5 vaut exactement cinq cases de niveau 1.
+//
+// Ce facteur commande trois choses à la fois, et c'est ce qui rend le modèle
+// cohérent : ce que la case PRODUIT, combien d'ouvriers elle EMPLOIE, et ce que
+// son sol COÛTE. Une bonne case n'est donc pas une case plus rentable, c'est une
+// case plus GRANDE — elle concentre cinq fois plus d'activité sur la même
+// surface, et son prix capte cette concentration.
 function facteurQualite(q) {
-  return P.solPlancher + P.solPente * q;
+  return q / P.qualiteNeutre;
 }
 
 // Prix d'une case de terrain.
@@ -1217,7 +1254,7 @@ function genererMonde(nbVilles, graine) {
   // --- 1. Le relief -------------------------------------------------------
   const fAlt = fractal(rnd, [38, 17, 7], [1, 0.5, 0.22]);
   const fHum = fractal(rnd, [29, 11], [1, 0.4]);
-  const bQ = {}; for (const q of QUALITES) bQ[q] = fractal(rnd, [21, 9], [1, 0.45]);
+  const bQ = {}; for (const q of QUALITES) bQ[q] = fractal(rnd, P.echellesQualite, [1, 0.45]);
 
   const cases = new Array(L * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < L; x++) {
@@ -1256,18 +1293,42 @@ function genererMonde(nbVilles, graine) {
   // On garde ici la valeur CONTINUE, sans l'arrondir : le champ de vocation
   // (étape 3 bis) va la remodeler, et arrondir deux fois de suite écraserait les
   // nuances qu'on vient de calculer.
-  for (const c of cases) {
-    const biais = RELIEFS[c.relief].biais;
+  // On calcule d'abord le score brut de chaque case, puis on CLASSE : les seuils
+  // sont les quantiles de la distribution réelle, ce qui rend la rareté exacte.
+  const score = {};
+  for (const nom of QUALITES) {
+    const t = new Float64Array(cases.length);
+    for (let i = 0; i < cases.length; i++) {
+      const c = cases[i];
+      t[i] = bQ[nom](c.x, c.y) * RELIEFS[c.relief].biais[nom];
+    }
+    score[nom] = t;
+  }
+
+  const seuils = {};
+  for (const nom of QUALITES) {
+    const tri = Float64Array.from(score[nom]).sort();
+    seuils[nom] = [];
+    let cumul = 0;
+    for (let k = 0; k < P.partQualite.length - 1; k++) {
+      cumul += P.partQualite[k];
+      seuils[nom].push(tri[Math.min(tri.length - 1, Math.floor(cumul * tri.length))]);
+    }
+  }
+
+  for (let i = 0; i < cases.length; i++) {
     const brut = {};
     for (const nom of QUALITES) {
-      // Le biais de relief s'applique AVANT la borne, jamais après : une montagne
-      // multiplie le minerai par 1,6, et borner d'abord laissait passer des
-      // valeurs brutes à 8 que l'étirement ramenait ensuite à 5 sous n'importe
-      // quel plafond — les vocations pauvres ne tenaient pas.
-      brut[nom] = Math.max(1, Math.min(5, (bQ[nom](c.x, c.y) * 4.2 + 0.9) * biais[nom]));
+      const v = score[nom][i];
+      let q = P.partQualite.length;                 // le sommet par défaut
+      for (let k = 0; k < seuils[nom].length; k++) {
+        if (v < seuils[nom][k]) { q = k + 1; break; }
+      }
+      brut[nom] = q;
     }
-    c.qBrut = brut;
+    cases[i].qBrut = brut;
   }
+
 
   // --- 3. Les sites de ville ----------------------------------------------
   // On tire des candidats et on ne garde que ceux qui respectent la distance
@@ -2233,8 +2294,21 @@ class Batiment {
   // Le ménage ne pouvait plus s'offrir son panier, le baromètre des produits
   // tombait à 59 % sans qu'aucun produit ne manque sur les étals, et la ville
   // s'installait sur le pivot pour vingt ans.
+  // Combien d'ouvriers le bâtiment porte.
+  //
+  // Une case n'est plus un poste : l'échelle industrielle en met plusieurs, et
+  // sur une exploitation la qualité du sol multiplie encore — un filon de
+  // niveau 5 fait vivre cinq fois plus de monde qu'un sol de niveau 1, sur la
+  // même surface. C'est ce qui rend une bonne case précieuse : non pas plus
+  // rentable à l'ouvrier, mais capable d'en porter beaucoup plus.
+  get emplois() {
+    if (this.def.cat === 'bur') return this.def.postes;
+    const k = echelleDe(this.type);
+    return this.n * k * (this.def.qual ? facteurQualite(this.qualite) : 1);
+  }
+
   get masseSalarialePleine() {
-    return this.n * (this.ville ? this.ville.salaire : P.salaireCase);
+    return this.emplois * (this.ville ? this.ville.salaire : P.salaireCase);
   }
 
   // Capacité de production, qualité du sol comprise.
@@ -2244,13 +2318,18 @@ class Batiment {
     // que sur ce qui pousse. Une mine ne connaît pas la pluie.
     const meteo = (this.def.qual === 'fertilite' && this.ville && this.ville.facteurSol)
       ? this.ville.facteurSol : 1;
-    return this.def.debit * this.n
-      * (this.def.qual ? facteurQualite(this.qualite) : 1) * meteo;
+    // La sortie suit exactement l'emploi — même échelle, même qualité de sol.
+    // C'est le même fait dit deux fois : une bonne case est une case qui fait
+    // travailler plus de monde, et qui sort donc plus.
+    return this.def.debit * this.emplois * meteo;
   }
 
   besoinsIntrants() {
     const out = {};
-    for (const [r, q] of Object.entries(this.def.intrants || {})) out[r] = q * this.n * this.activite;
+    const k = echelleDe(this.type);
+    for (const [r, q] of Object.entries(this.def.intrants || {})) {
+      out[r] = q * this.n * k * this.activite;
+    }
     return out;
   }
 
@@ -2261,8 +2340,9 @@ class Batiment {
     if (!this.def.sort) return 0;
     const recette = this.capacite * marche.prix[this.def.sort];
     let couts = this.masseSalarialePleine;
+    const k = echelleDe(this.type);
     for (const [r, q] of Object.entries(this.def.intrants || {})) {
-      couts += q * this.n * marche.prix[r];
+      couts += q * this.n * k * marche.prix[r];
     }
     return recette - couts;
   }
@@ -2505,7 +2585,7 @@ class Batiment {
     if (this.def.cat === 'loge') return 0;                  // une maison n'emploie personne
     if (this.def.cat === 'bur') return this.def.postes;
     if (this.def.cat === 'neg') return this.n;
-    return this.n * (this.activiteEffective ?? this.activite);
+    return this.emplois * (this.activiteEffective ?? this.activite);
   }
 
   // Ce qu'il emploie RÉELLEMENT, une fois le mois écoulé. C'est ce chiffre — et
@@ -3089,7 +3169,8 @@ function rendementAttendu(monde, ville, type, cases) {
   const q = def.qual
     ? cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length
     : 3;
-  const production = def.debit * def.cases * (def.qual ? facteurQualite(q) : 1);
+  const production = def.debit * def.cases * echelleDe(type)
+    * (def.qual ? facteurQualite(q) : 1);
 
   // On ne calcule pas au prix d'aujourd'hui, mais à celui qu'aura fait la
   // production déjà en chantier.

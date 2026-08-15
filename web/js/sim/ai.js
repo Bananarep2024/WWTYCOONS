@@ -7,7 +7,7 @@
 // pour un joueur — un joueur a simplement le droit de se tromper.
 // ---------------------------------------------------------------------------
 
-import { P, BAT, RES, facteurQualite } from './params.js';
+import { P, BAT, RES, facteurQualite, echelleDe } from './params.js';
 
 // Qui produit quoi.
 const PRODUCTEUR = {
@@ -373,7 +373,8 @@ export function rendementAttendu(monde, ville, type, cases) {
   const q = def.qual
     ? cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length
     : 3;
-  const production = def.debit * def.cases * (def.qual ? facteurQualite(q) : 1);
+  const production = def.debit * def.cases * echelleDe(type)
+    * (def.qual ? facteurQualite(q) : 1);
 
   // On ne calcule pas au prix d'aujourd'hui, mais à celui qu'aura fait la
   // production déjà en chantier.

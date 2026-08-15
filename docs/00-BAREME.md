@@ -293,6 +293,43 @@ marge au risque de perdre ses employés. *(formats 30 et 60 min)*
 
 ---
 
+### 6 sexies. Le sol : des îlots rares, et une case qui vaut cinq cases
+
+**La qualité commande tout, dans un rapport de 5.** `facteurQualite(q) = q ÷ 3`. Une case de
+niveau 5 produit cinq fois une case de niveau 1, **emploie** cinq fois plus de monde, et **coûte**
+cinq fois plus cher. C'est la même loi pour les trois : une bonne case n'est pas une case plus
+rentable, c'est une case **plus grande**.
+
+C'était auparavant une droite plate — 0,64 à q1, 1,36 à q5, un rapport de 2,1 — qui faisait de la
+qualité du sol un détail.
+
+**Une case porte quatre ouvriers**, et non un seul (`echelleIndustrielle`). Combiné à la qualité :
+1,3 ouvrier sur une case de niveau 1, **6,7 sur une case de niveau 5**. L'échelle ne vaut que pour
+l'exploitation — un atelier transforme ce qu'on lui livre, sa taille est celle de ses murs.
+
+**Les bonnes cases sont des îlots.** On ne répartit plus le bruit sur 1–5, on **classe** les cases
+et on découpe à des quantiles fixes :
+
+| Qualité | Part de la carte |
+|---|---|
+| 1 | 85,8 % |
+| 2 | 10,0 % |
+| 3 | 3,6 % |
+| 4 | **0,4 %** |
+| 5 | **0,2 %** |
+
+Mesuré sur 6 cartes : une ville tient **58 cases de qualité ≥ 4** dans sa ressource dominante,
+soit **29 fermes** — l'ordre de grandeur voulu. Le bruit est resserré à [11, 5] cases d'échelle,
+si bien que les sommets forment de petites taches et non des régions.
+
+**Rendement de référence** : 15,3 % sur sol neutre, **28,8 % sur une case de niveau 5** —
+identique pour les six exploitations. La transformation garde ses 20 % et la manufacture ses 25 %.
+
+Le stock d'amorçage passe à 3 000 planches : une exploitation coûte désormais 700 $ la case et
+800 planches n'en bâtissaient plus que quatre.
+
+---
+
 ### 6 ter. Le sol se paie ce qu'il rend
 
 Le prix d'une case vaut `100 $ × facteur de niveau × facteur de distance × facteur de richesse`,

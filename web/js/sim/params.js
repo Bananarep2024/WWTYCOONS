@@ -154,10 +154,21 @@ export const P = {
   rendementMinimalPourBatir: 0.05,  // sous ce rendement attendu, on ne bâtit pas
 
   // Le sol
-  // sortie d'une exploitation = débit de base × (solPlancher + solPente × qualité)
+  // sortie d'une exploitation = débit × qualité ÷ qualiteNeutre × échelle industrielle
   // calibré pour valoir 1,00 à la qualité 3, comme le barème le suppose
-  solPlancher: 0.46,
-  solPente: 0.18,              // q1 = 0,64 · q3 = 1,00 · q5 = 1,36
+  qualiteNeutre: 3,            // la qualité qui vaut 1 : q1 = 0,33 · q5 = 1,67
+  // L'ÉCHELLE INDUSTRIELLE : combien d'ouvriers tient une case, à qualité
+  // neutre. Une case n'est plus un poste. Elle vaut pour l'exploitation comme
+  // pour l'atelier, si bien que tous les rapports du barème restent exacts —
+  // débits, intrants, salaires et coûts de construction montent ensemble.
+  //
+  // Sur une exploitation elle se combine à la qualité du sol : 1,3 ouvrier sur
+  // une case de niveau 1, 6,7 sur une de niveau 5.
+  echelleIndustrielle: 4,
+  // La rareté des bonnes cases, en part de la carte entière. On ne s'appuie plus
+  // sur la forme du bruit — on CLASSE les cases et on découpe à ces quantiles.
+  partQualite: [0.858, 0.100, 0.036, 0.004, 0.002],   // q1 … q5, somme = 1
+  echellesQualite: [11, 5],    // l'échelle du bruit : des îlots, pas des régions
 
   // --- Les événements ---
   //
@@ -194,7 +205,7 @@ export const P = {
   porteeVocation: 30,
 
   // Amorçage
-  stockAmorcage: { planches: 800, briques: 400 },
+  stockAmorcage: { planches: 3000, briques: 1500 },
 
   // Ce qu'on peut pousser la carte au-delà de ses bords, en fraction d'écran.
   // Sans ce débordement, une ville de lisière reste collée au bord et l'on ne
@@ -255,12 +266,12 @@ export const NOURRITURES = ['pain', 'viande'];
 // produit n fois ces quantités. (§20 : « une case, un employé, une production »)
 
 export const BAT = {
-  coupe:       { nom: 'Coupe forestière', cases: 1, w: 1, h: 1, sort: 'bois',     debit: 24, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'bois',      cat: 'expl' },
-  carriere:    { nom: 'Carrière',         cases: 1, w: 1, h: 1, sort: 'argile',   debit: 24, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'argile',    cat: 'expl' },
-  mineCharbon: { nom: 'Mine de charbon',  cases: 1, w: 1, h: 1, sort: 'charbon',  debit: 24, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'charbon',   cat: 'expl' },
-  mineFer:     { nom: 'Mine de fer',      cases: 1, w: 1, h: 1, sort: 'minerai',  debit: 24, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'minerai',   cat: 'expl' },
-  ferme:       { nom: 'Ferme céréalière', cases: 2, w: 2, h: 1, sort: 'cereales', debit: 10, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'fertilite', cat: 'expl' },
-  ranch:       { nom: 'Ranch',            cases: 2, w: 2, h: 1, sort: 'betail',   debit: 10, intrants: {}, cout: 260, mat: { planches: 52 }, qual: 'fertilite', cat: 'expl' },
+  coupe:       { nom: 'Coupe forestière', cases: 1, w: 1, h: 1, sort: 'bois',     debit: 24, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'bois',      cat: 'expl' },
+  carriere:    { nom: 'Carrière',         cases: 1, w: 1, h: 1, sort: 'argile',   debit: 24, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'argile',    cat: 'expl' },
+  mineCharbon: { nom: 'Mine de charbon',  cases: 1, w: 1, h: 1, sort: 'charbon',  debit: 24, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'charbon',   cat: 'expl' },
+  mineFer:     { nom: 'Mine de fer',      cases: 1, w: 1, h: 1, sort: 'minerai',  debit: 24, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'minerai',   cat: 'expl' },
+  ferme:       { nom: 'Ferme céréalière', cases: 2, w: 2, h: 1, sort: 'cereales', debit: 10, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
+  ranch:       { nom: 'Ranch',            cases: 2, w: 2, h: 1, sort: 'betail',   debit: 10, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
 
   scierie:     { nom: 'Scierie',      cases: 2, w: 2, h: 1, sort: 'planches', debit: 12, intrants: { bois: 24 },              cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
   briqueterie: { nom: 'Briqueterie',  cases: 2, w: 2, h: 1, sort: 'briques',  debit: 12, intrants: { argile: 24 },            cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
@@ -278,9 +289,24 @@ export const BAT = {
 export const TYPES_BAT = Object.keys(BAT);
 
 // Coût total de construction d'un bâtiment, en quantités de matériaux.
+// L'échelle ne concerne QUE l'exploitation. Une case de sol porte plusieurs
+// ouvriers ; un atelier, non — il transforme ce qu'on lui livre, et sa taille
+// est celle de ses murs.
+//
+// Essayé de l'étendre à la transformation, pour garder tous les rapports du
+// barème : catastrophe mesurée sur neuf réglages, la meilleure combinaison
+// laissant encore une ville sur quinze morte et les produits manufacturés à
+// 32 %. Un atelier quatre fois plus gros consomme quatre fois plus d'intrants
+// et coûte quatre fois plus cher à bâtir, ce qui étrangle la filière à ses deux
+// bouts en même temps. Seule l'exploitation change d'échelle, et l'atelier
+// s'ajuste en nombre.
+export function echelleDe(type) {
+  return BAT[type].cat === 'expl' ? P.echelleIndustrielle : 1;
+}
+
 export function materiaux(type) {
-  const b = BAT[type], out = {};
-  for (const [r, q] of Object.entries(b.mat)) out[r] = q * b.cases;
+  const b = BAT[type], out = {}, k = echelleDe(type);
+  for (const [r, q] of Object.entries(b.mat)) out[r] = q * b.cases * k;
   return out;
 }
 
@@ -337,8 +363,19 @@ export function niveauVille(menages) {
 // un coût FIXE, ce facteur 5 sur l'écart de production devient un facteur 5
 // sur la MARGE : une coupe forestière rapporterait 99 % l'an sur qualité 5 et
 // perdrait 68 % sur qualité 1. La courbe est donc resserrée.
+// Ce que vaut une case, rapporté à la terre moyenne.
+//
+// C'était une droite plate — 0,64 à q1, 1,36 à q5, un rapport de 2,1 — qui
+// faisait de la qualité du sol un détail. Elle est désormais PROPORTIONNELLE à
+// la qualité : une case de niveau 5 vaut exactement cinq cases de niveau 1.
+//
+// Ce facteur commande trois choses à la fois, et c'est ce qui rend le modèle
+// cohérent : ce que la case PRODUIT, combien d'ouvriers elle EMPLOIE, et ce que
+// son sol COÛTE. Une bonne case n'est donc pas une case plus rentable, c'est une
+// case plus GRANDE — elle concentre cinq fois plus d'activité sur la même
+// surface, et son prix capte cette concentration.
 export function facteurQualite(q) {
-  return P.solPlancher + P.solPente * q;
+  return q / P.qualiteNeutre;
 }
 
 // Prix d'une case de terrain.
