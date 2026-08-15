@@ -13,7 +13,7 @@ chacun. Les décisions marquées **[déléguée]** ont été prises par calcul e
 
 | # | Point | Décision |
 |---|---|---|
-| 2 | Formule des prix | **[déléguée]** `prix ← prix + 0,28 × (réf × tension^0,6 − prix)`, bornes 50–250 %. Tension = besoins réels ÷ production mise en vente ; le stock ne joue **que** sur le service, jamais sur le cours. Le lissage 0,28 est calibré sur la mesure du §20 : 30 % de production détournée donne +19,2 % en 5 mois (le doc annonce +19 %). |
+| 2 | Formule des prix | **[déléguée]** `prix ← prix + 0,28 × (réf × tension^0,6 − prix)`, bornes 50–250 %. Tension = besoins réels ÷ production mise en vente. *Le stock ne jouait que sur le service, jamais sur le cours — revu depuis, voir §4.2 bis du barème : l'écart au matelas d'un mois entre dans les besoins.* Le lissage 0,28 est calibré sur la mesure du §20 : 30 % de production détournée donne +19,2 % en 5 mois (le doc annonce +19 %). |
 | 3 | Nomenclature des matériaux | **[déléguée]** Table complète en quantités (§3 du barème), dérivée des coûts du §20 aux prix de référence. Les rendements visés sont tous retrouvés à ±0,2 point. La règle « maison = bois + brique, immeuble = brique + acier » est préservée. |
 | 4 | Taille des bâtiments | Maison, coupe forestière, mines, carrière : **1 case**. Aciérie et manufacture : **4 cases (2×2)**. Tout le reste : **2 cases**. Logement collectif, bureaux et entrepôt restent à **4 cases (2×2)** conformément au §20 — *à confirmer, voir questions ouvertes*. |
 | 5 | Seuils de niveau de ville | 100 / 250 / 500 / 1 000 / 2 000 ménages. |
@@ -1148,3 +1148,73 @@ barème. Le ramener demanderait de tripler son capital, ce qui a été mesuré d
 fatal : la filière du bois ne supporte pas cette intensité matière, l'entretien étant lui aussi
 payé en planches. L'exploitation sur bonne terre est donc, assumé, le placement le plus rentable
 du jeu — c'est le prix de la rareté des îlots.
+
+## Le matelas de sécurité, ou comment un tas devient invisible
+
+Constat du joueur : « j'ai l'impression qu'au final il y a beaucoup plus de matières premières en
+stock qu'avant. » L'agrégat disait l'inverse — la valeur totale du stock immobilisé avait été
+divisée par deux depuis le relèvement des débits — mais elle avait changé de place, et l'audit de
+flux a montré autre chose de bien pire.
+
+### Ce que l'audit a trouvé
+
+Sur trente ans, tout s'écoule à 99–100 %… sauf le bétail : **335 112 offerts, 57 300 pris, 17 %
+écoulé**. 277 812 têtes que personne n'achètera jamais. Et 23 mois d'argile, gelés.
+
+La cause n'est pas l'élevage. C'est que **le prix ne suivait que les flux**. Dès qu'un marché
+s'était constitué un tas, ce tas devenait *invisible* : les flux se rééquilibraient autour de lui,
+la tension revenait à 1, le prix aussi, et plus rien ne le mangeait ni ne le faisait grossir. Le
+règlement du §4.2 le disait explicitement — « acheter pour stocker n'est pas un besoin » — et
+c'était vrai dans un sens et faux dans l'autre : *ne pas avoir besoin d'acheter* n'y entrait pas
+non plus.
+
+### La règle
+
+Le marché déclare ce qu'il veut **tenir** — un mois de consommation — et l'écart à ce matelas,
+étalé sur six mois, s'ajoute à ses besoins. Cave à sec : il achète au-delà de sa consommation et
+le prix monte. Cave pleine : il achète moins et le prix tombe. À l'équilibre le terme s'annule et
+on retrouve l'ancienne loi mot pour mot.
+
+Et ce qui dort au-dessus du matelas se perd : **10 % de l'excédent par mois**. Sans cette freinte
+un tas ne redescend jamais — 1 155 mois de bétail à consommation constante, c'est 96 ans de purge.
+
+### Quatre façons de l'écrire, trois qui tuent
+
+| Formulation | Résultat |
+|---|---|
+| Matelas d'une ville = sa **consommation** locale | 1 065 ménages au lieu de 1 889, 7 villes sur 20 en crise |
+| Matelas commun au marché, perte **au prorata** des livres | Graine 12345 : 2 villes sur 5 mortes, une autre doublée |
+| Matelas d'une ville = son **débit du mois**, `max(besoins, sorties)` | 2 villes sur 40 mortes : un mois creux efface le matelas |
+| Matelas d'une ville = son **débit lissé**, l'enveloppe qui redescend de 20 %/mois | ✔ retenu |
+
+La première échoue parce que, sous la règle du service local, une ville minière garde dans son
+propre livre le charbon qu'elle destine à l'export : ses besoins locaux sont nuls, donc son matelas
+aussi, et tout ce qu'elle allait vendre pourrissait chaque mois. La seconde échoue parce que la
+ville qui n'a rien en trop paie pour le tas de la voisine. Seul le **débit** dit ce qu'une ville a
+légitimement en cave.
+
+Encore faut-il que ce débit ait de la mémoire. Mesuré sur le seul mois écoulé, il tombe à zéro dès
+qu'une scierie se met en sommeil, fait pourrir d'un coup tout le stock d'export de sa ville, et la
+laisse repartir sans matelas — 2 villes sur 40 y sont mortes. L'enveloppe qui **redescend de 20 %
+par mois** absorbe le mois creux tout en laissant un commerce réellement éteint se purger en une
+dizaine de mois. Sur la graine 12345, les cinq villes finissent alors au-dessus du témoin :
+1 605 ménages en moyenne contre 1 219.
+
+### Ce qu'on n'a pas fait
+
+Retirer le plancher au prix de revient sur un marché engorgé achève plus vite un troupeau
+invendable — le bétail tombait à 15,6 mois. Mais ce plancher ne protège pas que l'éleveur : il
+tient toute la filière lourde. Sans lui, le baromètre des produits manufacturés passait de 97 % à
+57 %. Ce n'est pas le prix à payer pour vider une cave.
+
+La freinte a été réglée par balayage à matelas et délai fixes : 0,05 laisse le troupeau à 150 mois,
+0,20 rabote le matelas de planches à 0,2 mois — c'est-à-dire plus de matelas du tout. **0,10** tient
+tout entre 0,5 et 1,5 mois.
+
+### Une conséquence assumée
+
+**Rafler un marché fait désormais monter les cours**, ce que le barème déclarait impossible. Le raid
+n'entre toujours pas dans les besoins du mois, mais il vide la cave et la cave compte. L'effet est
+étalé sur six mois et il faut tenir le stock racheté dans un entrepôt qui coûte ses salaires tous
+les mois : un accaparement possible et coûteux, ce qu'il doit être. Le §4.2 du barème et la note du
+volet Marché ont été réécrits.

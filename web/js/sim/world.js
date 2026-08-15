@@ -991,9 +991,12 @@ export class Monde {
 
     // --- 7. Les prix du mois suivant ----------------------------------------
     // Maintenant seulement, sur le rapport entre les besoins réels du mois et ce
-    // qui est entré sur le marché. Le stock n'entre pas dans ce calcul : il
-    // protège l'approvisionnement, pas le cours.
-    for (const m of this.marches) m.fixerPrix();
+    // qui est entré sur le marché — augmentés de ce qu'il faut acheter, ou
+    // cesser d'acheter, pour ramener la cave au matelas de sécurité.
+    //
+    // La freinte passe AVANT, pour que le prix soit fixé sur le stock qui
+    // restera réellement en cave le mois prochain.
+    for (const m of this.marches) { m.perimer(); m.fixerPrix(); }
 
     // --- 8. Le salaire, variable d'ajustement de la ville -------------------
     for (const v of this.villes) this.ajusterSalaire(v);

@@ -335,7 +335,14 @@ export function voletMarche(monde, rendu) {
       // ateliers s'arrêtent ; vert, on en trouve autant qu'on en demande.
       const teinte = rgb(echelle(servi));
       const classePrix = i > 1.35 ? 'rouge' : i < 0.85 ? 'vert' : 'doux';
-      const engorge = i < 0.9 && stock > 200;
+      // Le stock se lit en mois de consommation : c'est la seule échelle qui ait
+      // un sens d'une marchandise à l'autre, entre un charbon qui se compte par
+      // dizaines de milliers et une viande qui se compte par dizaines. Engorgé
+      // veut dire au-dessus du matelas que le marché cherche à tenir (§4.2 bis)
+      // — donc au-dessus de ce qui va commencer à s'abîmer.
+      const matelas = m.matelasVise(r);
+      const mois = m.besoins[r] > 1 ? stock / m.besoins[r] : null;
+      const engorge = stock > matelas;
 
       return `<div class="carteRes ${ouvert === r ? 'actif' : ''}" data-cours="${r}">
         <div class="tetRes">
@@ -347,7 +354,8 @@ export function voletMarche(monde, rendu) {
           <div style="width:${(servi * 100).toFixed(0)}%;background:${teinte}"></div>
         </div>
         <div class="piedRes">
-          <span>stock <b>${Math.round(stock).toLocaleString('fr-FR')}</b></span>
+          <span>stock <b>${Math.round(stock).toLocaleString('fr-FR')}</b>${
+            mois === null ? '' : ` · ${mois.toFixed(1)} mois`}</span>
           <span class="${servi < 0.95 ? 'rouge' : 'doux'}">${pct(servi)} servi</span>
           ${engorge ? '<span class="vert">engorgé</span>' : ''}
         </div>
@@ -366,10 +374,12 @@ export function voletMarche(monde, rendu) {
       Touchez une marchandise pour <b>ouvrir sa courbe</b>, et le bouton pour la voir ville
       par ville sur la carte.<br><br>
       La jauge dit ce qu'on peut <b>obtenir</b> : rouge, la marchandise manque et les ateliers
-      s'arrêtent au premier accroc ; vert, on en trouve autant qu'on en demande. Le prix, lui,
-      suit les <b>flux</b> et jamais le stock — il monte quand les besoins du mois dépassent ce
-      qui entre sur le marché. Rafler un stock ne fait pas bouger le cours : cela vide le
-      matelas, et c'est tout.
+      s'arrêtent au premier accroc ; vert, on en trouve autant qu'on en demande. Le prix suit
+      les <b>flux</b> : il monte quand les besoins du mois dépassent ce qui entre sur le marché.
+      Le marché cherche en plus à garder <b>un mois de consommation en cave</b> — c'est le chiffre
+      en mois à côté du stock. Ce qui lui manque pour l'atteindre, il l'achète et fait monter le
+      cours ; ce qu'il garde au-dessus est marqué <b>engorgé</b>, cesse d'être acheté et
+      commence à s'abîmer.
     </div>`;
 }
 

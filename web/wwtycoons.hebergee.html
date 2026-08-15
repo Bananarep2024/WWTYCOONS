@@ -720,6 +720,43 @@ const P = {
   tensionMin: 0.20,
   tensionMax: 6.00,
 
+  // Le matelas de sécurité, et ce qui l'y ramène.
+  //
+  // Le prix ne suivait que les flux — besoins du mois ÷ entrées du mois — et le
+  // stock n'entrait nulle part dans le calcul. La conséquence n'était visible
+  // qu'à long terme : dès qu'un marché s'était constitué un tas, ce tas devenait
+  // INVISIBLE. Les flux se rééquilibraient autour de lui, la tension revenait à
+  // 1, le prix aussi, et plus rien ne le mangeait ni ne le faisait grossir. Une
+  // partie de trente ans finissait avec vingt-trois mois d'argile et mille sept
+  // cents mois de bétail immobilisés, tandis que le bois vivait sur un demi-mois.
+  //
+  // On corrige des deux côtés. Le marché déclare maintenant ce qu'il veut TENIR
+  // — un mois de consommation, pas plus — et l'écart entre ce matelas et ce
+  // qu'il a en cave s'ajoute à ses besoins du mois, étalé sur le délai de
+  // reconstitution. Un marché à sec achète au-delà de sa consommation et fait
+  // monter le prix ; un marché engorgé achète moins et le fait tomber.
+  matelasMois: 1.0,            // le matelas visé, en mois de consommation
+  moisDeRestockage: 6,         // sur combien de mois on comble ou on purge l'écart
+
+  // Et ce qui dort au-dessus du matelas se perd : le grain s'échauffe, la bête
+  // maigrit, le charbon s'effrite sous la pluie. Sans cette freinte, un tas
+  // constitué une fois ne redescend jamais — mille sept cents mois de bétail à
+  // cent soixante têtes de consommation, c'est cent quarante ans de purge.
+  // Elle ne coûte rien à un marché bien tenu : elle ne mord que sur l'excédent.
+  //
+  // Elle se calcule livre par livre — la marchandise pourrit là où elle est — et
+  // le matelas d'une ville se mesure sur son DÉBIT, le plus grand de ce qu'elle
+  // consomme et de ce qu'elle sort. Voir market.js : les deux autres façons de
+  // l'écrire ont été essayées et tuent des villes.
+  //
+  // Réglée par balayage sur 4 cartes × 25 ans, le matelas et le délai tenus
+  // fixes. 0,05 laisse le troupeau à 150 mois ; 0,20 resserre bien mais rabote
+  // le matelas de planches à 0,2 mois, c'est-à-dire plus de matelas du tout.
+  // 0,10 tient tout entre 0,5 et 1,5 mois et donne la population la plus haute
+  // des trois — 2 051 ménages contre 1 889 sans aucune des deux règles.
+  freinteExcedent: 0.10,       // part de l'excédent perdue chaque mois
+  memoireDebit: 0.80,          // le débit d'une ville redescend de 20 % par mois
+
   // Ville
   cibleProduits: 0.90,         // au-dessus, la ville cesse d'ajouter des manufactures
   // Un immeuble de bureaux pour tant de ménages.
@@ -1939,10 +1976,16 @@ function salaireExige(monde, ville) {
 // ---------------------------------------------------------------------------
 // Le marché : formation des prix, rationnement.
 //
-// Règle centrale (§20) : le prix suit les FLUX, jamais le stock.
-//   tension = besoins réels du mois ÷ production mise en vente
-// Acheter pour stocker n'est pas un besoin et n'entre pas dans le calcul.
-// Le matelas de stock protège l'approvisionnement, pas le cours.
+// Règle centrale (§20) : le prix suit les FLUX.
+//   tension = besoins effectifs du mois ÷ production mise en vente
+// Acheter pour stocker n'est toujours pas un besoin et n'entre pas dans le
+// calcul. Mais les besoins effectifs comprennent le rattrapage du matelas de
+// sécurité (§4.2 bis) : le marché veut tenir un mois de consommation en cave,
+// et l'écart à ce mois-là, étalé sur six, s'ajoute ou se retranche.
+//
+// Sans ce terme, un tas une fois constitué devenait INVISIBLE : les flux se
+// rééquilibraient autour de lui, la tension revenait à 1, et plus rien ne le
+// mangeait ni ne le faisait grossir.
 // ---------------------------------------------------------------------------
 
 
@@ -1994,10 +2037,10 @@ class Marche {
   }
 
   livreNeuf() {
-    const l = { stock: {}, besoins: {}, restants: {}, entrees: {}, serviceLocal: {} };
+    const l = { stock: {}, besoins: {}, restants: {}, entrees: {}, serviceLocal: {}, debit: {} };
     for (const r of RESSOURCES) {
       l.stock[r] = 0; l.besoins[r] = 0; l.restants[r] = 0;
-      l.entrees[r] = 0; l.serviceLocal[r] = 1;
+      l.entrees[r] = 0; l.serviceLocal[r] = 1; l.debit[r] = 0;
     }
     return l;
   }
@@ -2062,14 +2105,26 @@ class Marche {
 
   // --- Phase 2 : on fixe les prix ------------------------------------------
 
+  // Le matelas que le marché cherche à tenir sur une ressource : un mois de la
+  // consommation qu'il vient de constater.
+  matelasVise(res) { return P.matelasMois * this.besoins[res]; }
+
   fixerPrix() {
     for (const r of RESSOURCES) {
       const ref = RES[r].prix;
+
+      // Le besoin qui fait le prix n'est plus la seule consommation du mois :
+      // c'est elle plus ce qu'il faut acheter pour ramener la cave au matelas.
+      // À la cave pleine ce terme est négatif et fait tomber le prix — c'est
+      // par là qu'un tas cesse d'être invisible.
+      const ecart = (this.matelasVise(r) - this.stock[r]) / P.moisDeRestockage;
+      const besoinsEff = Math.max(0, this.besoins[r] + ecart);
+
       let tension;
       if (this.entrees[r] <= 0.0001) {
-        tension = this.besoins[r] > 0 ? P.tensionMax : 1;
+        tension = besoinsEff > 0 ? P.tensionMax : 1;
       } else {
-        tension = this.besoins[r] / this.entrees[r];
+        tension = besoinsEff / this.entrees[r];
       }
       tension = Math.max(P.tensionMin, Math.min(P.tensionMax, tension));
 
@@ -2078,6 +2133,12 @@ class Marche {
       // quelques mois avant que le prix ne s'envole.
       this.prix[r] += P.lissagePrix * (cible - this.prix[r]);
 
+      // Le plancher au prix de revient du producteur le plus efficace reste
+      // intact. Le retirer sur un marché engorgé a été essayé — c'est ce qui
+      // achève le plus vite un troupeau invendable — mais il ne protège pas
+      // que l'éleveur : il tient toute la filière lourde. Sans lui, le
+      // baromètre des produits tombait de 97 % à 57 %. Ce n'est pas le prix à
+      // payer pour vider une cave.
       const revient = Number.isFinite(this.prixRevient[r]) ? this.prixRevient[r] : 0;
       const bas = Math.max(ref * P.prixPlancher, revient);
       this.prix[r] = Math.max(bas, Math.min(ref * P.prixPlafond, this.prix[r]));
@@ -2194,6 +2255,42 @@ class Marche {
     if (pris < qte) pris += this.puiserAilleurs(res, qte - pris, l);
     this.stock[res] -= pris;
     return pris;
+  }
+
+  // --- Phase 6 : la garde ---------------------------------------------------
+  // Ce qui dort au-dessus du matelas s'abîme. La marchandise pourrit là où elle
+  // est : la perte se calcule donc livre par livre, sur le stock de chaque
+  // ville.
+  //
+  // Le matelas d'une ville est un mois de son DÉBIT, pas de sa consommation :
+  // le plus grand des deux entre ce qu'elle consomme et ce qu'elle sort. C'est
+  // la seule mesure juste sous la règle du service local. Une ville minière
+  // garde dans son propre livre le charbon qu'elle destine à l'export ; ses
+  // besoins locaux sont nuls, et un matelas calé sur eux ferait pourrir chaque
+  // mois la totalité de ce qu'elle allait vendre à la voisine — mesuré : 1 065
+  // ménages au lieu de 1 889 et sept villes sur vingt en crise.
+  //
+  // Un matelas commun au marché entier n'allait pas non plus : la perte y était
+  // répartie au prorata sur tous les livres, si bien que la ville qui n'avait
+  // rien en trop payait pour le tas de la voisine. Sur la graine 12345, deux
+  // villes sur cinq y sont mortes pendant qu'une sixième doublait.
+  perimer() {
+    const livres = [...this.parVille.values()];
+    if (this._orphelin) livres.push(this._orphelin);
+    for (const r of RESSOURCES) {
+      let total = 0;
+      for (const l of livres) {
+        // Le débit est une enveloppe qui redescend lentement, pas la mesure du
+        // mois. Sans mémoire, une scierie mise en sommeil un mois ramène le
+        // débit de sa ville à zéro et fait pourrir d'un coup tout ce qu'elle
+        // gardait pour l'export ; le mois suivant elle repart sans matelas.
+        l.debit[r] = Math.max(l.besoins[r], l.entrees[r], l.debit[r] * P.memoireDebit);
+        const exces = l.stock[r] - P.matelasMois * l.debit[r];
+        if (exces > 0) l.stock[r] -= exces * P.freinteExcedent;
+        total += l.stock[r];
+      }
+      this.stock[r] = total;
+    }
   }
 
   reinitialiser() {
@@ -4317,9 +4414,12 @@ class Monde {
 
     // --- 7. Les prix du mois suivant ----------------------------------------
     // Maintenant seulement, sur le rapport entre les besoins réels du mois et ce
-    // qui est entré sur le marché. Le stock n'entre pas dans ce calcul : il
-    // protège l'approvisionnement, pas le cours.
-    for (const m of this.marches) m.fixerPrix();
+    // qui est entré sur le marché — augmentés de ce qu'il faut acheter, ou
+    // cesser d'acheter, pour ramener la cave au matelas de sécurité.
+    //
+    // La freinte passe AVANT, pour que le prix soit fixé sur le stock qui
+    // restera réellement en cave le mois prochain.
+    for (const m of this.marches) { m.perimer(); m.fixerPrix(); }
 
     // --- 8. Le salaire, variable d'ajustement de la ville -------------------
     for (const v of this.villes) this.ajusterSalaire(v);
@@ -5938,7 +6038,14 @@ function voletMarche(monde, rendu) {
       // ateliers s'arrêtent ; vert, on en trouve autant qu'on en demande.
       const teinte = rgb(echelle(servi));
       const classePrix = i > 1.35 ? 'rouge' : i < 0.85 ? 'vert' : 'doux';
-      const engorge = i < 0.9 && stock > 200;
+      // Le stock se lit en mois de consommation : c'est la seule échelle qui ait
+      // un sens d'une marchandise à l'autre, entre un charbon qui se compte par
+      // dizaines de milliers et une viande qui se compte par dizaines. Engorgé
+      // veut dire au-dessus du matelas que le marché cherche à tenir (§4.2 bis)
+      // — donc au-dessus de ce qui va commencer à s'abîmer.
+      const matelas = m.matelasVise(r);
+      const mois = m.besoins[r] > 1 ? stock / m.besoins[r] : null;
+      const engorge = stock > matelas;
 
       return `<div class="carteRes ${ouvert === r ? 'actif' : ''}" data-cours="${r}">
         <div class="tetRes">
@@ -5950,7 +6057,8 @@ function voletMarche(monde, rendu) {
           <div style="width:${(servi * 100).toFixed(0)}%;background:${teinte}"></div>
         </div>
         <div class="piedRes">
-          <span>stock <b>${Math.round(stock).toLocaleString('fr-FR')}</b></span>
+          <span>stock <b>${Math.round(stock).toLocaleString('fr-FR')}</b>${
+            mois === null ? '' : ` · ${mois.toFixed(1)} mois`}</span>
           <span class="${servi < 0.95 ? 'rouge' : 'doux'}">${pct(servi)} servi</span>
           ${engorge ? '<span class="vert">engorgé</span>' : ''}
         </div>
@@ -5969,10 +6077,12 @@ function voletMarche(monde, rendu) {
       Touchez une marchandise pour <b>ouvrir sa courbe</b>, et le bouton pour la voir ville
       par ville sur la carte.<br><br>
       La jauge dit ce qu'on peut <b>obtenir</b> : rouge, la marchandise manque et les ateliers
-      s'arrêtent au premier accroc ; vert, on en trouve autant qu'on en demande. Le prix, lui,
-      suit les <b>flux</b> et jamais le stock — il monte quand les besoins du mois dépassent ce
-      qui entre sur le marché. Rafler un stock ne fait pas bouger le cours : cela vide le
-      matelas, et c'est tout.
+      s'arrêtent au premier accroc ; vert, on en trouve autant qu'on en demande. Le prix suit
+      les <b>flux</b> : il monte quand les besoins du mois dépassent ce qui entre sur le marché.
+      Le marché cherche en plus à garder <b>un mois de consommation en cave</b> — c'est le chiffre
+      en mois à côté du stock. Ce qui lui manque pour l'atteindre, il l'achète et fait monter le
+      cours ; ce qu'il garde au-dessus est marqué <b>engorgé</b>, cesse d'être acheté et
+      commence à s'abîmer.
     </div>`;
 }
 

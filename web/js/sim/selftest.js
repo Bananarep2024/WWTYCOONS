@@ -10,6 +10,12 @@ const ok = (nom, val, attendu, tol = 0.05) => {
   if (!bon) ko++;
   console.log(`${bon ? ' ok ' : 'FAIL'}  ${nom.padEnd(46)} ${(+val).toFixed(2).padStart(9)}   attendu ${attendu}`);
 };
+// Pour les bornes, où seul le dépassement est une faute.
+const sous = (nom, val, plafond) => {
+  const bon = val <= plafond;
+  if (!bon) ko++;
+  console.log(`${bon ? ' ok ' : 'FAIL'}  ${nom.padEnd(46)} ${(+val).toFixed(2).padStart(9)}   au plus ${plafond}`);
+};
 
 console.log('\n=== Rendements de référence (niveau 1, 100 $/case) ===');
 const rdt = (type, marge) => {
@@ -201,4 +207,22 @@ for (const mk of monde.marches) {
   const l = Object.keys(RES).map(r => `${r.slice(0, 4)} ${mk.indice(r).toFixed(2)}`).join('  ');
   console.log(`   ${l}`);
 }
+
+// Le matelas (§4.2 bis) : aucune marchandise ne doit dormir en montagne. Sans
+// les deux règles, la même partie finit avec 23 mois d'argile et plus de mille
+// mois de bétail — un tas devenu invisible au prix, que rien ne mangeait plus.
+console.log('\n  Couverture des stocks, en mois de consommation :');
+const couverture = {};
+for (const r of Object.keys(RES)) {
+  let stock = 0, besoins = 0;
+  for (const mk of monde.marches) { stock += Math.max(0, mk.stock[r]); besoins += mk.besoins[r]; }
+  couverture[r] = besoins > 1 ? stock / besoins : 0;
+}
+console.log('   ' + Object.keys(RES).map(r => `${r.slice(0, 4)} ${couverture[r].toFixed(1)}`).join('  '));
+// Le bétail est exclu : sa demande est structurellement quasi nulle — le pain
+// couvre la ration entière et la viande n'est qu'un appoint (§ décision 9) —
+// si bien qu'un tas minuscule y pèse des dizaines de mois de couverture.
+const surveillees = Object.keys(RES).filter(r => r !== 'betail');
+const pire = Math.max(...surveillees.map(r => couverture[r]));
+sous('aucune montagne de marchandise', pire, 4);
 console.log(`\n${ko === 0 ? '✓ tous les contrôles passent' : '✗ ' + ko + ' contrôle(s) en échec'}\n`);

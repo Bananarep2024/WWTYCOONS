@@ -23,6 +23,44 @@ export const P = {
   tensionMin: 0.20,
   tensionMax: 6.00,
 
+  // Le matelas de sécurité, et ce qui l'y ramène.
+  //
+  // Le prix ne suivait que les flux — besoins du mois ÷ entrées du mois — et le
+  // stock n'entrait nulle part dans le calcul. La conséquence n'était visible
+  // qu'à long terme : dès qu'un marché s'était constitué un tas, ce tas devenait
+  // INVISIBLE. Les flux se rééquilibraient autour de lui, la tension revenait à
+  // 1, le prix aussi, et plus rien ne le mangeait ni ne le faisait grossir. Une
+  // partie de trente ans finissait avec vingt-trois mois d'argile et mille sept
+  // cents mois de bétail immobilisés, tandis que le bois vivait sur un demi-mois.
+  //
+  // On corrige des deux côtés. Le marché déclare maintenant ce qu'il veut TENIR
+  // — un mois de consommation, pas plus — et l'écart entre ce matelas et ce
+  // qu'il a en cave s'ajoute à ses besoins du mois, étalé sur le délai de
+  // reconstitution. Un marché à sec achète au-delà de sa consommation et fait
+  // monter le prix ; un marché engorgé achète moins et le fait tomber.
+  matelasMois: 1.0,            // le matelas visé, en mois de consommation
+  moisDeRestockage: 6,         // sur combien de mois on comble ou on purge l'écart
+
+  // Et ce qui dort au-dessus du matelas se perd : le grain s'échauffe, la bête
+  // maigrit, le charbon s'effrite sous la pluie. Sans cette freinte, un tas
+  // constitué une fois ne redescend jamais — mille sept cents mois de bétail à
+  // cent soixante têtes de consommation, c'est cent quarante ans de purge.
+  // Elle ne coûte rien à un marché bien tenu : elle ne mord que sur l'excédent.
+  //
+  // Elle se calcule livre par livre — la marchandise pourrit là où elle est — et
+  // le matelas d'une ville se mesure sur son DÉBIT LISSÉ, le plus grand de ce
+  // qu'elle consomme, de ce qu'elle sort, et de son débit du mois d'avant amorti
+  // de 20 %. Voir market.js : les trois autres façons de l'écrire ont été
+  // essayées et tuent des villes.
+  //
+  // Réglée par balayage sur 4 cartes × 25 ans, le matelas et le délai tenus
+  // fixes. 0,05 laisse le troupeau à 150 mois ; 0,20 resserre bien mais rabote
+  // le matelas de planches à 0,2 mois, c'est-à-dire plus de matelas du tout.
+  // 0,10 tient tout entre 0,5 et 1,5 mois et donne la population la plus haute
+  // des trois — 2 051 ménages contre 1 889 sans aucune des deux règles.
+  freinteExcedent: 0.10,       // part de l'excédent perdue chaque mois
+  memoireDebit: 0.80,          // le débit d'une ville redescend de 20 % par mois
+
   // Ville
   cibleProduits: 0.90,         // au-dessus, la ville cesse d'ajouter des manufactures
   // Un immeuble de bureaux pour tant de ménages.

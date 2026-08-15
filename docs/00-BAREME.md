@@ -131,10 +131,10 @@ constante du jeu, jamais recalculée.
 | Acier | 15 $ | 0,500 case | 67 % |
 | Produits manufacturés | 17 $ | 0,500 case | 59 % |
 
-### 4.2 — Formation du prix : le flux, jamais le stock
+### 4.2 — Formation du prix : le flux, et l'écart au matelas
 
 ```
-Tension     = besoins réels du mois ÷ entrées du mois
+Tension     = besoins effectifs du mois ÷ entrées du mois
 Prix cible  = prix de référence × Tension ^ 0,60
 Prix du mois = prix précédent + 0,28 × (prix cible − prix précédent)
 
@@ -143,18 +143,76 @@ Plancher local supplémentaire : le prix de revient réel sur ce marché
 ```
 
 - **Besoins réels** = consommation des ménages + intrants des bâtiments en activité + matériaux
-  des chantiers ouverts + entretien. **Acheter pour stocker n'est pas un besoin** et n'entre pas
-  dans le calcul.
+  des chantiers ouverts + entretien, **plus le rattrapage du matelas** (§ 4.2 bis).
 - **Entrées** = production mise en vente + ce que les entrepôts relâchent.
 - **Exposant 0,60** : repris du §8, seul chiffre que le document ait testé. Tension ×2 → prix ×1,52.
 - **Lissage 0,28** : calibré sur la mesure du §20 — 30 % de production détournée doit donner
   +19 % en 5 mois. Ce coefficient donne +19,2 %. ✔
 
-> **Rafler un marché ne fait pas monter les prix.** Racheter tout le stock disponible alors que les
-> besoins du mois sont servis ne bouge pas le cours d'un centime. Cela vide en revanche le matelas :
-> au premier accroc de production, les usines s'arrêtent faute d'intrants. Le matelas protège
-> l'approvisionnement, pas le cours. **Retenir sa propre production**, en revanche, réduit
-> directement les entrées et fait monter le prix immédiatement.
+> **Rafler un marché le fait monter — lentement.** L'achat spéculatif n'entre toujours pas dans les
+> besoins du mois : il ne touche pas la tension par ce côté. Mais il vide la cave, et depuis le
+> §4.2 bis la cave compte. Le manque se rattrape sur six mois, si bien qu'un raid de N unités ne
+> déplace le prix que d'un sixième de son poids, et il faut le tenir pour que ça dure — le stock
+> racheté dort dans un entrepôt qui coûte ses salaires et son entretien tous les mois. C'est un
+> accaparement possible et coûteux, ce qu'il doit être. **Retenir sa propre production** reste bien
+> plus tranchant : elle réduit directement les entrées et fait monter le prix dès le mois suivant.
+>
+> *Avant le §4.2 bis, rafler ne bougeait pas le cours d'un centime.* C'était le corollaire assumé
+> d'un prix qui ignorait le stock — et c'est le même angle mort qui laissait un tas de bétail
+> grossir pendant trente ans sans que rien ne le voie.
+
+### 4.2 bis — Le matelas de sécurité
+
+Le prix ne suivait que les flux et le stock n'entrait nulle part dans le calcul. Le défaut n'était
+visible qu'à long terme : **dès qu'un marché s'était constitué un tas, ce tas devenait invisible.**
+Les flux se rééquilibraient autour de lui, la tension revenait à 1, le prix aussi, et plus rien ne
+le mangeait ni ne le faisait grossir. Une partie de trente ans finissait avec 23 mois d'argile et
+1 155 mois de bétail immobilisés pendant que le bois vivait sur un demi-mois.
+
+Le marché déclare donc ce qu'il veut **tenir**, et l'écart à ce matelas s'ajoute à ses besoins :
+
+```
+Matelas visé      = 1,0 × besoins du mois           (matelasMois)
+Besoins effectifs = besoins du mois + (matelas visé − stock) ÷ 6     ⩾ 0
+                                                    (moisDeRestockage)
+```
+
+Une cave à sec achète au-delà de sa consommation et fait monter le prix ; une cave pleine achète
+moins et le fait tomber. À l'équilibre exact — stock = matelas — le terme s'annule et on retrouve
+la loi du §4.2 mot pour mot.
+
+Et **ce qui dort au-dessus du matelas se perd** : le grain s'échauffe, la bête maigrit, le charbon
+s'effrite. 10 % de l'excédent par mois (`freinteExcedent`). Sans cette freinte, un tas constitué une
+fois ne redescend jamais : 1 155 mois de bétail à consommation constante, c'est 96 ans de purge.
+Elle ne coûte rien à un marché bien tenu, puisqu'elle ne mord que sur l'excédent.
+
+```
+Débit d'une ville   = max(ses besoins du mois, ce qu'elle a sorti, 0,80 × son débit précédent)
+Matelas d'une ville = 1,0 × ce débit
+Perte               = 10 % de ce qu'elle garde au-dessus
+```
+
+Le débit est une **enveloppe qui redescend de 20 % par mois**, pas la mesure de l'instant. Sans
+cette mémoire, une scierie mise en sommeil un seul mois ramène le débit de sa ville à zéro, fait
+pourrir d'un coup tout ce qu'elle gardait pour l'export, et repart le mois suivant sans matelas.
+C'est ce qui tuait 2 villes sur 40 ; avec la mémoire, sur la graine 12345, **les cinq villes
+dépassent le témoin** au lieu que deux y meurent.
+
+> **La marchandise pourrit là où elle est.** La freinte se calcule livre par livre, sur le stock de
+> chaque ville — et le matelas d'une ville se mesure sur son **débit**, pas sur sa consommation.
+> Les deux autres formulations ont été essayées et sont fausses :
+>
+> - *matelas = consommation locale* : sous la règle du service local (§4.3), une ville minière garde
+>   dans son livre le charbon qu'elle destine à l'export ; ses besoins locaux sont nuls, donc son
+>   matelas aussi, et tout ce qu'elle allait vendre pourrissait chaque mois. 1 065 ménages au lieu
+>   de 1 889, 7 villes sur 20 en crise.
+> - *matelas commun au marché, perte au prorata des livres* : la ville qui n'avait rien en trop
+>   payait pour le tas de la voisine. Sur la graine 12345, deux villes sur cinq sont mortes pendant
+>   qu'une autre doublait.
+
+**Le plancher au prix de revient reste intact.** Le retirer sur un marché engorgé achève plus vite
+un troupeau invendable, mais il ne protège pas que l'éleveur : il tient toute la filière lourde.
+Sans lui, le baromètre des produits tombe de 97 % à 57 %.
 
 ### 4.3 — Le rationnement
 
