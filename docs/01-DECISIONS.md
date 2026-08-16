@@ -1258,3 +1258,85 @@ n'entre toujours pas dans les besoins du mois, mais il vide la cave et la cave c
 étalé sur six mois et il faut tenir le stock racheté dans un entrepôt qui coûte ses salaires tous
 les mois : un accaparement possible et coûteux, ce qu'il doit être. Le §4.2 du barème et la note du
 volet Marché ont été réécrits.
+
+## Le sol passe de 1-5 à 0-3, et l'échelle cesse d'être un choix
+
+Demande : « au lieu d'une échelle de 1 à 5 on va faire de 0 à 3. à 0 ça ne produit rien du tout.
+à 1 la rentabilité doit être proche de 0, voire négative si le prix est en-dessous du prix de
+référence. à 2 juste correcte, autour de 5 %. à 3 très bonne, au moins 15 % avec un prix très bas
+et largement supérieure si le prix monte. je veux un vrai effet rareté. en revanche chaque ville
+doit au moins disposer de quelques cases 1 pour chaque ressource. »
+
+### L'échelle se déduit, elle ne se pose pas
+
+Les trois rendements ne laissent pas le choix de la forme : ils la **déterminent**. `params.js`
+tient les cibles et calcule le reste, si bien qu'en retoucher une recale tout le fichier.
+
+De « la case 1 couvre tout juste son entretien » découle le capital d'une case. Des deux autres
+cibles découlent les échelons. Des trois découlent débits et coûts de construction.
+
+### La conséquence arithmétique qu'il faut assumer
+
+**Une case 2 ne produit que 7 % de plus qu'une case 1.** Si la case 1 couvre exactement son
+entretien, tout ce que la case 2 sort en plus est du profit net — et 5 % de rendement, sur un
+capital de cet ordre, ne pèse que 7 % de production. Ce qui sépare une case 2 d'une case 1 n'est
+pas le volume, c'est la **marge**.
+
+L'échelle est donc **accélérée** : 0 · 1 · 1,075 · 2,062. La case 3, pour tenir 15 % sur un cours
+effondré à 60 %, doit produire 2,06 fois la case 1 — et rend alors 61 % au prix de référence,
+130 % à 1,6.
+
+| qualité | ×0,6 | ×0,8 | **×1,0** | ×1,3 | ×1,6 |
+|---|---|---|---|---|---|
+| 1 | −23 % | −11 % | **0 %** | +17 % | +34 % |
+| 2 | −20 % | −7 % | **5 %** | +24 % | +42 % |
+| 3 | **+15 %** | +38 % | **61 %** | +96 % | +130 % |
+
+L'effet rareté demandé ne vient donc pas du volume par case : il vient de la **case 0**, qui couvre
+80 % de la carte pour chaque ressource et où l'on ne peut rien ouvrir.
+
+### L'effectif cesse de suivre le sol
+
+Quatre bras à la case, filon maigre ou gras. C'est la condition pour que la qualité se voie sur la
+marge : tant que l'emploi suivait la production en proportion exacte, la recette par ouvrier valait
+`débit × prix`, une constante, et la bonne terre n'enrichissait personne — elle ajoutait des
+ouvriers, rien de plus. C'est le même défaut que celui relevé plus haut sur la marge par ouvrier,
+mais pris cette fois à la racine.
+
+### La faute qui a tué dix-huit villes
+
+Le capital d'une case découle de `12 × effectif × (recette − salaire) ÷ 10 %`. J'y ai mis
+`salaireCase`, 20 $ — l'unité de compte du barème, et **pas** ce que la partie paie. Le salaire est
+endogène et s'établit autour de 24 $. La promesse « case 1 = rendement nul » était donc fausse en
+jeu de quatre dollars par ouvrier : case 1 à −7,9 %, case 2 à −3,3 %, la base extractive fermait,
+701 ménages par ville et **18 villes mortes sur 40**.
+
+Pire, les deux grandeurs étaient liées : monter la recette montait mécaniquement le capital, donc
+l'entretien, ce qui annulait le gain. Un premier balayage y perdait son latin — il fallait 32 $ de
+recette pour un monde encore malade, au prix d'un capital triplé.
+
+Elles sont maintenant séparées : `salaireAttendu` (24 $, ce que la partie paie) et
+`margeOuvrierQ1` (4 $, ce qu'un ouvrier dégage au-dessus de son salaire sur une case 1). Recette et
+capital s'en déduisent indépendamment.
+
+| salaire attendu | marge | rareté | ménages | crises | mortes |
+|---|---|---|---|---|---|
+| 24 | 4 | dure | **1 935** | 1 | **0** |
+| 26 | 4 | dure | 1 863 | 0 | 0 |
+| 24 | 8 | dure | 1 611 | 1 | 1 |
+| 28 | 4 | dure | 1 202 | 2 | 2 |
+| 24 | 4 | moyenne | 1 677 | 0 | 0 |
+
+Le salaire réellement pratiqué s'établit à 23,4 $ avec `salaireAttendu` à 24 : le calibrage est
+auto-cohérent.
+
+### Le plancher promis à chaque ville
+
+Deux ressources par ville montent à 3, une à 2, deux plafonnent à 1 — et le générateur garantit
+**60 cases de qualité 1 sur chacune des cinq ressources**, quoi qu'en dise le relief. Une ville peut
+donc produire, au rendement nul, ce que son sol ne lui donne pas.
+
+Ce n'est pas une faveur, c'est ce qui rend le rail **désirable** au lieu d'être vital : la ville
+survit sans lui, elle ne prospère qu'avec. Sans ce plancher, une ville sans charbon ni minerai
+n'ouvre rien avant l'arrivée de la voie, vingt ans plus tard, et passe la moitié de la partie à ne
+pas exister.

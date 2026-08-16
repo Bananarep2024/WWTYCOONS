@@ -34,12 +34,12 @@ Exception : le logement, les bureaux et l'entrepôt ne suivent pas cette règle 
 
 | Bâtiment | Cases | Intrants / mois | Sortie / mois | Marge | Construction | Entretien | Seuil d'activité |
 |---|---:|---|---|---:|---:|---:|---:|
-| Coupe forestière | 1 | — | 24 bois | 4 $ | 130 $ | 1,08 $ | 27 % |
-| Carrière | 1 | — | 24 argile | 4 $ | 130 $ | 1,08 $ | 27 % |
-| Mine de charbon | 1 | — | 24 charbon | 4 $ | 130 $ | 1,08 $ | 27 % |
-| Mine de fer | 1 | — | 24 minerai | 4 $ | 130 $ | 1,08 $ | 27 % |
-| Ferme céréalière | 2 | — | 20 céréales | 8 $ | 260 $ | 2,17 $ | 27 % |
-| Ranch | 2 | — | 20 bétail | 8 $ | 260 $ | 2,17 $ | 27 % |
+| Coupe forestière | 1 | — | 28 bois | 8 $ | 1 920 $ | 16,00 $ | — |
+| Carrière | 1 | — | 28 argile | 8 $ | 1 920 $ | 16,00 $ | — |
+| Mine de charbon | 1 | — | 28 charbon | 8 $ | 1 920 $ | 16,00 $ | — |
+| Mine de fer | 1 | — | 28 minerai | 8 $ | 1 920 $ | 16,00 $ | — |
+| Ferme céréalière | 2 | — | 11,7 céréales | 8 $ | 3 840 $ | 32,00 $ | — |
+| Ranch | 2 | — | 11,7 bétail | 8 $ | 3 840 $ | 32,00 $ | — |
 | Scierie | 2 | 48 bois | 24 planches | 32 $ | 1 150 $ | 9,58 $ | 30 % |
 | Briqueterie | 2 | 48 argile | 24 briques | 32 $ | 1 150 $ | 9,58 $ | 30 % |
 | Minoterie | 2 | 20 céréales | 10 pain | 32 $ | 1 150 $ | 9,58 $ | 30 % |
@@ -47,14 +47,19 @@ Exception : le logement, les bureaux et l'entrepôt ne suivent pas cette règle 
 | Aciérie | 4 (2×2) | 96 charbon + 96 minerai | 24 acier | 88 $ | 3 240 $ | 27,00 $ | 31 % |
 | Manufacture | 4 (2×2) | 24 planches + 8 acier | 24 produits | 88 $ | 2 720 $ | 22,67 $ | 26 % |
 
-Les débits s'emboîtent proprement :
+Les six exploitations sont **rigoureusement équivalentes** à qualité égale : même recette par
+ouvrier, même capital par case, même rendement. La marchandise chère est sortie d'autant plus
+lentement que son prix est élevé — céréales et bétail à 2,40 $ sortent 11,7 unités là où le bois à
+1 $ en sort 28. Débits et coûts sont **dérivés**, jamais écrits à la main (§6 sexies). Les chiffres
+ci-dessus valent **par case et à la qualité 1**, où le rendement est nul par construction.
+
+Les débits de transformation s'emboîtent proprement :
 1 ferme nourrit 1 minoterie · 2 coupes forestières alimentent 1 scierie ·
 4 mines de charbon + 4 mines de fer alimentent 1 aciérie · 1 scierie + ⅓ d'aciérie alimentent 1 manufacture.
 
-> **La qualité du sol.** Chaque case porte un score de 1 à 5 par ressource. La sortie réelle d'une
-> exploitation vaut `débit de base × qualité ÷ 3`. La qualité ne joue **que** sur l'extraction,
-> jamais sur la transformation. Une case de qualité 1 est en pratique inexploitable pour cette
-> ressource : son prix de revient dépasse le plafond de prix.
+> **La qualité du sol.** Chaque case porte un score de **0 à 3** par ressource. La qualité ne joue
+> **que** sur l'extraction, jamais sur la transformation. Voir §6 sexies : l'échelle de production
+> n'est pas posée, elle se **déduit** des trois rendements visés.
 
 ### 2.2 — Logement, bureaux, négoce
 
@@ -72,7 +77,9 @@ soit 0,50 $ par unité stockée et par an.
 
 | Bâtiment | Rendement | Cible |
 |---|---:|---:|
-| Exploitation | 15,2 % | 15 % |
+| Exploitation, case 1 | 0,0 % | 0 % |
+| Exploitation, case 2 | 5,0 % | 5 % |
+| Exploitation, case 3 | 61,4 % | ⩾ 15 % sur un cours à 60 % |
 | Maison | 15,0 % | 15 % |
 | Transformation | 19,9 % | 20 % |
 | Aciérie | 20,1 % | 20 % |
@@ -95,7 +102,7 @@ Quantités **par case** :
 
 | Palier | Planches | Briques | Acier | = au prix de réf. |
 |---|---:|---:|---:|---:|
-| Exploitation | 26 | — | — | 130 $ |
+| Exploitation | 384 | — | — | 1 920 $ |
 | Maison | 24 | 12 | — | 180 $ |
 | Entrepôt | 20 | — | — | 100 $ |
 | Transformation | 60 | 55 | — | 575 $ |
@@ -355,7 +362,7 @@ marge au risque de perdre ses employés. *(formats 30 et 60 min)*
 - **Cinq territoires**, séparés par de l'espace vide et reliés par des **couloirs de voie ferrée
   réservés**, grisés dès le début de partie et non constructibles.
 - **Génération aléatoire à chaque partie.** Le relief (plaine, colline, montagne, forêt) est tiré
-  par bruit cohérent ; chaque case reçoit un score de 1 à 5 par ressource dont la distribution
+  par bruit cohérent ; chaque case reçoit un score de 0 à 3 par ressource dont la distribution
   dépend du relief — les montagnes portent plutôt du minerai et du charbon, les plaines plutôt de
   la fertilité et de l'argile.
 - **Toutes les ressources sont présentes dans toutes les villes.** Chaque ville a une prédominance
@@ -366,19 +373,52 @@ marge au risque de perdre ses employés. *(formats 30 et 60 min)*
 
 ---
 
-### 6 sexies. Le sol : des îlots rares, et une case qui vaut cinq cases
+### 6 sexies. Le sol : une échelle de 0 à 3, déduite des rendements visés
 
-**La qualité commande tout, dans un rapport de 5.** `facteurQualite(q) = q ÷ 3`. Une case de
-niveau 5 produit cinq fois une case de niveau 1, **emploie** cinq fois plus de monde, et **coûte**
-cinq fois plus cher. C'est la même loi pour les trois : une bonne case n'est pas une case plus
-rentable, c'est une case **plus grande**.
+**L'échelle n'est pas posée, elle se déduit.** On tient trois choses pour données, et tout le reste
+en découle — c'est ce qui garantit que le barème et le code disent la même chose même si l'on
+retouche une cible.
 
-C'était auparavant une droite plate — 0,64 à q1, 1,36 à q5, un rapport de 2,1 — qui faisait de la
-qualité du sol un détail.
+| qualité | ce que c'est | rendement annuel visé |
+|---|---|---|
+| **0** | pas de gisement | on ne peut **rien** y ouvrir |
+| **1** | le sol de partout | **0 %** au prix de référence, négatif dès que le cours passe dessous |
+| **2** | correct | **5 %** |
+| **3** | le filon | **15 %** sur un cours à 60 % de la référence |
 
-**Une case porte quatre ouvriers**, et non un seul (`echelleIndustrielle`). Combiné à la qualité :
-1,3 ouvrier sur une case de niveau 1, **6,7 sur une case de niveau 5**. L'échelle ne vaut que pour
-l'exploitation — un atelier transforme ce qu'on lui livre, sa taille est celle de ses murs.
+De la première ligne — « la case 1 couvre tout juste son entretien » — découle le **capital** d'une
+case : `12 × effectif × marge ÷ 10 %`. Les deux autres fixent les échelons :
+
+```
+Y(q) = [12 k (r·g(q)·i − s) − 0,10 C] ÷ (C + T·g(q))
+échelle du sol : 0 · 1 · 1,075 · 2,062
+```
+
+**Ce que les cibles imposent, et qui n'est pas un choix.** Une case 2 ne produit que **7 % de plus**
+qu'une case 1. Si la case 1 couvre exactement son entretien, tout ce que la case 2 sort en plus est
+du profit net, et 5 % de rendement ne pèse que 7 % de production. Ce qui sépare une case 2 d'une
+case 1 n'est pas le volume, c'est la **marge**. L'échelle est donc accélérée, pas linéaire : la
+case 3, pour tenir 15 % sur un cours effondré, doit produire 2,06 fois la case 1 — et elle rend
+alors 61 % au prix de référence, 130 % à un cours de 1,6.
+
+**Le salaire de calibrage n'est pas le salaire de référence.** `salaireCase` — 20 $ — est l'unité de
+compte du barème ; ce n'est pas ce que la partie paie. Le salaire est endogène et s'établit autour
+de **24 $** (`salaireAttendu`). Calibré sur 20 $, « case 1 = rendement nul » était faux en jeu de
+quatre dollars par ouvrier : la case 1 tournait à −7,9 %, la case 2 à −3,3 %, la base extractive
+fermait, et **dix-huit villes sur quarante mouraient**.
+
+**Une case porte quatre ouvriers** (`echelleIndustrielle`), et l'effectif **ne suit plus le sol** —
+quatre bras, filon maigre ou gras. C'est la condition pour que la qualité se voie sur la marge :
+tant que l'emploi suivait la production en proportion exacte, la recette par ouvrier valait
+`débit × prix`, une constante, et la bonne terre n'enrichissait personne — elle ajoutait des
+ouvriers, rien de plus. L'échelle ne vaut que pour l'exploitation ; un atelier transforme ce qu'on
+lui livre, sa taille est celle de ses murs.
+
+**Chaque ville produit tout, fût-ce à perte.** Deux ressources par ville montent à 3, une à 2, deux
+plafonnent à 1 — et le générateur garantit à chaque ville au moins **60 cases de qualité 1 sur
+chacune des cinq ressources**. Elle peut donc produire, au rendement nul, ce que son sol ne lui
+donne pas. Ce n'est pas une faveur : c'est ce qui rend la liaison ferroviaire **désirable** plutôt
+que vitale — la ville survit sans elle, elle ne prospère qu'avec.
 
 **Les bonnes cases sont des îlots.** On ne répartit plus le bruit sur 1–5, on **classe** les cases
 et on découpe à des quantiles fixes :
