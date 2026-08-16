@@ -35,7 +35,7 @@ export class Batiment {
 
     // Qualité du sol : la sortie d'une exploitation vaut base × qualité ÷ 3.
     // Elle ne joue jamais sur la transformation.
-    this.qualite = 3;
+    this.qualite = 1;
     if (this.def.qual) {
       this.qualite = cases.reduce((s, c) => s + c.q[this.def.qual], 0) / cases.length;
     }
@@ -92,13 +92,16 @@ export class Batiment {
   // niveau 5 fait vivre cinq fois plus de monde qu'un sol de niveau 1, sur la
   // même surface. C'est ce qui rend une bonne case précieuse : non pas plus
   // rentable à l'ouvrier, mais capable d'en porter beaucoup plus.
+  // L'emploi NE SUIT PLUS LE SOL. Une concession se travaille par une équipe
+  // fixe — quatre bras à la case, que le filon soit maigre ou gras — et c'est le
+  // filon qui décide de ce qu'elle en tire. C'est la condition pour que la
+  // qualité se voie sur la MARGE : tant que l'emploi suivait la production en
+  // proportion exacte, la recette par ouvrier valait débit × prix, une constante,
+  // et la bonne terre ne rapportait pas un sou de plus par ouvrier que la
+  // mauvaise. Elle ajoutait des ouvriers, elle n'enrichissait personne.
   get emplois() {
     if (this.def.cat === 'bur') return this.def.postes;
-    const k = echelleDe(this.type);
-    if (!this.def.qual) return this.n * k;
-    // L'emploi suit le sol MOINS VITE que la production : c'est tout l'écart qui
-    // fait la valeur d'une bonne terre.
-    return this.n * k * Math.pow(facteurQualite(this.qualite), P.exposantEmploi);
+    return this.n * echelleDe(this.type);
   }
 
   get masseSalarialePleine() {
@@ -112,9 +115,9 @@ export class Batiment {
     // que sur ce qui pousse. Une mine ne connaît pas la pluie.
     const meteo = (this.def.qual === 'fertilite' && this.ville && this.ville.facteurSol)
       ? this.ville.facteurSol : 1;
-    // La production suit la qualité EN PLEIN : une case de niveau 5 sort cinq
-    // fois une case de niveau 1. L'emploi, lui, ne suit qu'à la racine — d'où la
-    // marge par ouvrier que donne une bonne terre.
+    // La production suit l'échelle du sol : 0 · 1 · 1,09 · 2,13. À qualité zéro
+    // elle est nulle — pas de gisement, rien à extraire — et le bâtiment ne
+    // devrait de toute façon jamais avoir pu s'y ouvrir.
     const k = echelleDe(this.type);
     const sol = this.def.qual ? facteurQualite(this.qualite) : 1;
     return this.def.debit * this.n * k * sol * meteo;

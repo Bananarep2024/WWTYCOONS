@@ -50,14 +50,15 @@ export function echelle(t) {
 // regardant le prix du sol y lisait le contraire de ce qui était affiché : le
 // centre en rouge — donc CHER — se lisait comme le parent pauvre de sa
 // périphérie verte.
-const SOL = ['pauvre · 1', 'excellent · 5'];
+const SOL = ['stérile · 0', `filon · ${P.qualiteSommet}`];
+const lireSol = (nom) => (c) => c.q[nom] / P.qualiteSommet;
 
 export const FILTRES_CASE = {
-  fertilite: { nom: 'Fertilité', bornes: SOL, lire: (c) => (c.q.fertilite - 1) / 4 },
-  bois:      { nom: 'Bois',      bornes: SOL, lire: (c) => (c.q.bois - 1) / 4 },
-  argile:    { nom: 'Argile',    bornes: SOL, lire: (c) => (c.q.argile - 1) / 4 },
-  charbon:   { nom: 'Charbon',   bornes: SOL, lire: (c) => (c.q.charbon - 1) / 4 },
-  minerai:   { nom: 'Minerai',   bornes: SOL, lire: (c) => (c.q.minerai - 1) / 4 },
+  fertilite: { nom: 'Fertilité', bornes: SOL, lire: lireSol('fertilite') },
+  bois:      { nom: 'Bois',      bornes: SOL, lire: lireSol('bois') },
+  argile:    { nom: 'Argile',    bornes: SOL, lire: lireSol('argile') },
+  charbon:   { nom: 'Charbon',   bornes: SOL, lire: lireSol('charbon') },
+  minerai:   { nom: 'Minerai',   bornes: SOL, lire: lireSol('minerai') },
   terrain:   { nom: 'Prix du sol', bornes: ['cher · 540 $', 'bon marché · 40 $'],
                lire: (c) => 1 - Math.min(1, (prixTerrain(c.ville ? c.ville.niveau : 1,
                                               c.distanceGare, qualiteMax(c)) - 40) / 500) },

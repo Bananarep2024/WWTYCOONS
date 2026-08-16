@@ -372,7 +372,7 @@ export function rendementAttendu(monde, ville, type, cases) {
 
   const q = def.qual
     ? cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length
-    : 3;
+    : 1;
   const production = def.debit * def.cases * echelleDe(type)
     * (def.qual ? facteurQualite(q) : 1);
 

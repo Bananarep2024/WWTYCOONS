@@ -519,7 +519,11 @@ export class Monde {
 
       if (def.qual) {
         // Une exploitation suit la ressource : c'est la seule chose qui compte.
+        // Et une case stérile est INTERDITE, pas seulement découragée : il n'y a
+        // rien dessous. Une exploitation à cheval sur une case à zéro produirait
+        // déjà moitié moins pour le même capital et les mêmes salaires.
         const moy = cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length;
+        if (cases.some(c => c.q[def.qual] < 1)) continue;
         score += moy * 45 - cases[0].distanceGare * 0.4;
       } else {
         // Le reste se rapproche de la gare, où la ville est dense.

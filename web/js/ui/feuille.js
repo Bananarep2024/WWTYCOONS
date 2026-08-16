@@ -60,7 +60,7 @@ function ficheTerrain(monde, v, c) {
     const n = c.q[q];
     const couleur = n >= 4 ? 'vert' : n <= 2 ? 'rouge' : 'doux';
     return `<div class="fiche"><div class="etiq">${NOMS_QUALITE[q]}</div>
-      <div class="v ${couleur}">${n}<span class="faible" style="font-size:11px"> / 5</span></div></div>`;
+      <div class="v ${couleur}">${n}<span class="faible" style="font-size:11px"> / 3</span></div></div>`;
   }).join('');
 
   let proprio = 'Vierge';
@@ -299,7 +299,7 @@ function ficheCampagne(c) {
     const n = c.q[q];
     return `<div class="fiche"><div class="etiq">${NOMS_QUALITE[q]}</div>
       <div class="v ${n >= 4 ? 'vert' : n <= 2 ? 'rouge' : 'doux'}">${n}
-      <span class="faible" style="font-size:11px"> / 5</span></div></div>`;
+      <span class="faible" style="font-size:11px"> / 3</span></div></div>`;
   }).join('');
   return entete(RELIEFS[c.relief].nom, 'Rase campagne — hors de tout territoire')
     + `<div class="grille">${qualites}</div>`
@@ -485,7 +485,7 @@ function ficheBatiment(monde, b, c) {
         return `<div class="fiche" ${vise ? 'style="border-color:var(--or)"' : ''}>
           <div class="etiq">${NOMS_QUALITE[q]}${vise ? ' ★' : ''}</div>
           <div class="v ${n >= 3.5 ? 'vert' : n <= 2.2 ? 'rouge' : 'doux'}">${n.toFixed(1)}
-            <span class="faible" style="font-size:11px"> / 5</span></div></div>`;
+            <span class="faible" style="font-size:11px"> / 3</span></div></div>`;
       }).join('')}
     </div>
     <div class="grille">
@@ -499,10 +499,12 @@ function ficheBatiment(monde, b, c) {
         <div class="v doux" style="font-size:12px">${NOMS_QUARTIER[b.cases[0].quartier] || '—'}</div></div>
     </div>
     ${jaugePotentiel(b.ville, b.cases, b)}
-    ${def.qual ? `<div class="note">Sol de qualité <b>${b.qualite.toFixed(1)} / 5</b> : cette
-      exploitation sort ${facteurQualite(b.qualite).toFixed(2)}× ce que sortirait la même sur une terre
-      moyenne. Un handicap de terrain ne fait aucun bruit — il se lit uniquement dans la
-      marge, et il ne se guérit jamais.</div>` : ''}`;
+    ${def.qual ? `<div class="note">Sol de qualité <b>${b.qualite.toFixed(1)} / ${P.qualiteSommet}</b> :
+      cette exploitation sort ${facteurQualite(b.qualite).toFixed(2)}× ce que sortirait la même sur
+      une case de qualité 1 — et elle emploie le même nombre de bras. Une case 1 ne rapporte
+      rien : elle couvre son entretien au prix de référence, et perd de l'argent dès que le
+      cours passe dessous. Un handicap de terrain ne fait aucun bruit, il se lit uniquement
+      dans la marge, et il ne se guérit jamais.</div>` : ''}`;
 
   // --- Ce qu'on peut en faire ---------------------------------------------
   let actions = '';

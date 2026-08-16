@@ -171,9 +171,11 @@ export function genererMonde(nbVilles, graine) {
     const brut = {};
     for (const nom of QUALITES) {
       const v = score[nom][i];
-      let q = P.partQualite.length;                 // le sommet par défaut
+      // partQualite est indexée depuis ZÉRO : la première part est celle des
+      // cases stériles. Le sommet de l'échelle est donc length − 1.
+      let q = P.partQualite.length - 1;             // le sommet par défaut
       for (let k = 0; k < seuils[nom].length; k++) {
-        if (v < seuils[nom][k]) { q = k + 1; break; }
+        if (v < seuils[nom][k]) { q = k; break; }
       }
       brut[nom] = q;
     }
@@ -384,14 +386,43 @@ export function genererMonde(nbVilles, graine) {
     const q = {};
     for (const nom of QUALITES) {
       // On ÉTIRE la valeur brute sous son plafond au lieu de la couper : une case
-      // médiocre reste médiocre, une case excellente atteint tout juste le
-      // plafond, et le relief continue de se lire à l'intérieur de la zone.
-      const v = 1 + (c.qBrut[nom] - 1) * (plafonds[nom] - 1) / (P.vocationRiche - 1);
-      q[nom] = Math.max(1, Math.min(5, Math.round(v)));
+      // stérile le reste, une case excellente atteint tout juste le plafond, et
+      // le relief continue de se lire à l'intérieur de la zone. L'étirement part
+      // de zéro : une carte pauvre en charbon n'a pas des mines médiocres, elle
+      // n'a pas de charbon.
+      const v = c.qBrut[nom] * plafonds[nom] / P.vocationRiche;
+      q[nom] = Math.max(0, Math.min(P.qualiteSommet, Math.round(v)));
     }
     c.q = q;
-    c.qBrut = null;
+    // On garde la valeur brute : le plancher ci-dessous s'en sert pour choisir
+    // les cases à promouvoir.
   }
+
+  // --- 4 ter. Le plancher : chaque ville produit tout, fût-ce à perte --------
+  //
+  // Une ville dont la vocation ne retient ni charbon ni minerai n'en a pas une
+  // case, et rien ne s'y ouvre avant que le rail n'arrive — vingt ans plus tard.
+  // Elle passe la moitié de la partie à ne pas exister. On lui garantit donc un
+  // nombre plancher de cases de qualité 1 sur CHACUNE des cinq ressources : de
+  // quoi produire, au rendement nul, ce que son sol ne lui donne pas.
+  //
+  // Ce n'est pas une faveur, c'est ce qui rend le rail désirable au lieu d'être
+  // vital : la ville survit sans lui, elle ne prospère qu'avec.
+  for (const v of villes) {
+    for (const nom of QUALITES) {
+      const manquantes = v.cases.filter(c => c.q[nom] < 1);
+      const deja = v.cases.length - manquantes.length;
+      const aPromouvoir = P.minCasesParRessource - deja;
+      if (aPromouvoir <= 0) continue;
+      // Les meilleures d'abord — celles que le relief désignait déjà, pour que
+      // le filon promu reste au bon endroit plutôt que d'être saupoudré.
+      manquantes.sort((a, b) => b.qBrut[nom] - a.qBrut[nom]);
+      for (let i = 0; i < aPromouvoir && i < manquantes.length; i++) {
+        manquantes[i].q[nom] = 1;
+      }
+    }
+  }
+  for (const c of cases) c.qBrut = null;
 
   // --- 5. Le réseau ferroviaire -------------------------------------------
   // On relie les villes en arbre couvrant minimal, plus une boucle si la carte

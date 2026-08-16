@@ -1,6 +1,7 @@
 // Banc d'essai : vérifie que le barème code bien ce que dit docs/00-BAREME.md,
 // puis fait tourner vingt ans de simulation sans joueur.
-import { P, BAT, RES, materiaux, coutRef, loyer, prixTerrain, potentielTerrain, facteurQualite } from './params.js';
+import { P, BAT, RES, materiaux, coutRef, loyer, prixTerrain, potentielTerrain,
+         facteurQualite, ECHELLE_SOL } from './params.js';
 import { Marche } from './market.js';
 import { Monde } from './world.js';
 
@@ -23,13 +24,15 @@ const rdt = (type, marge) => {
   const ent = c * P.entretienAnnuel / 12;
   return (marge * n - ent) * 12 / (c + terrain) * 100;
 };
-// Les marges sont données PAR CASE et à qualité neutre ; l'échelle industrielle
-// les multiplie comme elle multiplie le coût de construction, si bien que les
-// rapports du barème tiennent. Une exploitation se lit ici à qualité 3 : c'est à
-// qualité 5 qu'elle atteint son rendement visé, le sol commandant tout.
+// Les marges sont données PAR CASE ; l'échelle industrielle les multiplie comme
+// elle multiplie le coût de construction, si bien que les rapports du barème
+// tiennent. Une exploitation se lit à la QUALITÉ 1, celle du sol de partout :
+// elle doit y rendre exactement zéro, sa marge brute couvrant tout juste son
+// entretien. C'est de cette promesse que découle tout le reste de l'échelle.
 const k = P.echelleIndustrielle;
-ok('coupe forestière (sol neutre)', rdt('coupe', 10 * k), 51.3, 0.03);
-ok('ferme céréalière (sol neutre)', rdt('ferme', 10 * k), 51.3, 0.03);
+const margeQ1 = k * (P.recetteOuvrierQ1 - P.salaireCase);
+ok('coupe forestière, case 1', rdt('coupe', margeQ1), 0, 0.001);
+ok('ferme céréalière, case 1', rdt('ferme', margeQ1), 0, 0.001);
 ok('maison', rdt('maison', 5), 15, 0.03);
 ok('scierie', rdt('scierie', 16), 20, 0.03);
 ok('minoterie', rdt('minoterie', 16), 20, 0.03);
@@ -44,12 +47,15 @@ const marge = (t) => {
   for (const [r, q] of Object.entries(d.intrants || {})) c += q * RES[r].prix;
   return d.debit * RES[d.sort].prix - c;
 };
-// L'exploitation dégage 10 $ par case et non 4 : sa recette par ouvrier — une
-// constante, l'emploi suivant le sol comme la production — doit passer devant le
-// salaire, qui s'établit autour de 22 $. À 24 $ de recette elle n'y arrivait pas,
-// et la meilleure ferme du jeu affichait 0,07 $ de marge à l'unité.
-ok('coupe forestière', marge('coupe'), 10, 0.01);
-ok('ferme céréalière', marge('ferme'), 10, 0.01);
+// Une exploitation dégage, par ouvrier et sur une case 1, exactement l'écart
+// entre sa recette et le salaire — 4 $. C'est peu, et c'est voulu : la case 1
+// est le sol de partout, elle ne doit rien rapporter. Les six exploitations sont
+// rigoureusement équivalentes, la marchandise chère étant sortie d'autant plus
+// lentement que son prix est élevé.
+const ecartQ1 = P.recetteOuvrierQ1 - P.salaireCase;
+for (const t of ['coupe', 'carriere', 'mineCharbon', 'mineFer', 'ferme', 'ranch']) {
+  ok(`${BAT[t].nom.toLowerCase()}, par ouvrier`, marge(t), ecartQ1, 0.001);
+}
 ok('scierie', marge('scierie'), 16, 0.01);
 ok('briqueterie', marge('briqueterie'), 16, 0.01);
 ok('minoterie', marge('minoterie'), 16, 0.01);
@@ -155,8 +161,9 @@ ok('case à 32 cases, comptoir', prixTerrain(1, 32), 52.72, 0.02);
 // pesait 58 % du prix contre 42 % à la distance, et des villes affichaient un
 // centre moins cher que leur lisière.
 ok('prime foncière de la meilleure terre', prixTerrain(3, 0, 5) / prixTerrain(3, 0, 1),
-   facteurQualite(5) / facteurQualite(1), 0.001);
-ok('… et elle vaut la prime de rendement', facteurQualite(5) / facteurQualite(1), 5, 0.001);
+   facteurQualite(P.qualiteSommet) / facteurQualite(1), 0.001);
+ok('… et elle vaut la prime de rendement',
+   facteurQualite(P.qualiteSommet) / facteurQualite(1), ECHELLE_SOL[P.qualiteSommet], 0.001);
 // La distance doit peser plus que la richesse, sans quoi la carte du prix du sol
 // ne se lit plus comme un gradient urbain.
 ok('la distance pèse autant que le sol',
@@ -166,9 +173,15 @@ ok('la distance pèse autant que le sol',
 // UNE CASE DE NIVEAU 5 VAUT CINQ CASES DE NIVEAU 1 — en production, en emploi et
 // en prix du sol à la fois. C'est la même loi qui commande les trois, et c'est
 // ce qui fait qu'une bonne case n'est pas plus rentable : elle est plus grande.
-ok('production ×5 entre q1 et q5', facteurQualite(5) / facteurQualite(1), 5, 0.001);
-ok('prix du sol ×5 entre q1 et q5',
-   prixTerrain(1, 0, 5) / prixTerrain(1, 0, 1), 5, 0.001);
+ok('production de la case 3, en cases 1', facteurQualite(3), ECHELLE_SOL[3], 0.001);
+ok('production de la case 2, en cases 1', facteurQualite(2), ECHELLE_SOL[2], 0.001);
+ok('la case 0 ne produit rien', facteurQualite(0), 0, 0.001);
+ok('prix du sol : la case 3 se paie ce qu\'elle rend',
+   prixTerrain(1, 0, P.qualiteSommet) / prixTerrain(1, 0, 1), ECHELLE_SOL[P.qualiteSommet], 0.001);
+// Sauf tout en bas : une case sans gisement ne vaut pas zéro, elle vaut son
+// terrain nu. Sans ce plancher, la moitié de la carte serait gratuite.
+ok('… et la case stérile garde son plancher',
+   prixTerrain(1, 0, 0) / prixTerrain(1, 0, 1), P.solPlancher, 0.001);
 
 // Le gradient se durcit avec le niveau : c'est là tout le mécanisme.
 ok('potentiel du centre, comptoir', potentielTerrain(1, 0), 4.00, 0.01);

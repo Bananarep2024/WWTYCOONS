@@ -895,47 +895,72 @@ const P = {
   dispersionVille: 18,         // et ensuite, quand la ville bâtit d'elle-même
   rendementMinimalPourBatir: 0.05,  // sous ce rendement attendu, on ne bâtit pas
 
-  // Le sol
-  // sortie d'une exploitation = débit × qualité ÷ qualiteNeutre × échelle industrielle
-  // calibré pour valoir 1,00 à la qualité 3, comme le barème le suppose
-  qualiteNeutre: 3,            // la qualité qui vaut 1 : q1 = 0,33 · q5 = 1,67
-  // L'ÉCHELLE INDUSTRIELLE : combien d'ouvriers tient une case, à qualité
-  // neutre. Une case n'est plus un poste. Elle vaut pour l'exploitation comme
-  // pour l'atelier, si bien que tous les rapports du barème restent exacts —
-  // débits, intrants, salaires et coûts de construction montent ensemble.
+  // Le sol — échelle 0 à 3
   //
-  // Sur une exploitation elle se combine à la qualité du sol : 1,3 ouvrier sur
-  // une case de niveau 1, 6,7 sur une de niveau 5.
+  //   0  rien du tout. Pas de gisement, pas de terre : on ne peut rien y ouvrir.
+  //   1  le sol de partout. À prix de référence, l'exploitation couvre tout
+  //      juste son entretien : rendement nul, et négatif dès que le cours passe
+  //      sous la référence. Chaque ville en a pour chaque ressource — c'est le
+  //      plancher qui lui permet de produire ce qu'elle n'a pas, à prix coûtant.
+  //   2  correct. 5 % l'an.
+  //   3  le filon. 15 % même sur un cours effondré, et bien davantage sinon.
+  //
+  // ÉCHELLE 0-3, ET CE QU'ELLE IMPOSE.
+  //
+  // Les trois rendements visés ne laissent pas le choix de la forme : ils la
+  // déterminent. Si la case 1 couvre exactement son entretien, alors tout ce
+  // qu'une case 2 produit EN PLUS est du profit net — et 5 % de rendement, sur
+  // un capital de cet ordre, ne représente que 9 % de production supplémentaire.
+  // La case 2 produit donc à peine plus que la case 1 ; ce qui la sépare d'elle
+  // n'est pas le volume, c'est la marge. En revanche la case 3, pour tenir 15 %
+  // sur un cours à 60 % de la référence, doit produire 2,1 fois la case 1 — et
+  // elle rend alors 61 % au prix de référence.
+  //
+  // L'échelle de production est donc ACCÉLÉRÉE, pas linéaire : 0 · 1 · 1,09 ·
+  // 2,13. C'est une conséquence arithmétique des trois cibles, pas un choix.
+  //
+  // L'EFFECTIF NE SUIT PLUS LE SOL. Une concession se travaille par une équipe
+  // fixe ; c'est le filon qui décide de ce qu'elle en tire, pas le nombre de
+  // bras. C'est la condition pour que la qualité se voie sur la MARGE — quand
+  // l'emploi suivait le sol en proportion exacte de la production, la recette
+  // par ouvrier était une constante et la bonne terre ne rapportait rien de
+  // plus par ouvrier que la mauvaise.
+  qualiteSommet: 3,            // le haut de l'échelle
+  rendementQ2: 0.05,           // ce que doit rendre une case 2, au prix de référence
+  rendementQ3: 0.15,           // ce que doit rendre une case 3, sur un cours effondré
+  prixEffondre: 0.60,          // et « effondré » veut dire 60 % de la référence
+  // La recette mensuelle d'un ouvrier sur une case 1, au prix de référence.
+  // L'écart au salaire est ce qui paie l'entretien — et c'est lui qui fixe le
+  // capital d'une exploitation, puisque « case 1 = rendement nul » veut dire
+  // « marge brute = entretien ».
+  recetteOuvrierQ1: 24,
+  // Ce qu'une case vaut quand elle ne vaut rien : une case sans gisement garde
+  // sa valeur de terrain nu. Sans ce plancher, la moitié de la carte serait
+  // gratuite et le foncier cesserait d'être un arbitrage.
+  solPlancher: 0.50,
+  // L'ÉCHELLE INDUSTRIELLE : combien d'ouvriers tient une case. Une case n'est
+  // pas un poste. Elle vaut pour l'exploitation comme pour l'atelier, si bien
+  // que tous les rapports du barème restent exacts — débits, intrants, salaires
+  // et coûts de construction montent ensemble.
+  //
+  // Sur une exploitation, elle NE se combine plus à la qualité du sol : quatre
+  // ouvriers sur une case, qu'elle vaille 1 ou 3. Voir plus haut pourquoi.
   echelleIndustrielle: 4,
-  // À quel point l'EMPLOI suit la qualité du sol — en plein, comme la production.
+
+  // La rareté, en part de la carte entière. On ne s'appuie pas sur la forme du
+  // bruit — on CLASSE les cases et on découpe à ces quantiles.
   //
-  // Essayé à la racine carrée, pour que le bon sol rende davantage par ouvrier :
-  // désastre. À qualité 1, qui couvre 85 % de la carte, l'emploi MONTE au lieu
-  // de baisser, toute la base extractive devient déficitaire et le monde
-  // s'effondre — bois, planches, briques et acier au plafond de prix.
-  //
-  // Emploi et production suivant le sol à l'identique, la recette par ouvrier
-  // est une CONSTANTE : débit × prix. C'est donc elle, et non la qualité, qu'il
-  // faut mettre au-dessus du salaire — d'où les débits relevés d'un quart, qui
-  // portent la recette par ouvrier de 24 $ à 30 $ contre un salaire de 21,7 $.
-  // La qualité du sol reste ce qui décide de la TAILLE d'une exploitation, et
-  // donc du profit qu'une case rapporte.
-  //
-  // Les deux ont d'abord suivi à l'identique, ce qui paraissait cohérent — et
-  // supprimait tout intérêt au bon sol : il ajoutait des ouvriers en proportion
-  // exacte de ce qu'il produisait, si bien que la recette par ouvrier ne
-  // dépendait plus de la terre. Mesuré sur la meilleure case du jeu : 26,69 $ de
-  // recette par ouvrier pour un salaire de 22,43 $, seize pour cent de marge, et
-  // la moindre hausse de salaire mettait la ferme en sommeil.
-  //
-  // À la racine carrée, une case de niveau 5 emploie 2,2 fois une case de
-  // niveau 1 tout en produisant 5 fois plus : elle rend donc 2,2 fois plus par
-  // ouvrier, et c'est CELA qui fait la valeur d'une bonne terre.
-  exposantEmploi: 1,
-  // La rareté des bonnes cases, en part de la carte entière. On ne s'appuie plus
-  // sur la forme du bruit — on CLASSE les cases et on découpe à ces quantiles.
-  partQualite: [0.858, 0.100, 0.036, 0.004, 0.002],   // q1 … q5, somme = 1
+  // Quatre cases sur cinq ne donnent RIEN pour une ressource donnée. Avec cinq
+  // ressources tirées séparément, il reste malgré tout de quoi faire : une case
+  // sur trois environ ne vaut rien pour aucune des cinq.
+  partQualite: [0.80, 0.15, 0.04, 0.01],   // q0 … q3, somme = 1
   echellesQualite: [11, 5],    // l'échelle du bruit : des îlots, pas des régions
+  // Le plancher promis à chaque ville : quoi qu'en dise le relief et quelle que
+  // soit sa vocation, elle dispose d'au moins ce nombre de cases de qualité 1
+  // sur CHACUNE des cinq ressources. Sans quoi une ville sans charbon ne peut
+  // pas en produire une tonne avant que le rail n'arrive, et la partie s'arrête
+  // pour elle.
+  minCasesParRessource: 60,
 
   // --- Les événements ---
   //
@@ -958,12 +983,18 @@ const P = {
   // Les vocations : ce qui fait des zones plutôt qu'une carte uniforme
   //
   // Chaque ville reçoit un plafond de qualité par ressource. Deux ressources
-  // montent à 5, une à 3 ou 4, deux plafonnent à 1 ou 2 — de sorte qu'aucune
-  // ville ne se suffit à elle-même et que le rail transporte enfin autre chose
-  // que des marchandises que l'autre bout produisait déjà.
-  vocationRiche: 5,
-  vocationMoyenMin: 3, vocationMoyenMax: 4,
-  vocationPauvreMin: 1, vocationPauvreMax: 2,
+  // montent à 3, une à 2, deux plafonnent à 1 — de sorte qu'aucune ville ne se
+  // suffit à elle-même et que le rail transporte enfin autre chose que des
+  // marchandises que l'autre bout produisait déjà.
+  //
+  // Le plafond ne descend jamais sous 1 : une ville dispose toujours de quelques
+  // cases exploitables sur CHACUNE des cinq ressources, au rendement nul de la
+  // qualité 1. Elle peut donc produire ce qu'elle n'a pas — à prix coûtant, et
+  // c'est précisément ce qui rend la liaison ferroviaire désirable plutôt
+  // qu'indispensable à la survie.
+  vocationRiche: 3,
+  vocationMoyenMin: 2, vocationMoyenMax: 2,
+  vocationPauvreMin: 1, vocationPauvreMax: 1,
   // La portée de la vocation, en cases : l'écart-type de la gaussienne qui
   // mélange les plafonds de deux villes voisines. À peu près le rayon d'une
   // ville, de sorte qu'un territoire lit sa propre vocation presque pure et que
@@ -1002,6 +1033,11 @@ const P = {
   // fois plus longtemps à rejoindre l'autre, et le chiffre doit le dire.     // une ligne longue demande plus de travail
   menagesInitiaux: 55,         // avant le tempérament, qui l'étire de 0,80 à 1,20
 };
+
+// Le capital d'une case d'exploitation, déduit de la promesse « une case 1 rend
+// zéro au prix de référence » : son entretien annuel égale exactement sa marge
+// brute. C'est lui qui fixe les coûts de construction plus bas.
+const CAPITAL_CASE = 120 * P.echelleIndustrielle * (P.recetteOuvrierQ1 - P.salaireCase);
 
 // --- Ressources -------------------------------------------------------------
 // prix = prix de référence, celui qui s'établit quand la demande égale l'offre.
@@ -1052,6 +1088,29 @@ const BAT = {
   bureaux:   { nom: 'Immeuble de bureaux', cases: 4, w: 2, h: 2, postes: 20,  cout: 500, mat: { briques: 40, acier: 20 },    cat: 'bur'  },
   entrepot:  { nom: 'Entrepôt',            cases: 4, w: 2, h: 2, capacite: 2000, cout: 100, mat: { planches: 20 },           cat: 'neg'  },
 };
+
+// --- Calibrage des exploitations --------------------------------------------
+// Débit et coût de construction ne sont pas écrits à la main : ils DÉCOULENT de
+// la promesse « une case 1 rend zéro au prix de référence ».
+//
+//   débit  : ce qu'un ouvrier doit sortir pour encaisser recetteOuvrierQ1
+//            dollars — donc d'autant moins que la marchandise est chère
+//   coût   : celui dont l'entretien annuel égale la marge brute d'une case 1
+//
+// Les six exploitations sont ainsi rigoureusement équivalentes à qualité égale,
+// quelle que soit la marchandise : même recette par ouvrier, même capital par
+// case, même rendement. Ce qui les distingue, c'est le sol qu'on leur trouve.
+for (const b of Object.values(BAT)) {
+  if (b.cat !== 'expl') continue;
+  b.debit = P.recetteOuvrierQ1 / RES[b.sort].prix;
+  // materiaux() multiplie par cases × échelle : on écrit donc la quantité par
+  // case et par ouvrier.
+  const parCaseEtOuvrier = CAPITAL_CASE / P.echelleIndustrielle;
+  let ref = 0;
+  for (const [r, part] of Object.entries(b.mat)) ref += part * RES[r].prix;
+  for (const r of Object.keys(b.mat)) b.mat[r] *= parCaseEtOuvrier / ref;
+  b.cout = CAPITAL_CASE * b.cases;
+}
 
 const TYPES_BAT = Object.keys(BAT);
 
@@ -1141,8 +1200,51 @@ function niveauVille(menages) {
 // son sol COÛTE. Une bonne case n'est donc pas une case plus rentable, c'est une
 // case plus GRANDE — elle concentre cinq fois plus d'activité sur la même
 // surface, et son prix capte cette concentration.
+// L'échelle du sol, DÉRIVÉE des trois rendements visés — jamais posée à la main.
+//
+// On tient trois choses pour données : la case 1 rend zéro au prix de référence,
+// la case 2 rend 5 %, la case 3 rend 15 % sur un cours à 60 %. Le reste se
+// déduit, et c'est ce qui garantit que le barème et le code disent la même
+// chose même si l'on retouche une cible.
+//
+//   capital d'une case      C  = 12 k (r − s) ÷ 0,10        « marge = entretien »
+//   rendement d'une case    Y  = [12 k (r·g·i − s) − 0,10 C] ÷ (C + T·g)
+//
+// où k est l'effectif d'une case, r la recette mensuelle d'un ouvrier sur une
+// case 1 au prix de référence, s le salaire, i l'indice du cours, g l'échelle
+// qu'on cherche et T le prix d'une case de qualité 1.
+
+function echelonPour(rendementVise, indicePrix) {
+  const k = P.echelleIndustrielle, C = CAPITAL_CASE;
+  const num = rendementVise * C + P.entretienAnnuel * C + 12 * k * P.salaireCase;
+  const den = 12 * k * P.recetteOuvrierQ1 * indicePrix - rendementVise * P.terrainRef;
+  return num / den;
+}
+
+// 0 · 1 · 1,09 · 2,13 — accélérée, parce que les cibles l'imposent.
+const ECHELLE_SOL = [
+  0, 1,
+  echelonPour(P.rendementQ2, 1),
+  echelonPour(P.rendementQ3, P.prixEffondre),
+];
+
+// Ce qu'une case SORT, rapporté à une case de qualité 1. Zéro à qualité zéro :
+// pas de gisement, rien à extraire. La qualité d'un bâtiment étant la moyenne de
+// ses cases, elle est fractionnaire — on interpole.
 function facteurQualite(q) {
-  return q / P.qualiteNeutre;
+  const n = ECHELLE_SOL.length - 1;
+  const x = Math.max(0, Math.min(n, q));
+  const bas = Math.floor(x);
+  if (bas >= n) return ECHELLE_SOL[n];
+  return ECHELLE_SOL[bas] + (x - bas) * (ECHELLE_SOL[bas + 1] - ECHELLE_SOL[bas]);
+}
+
+// Ce qu'une case VAUT, rapporté à une case de qualité 1 — le sol se paie ce
+// qu'il rend, mais jamais rien : une case sans gisement garde sa valeur de
+// terrain nu, sinon la moitié de la carte serait gratuite et le foncier
+// cesserait d'être un arbitrage.
+function valeurSol(q) {
+  return Math.max(P.solPlancher, facteurQualite(q));
 }
 
 // Prix d'une case de terrain.
@@ -1153,7 +1255,7 @@ function facteurQualite(q) {
 // une case qui rend davantage vaut davantage, et la rente se capitalise dans le
 // prix du sol au lieu de tomber dans la poche du premier arrivé. C'est aussi ce
 // qui donne son sel à l'achat précoce — la terre est chère AVANT qu'on ait bâti.
-function prixTerrain(niveau, distanceGare, richesse = 3) {
+function prixTerrain(niveau, distanceGare, richesse = 1) {
   const fn = P.facteurNiveau[niveau - 1];
   const fd = 1 / (1 + P.attenuationDistance[niveau - 1] * distanceGare);
   // Le sol se paie EXACTEMENT ce qu'il rend : le facteur de richesse est la loi
@@ -1170,7 +1272,7 @@ function prixTerrain(niveau, distanceGare, richesse = 3) {
   // 42 % seulement de la distance, si bien qu'une case de lisière sur un bon
   // filon coûtait plus cher qu'une case du centre sur une terre pauvre. La carte
   // du prix du sol montrait alors des villes au centre bon marché.
-  const fq = facteurQualite(richesse);
+  const fq = valeurSol(richesse);
   return P.terrainRef * fn * fd * fq;
 }
 
@@ -1182,7 +1284,7 @@ function prixTerrain(niveau, distanceGare, richesse = 3) {
 // le foncier, il s'ajuste et le taux ne bouge pas. Ce qui diffère, c'est la
 // PENTE : bâtir au centre en début de partie, c'est acheter un loyer qui
 // quadruplera ; bâtir en lisière, c'est acheter un loyer qui gagnera 11 %.
-function potentielTerrain(niveau, distanceGare, richesse = 3) {
+function potentielTerrain(niveau, distanceGare, richesse = 1) {
   const ici = prixTerrain(niveau, distanceGare, richesse);
   if (ici <= 0) return 1;
   return prixTerrain(P.facteurNiveau.length, distanceGare, richesse) / ici;
@@ -1192,8 +1294,8 @@ function potentielTerrain(niveau, distanceGare, richesse = 3) {
 // à son meilleur usage, pas à celui qu'on en fait. Une case fictive — celle des
 // devis, qui n'a pas encore de coordonnées — vaut la terre moyenne.
 function qualiteMax(c) {
-  if (!c || !c.q) return 3;
-  let m = 1;
+  if (!c || !c.q) return 1;
+  let m = 0;
   for (const q of QUALITES) if (c.q[q] > m) m = c.q[q];
   return m;
 }
@@ -1379,9 +1481,11 @@ function genererMonde(nbVilles, graine) {
     const brut = {};
     for (const nom of QUALITES) {
       const v = score[nom][i];
-      let q = P.partQualite.length;                 // le sommet par défaut
+      // partQualite est indexée depuis ZÉRO : la première part est celle des
+      // cases stériles. Le sommet de l'échelle est donc length − 1.
+      let q = P.partQualite.length - 1;             // le sommet par défaut
       for (let k = 0; k < seuils[nom].length; k++) {
-        if (v < seuils[nom][k]) { q = k + 1; break; }
+        if (v < seuils[nom][k]) { q = k; break; }
       }
       brut[nom] = q;
     }
@@ -1592,14 +1696,43 @@ function genererMonde(nbVilles, graine) {
     const q = {};
     for (const nom of QUALITES) {
       // On ÉTIRE la valeur brute sous son plafond au lieu de la couper : une case
-      // médiocre reste médiocre, une case excellente atteint tout juste le
-      // plafond, et le relief continue de se lire à l'intérieur de la zone.
-      const v = 1 + (c.qBrut[nom] - 1) * (plafonds[nom] - 1) / (P.vocationRiche - 1);
-      q[nom] = Math.max(1, Math.min(5, Math.round(v)));
+      // stérile le reste, une case excellente atteint tout juste le plafond, et
+      // le relief continue de se lire à l'intérieur de la zone. L'étirement part
+      // de zéro : une carte pauvre en charbon n'a pas des mines médiocres, elle
+      // n'a pas de charbon.
+      const v = c.qBrut[nom] * plafonds[nom] / P.vocationRiche;
+      q[nom] = Math.max(0, Math.min(P.qualiteSommet, Math.round(v)));
     }
     c.q = q;
-    c.qBrut = null;
+    // On garde la valeur brute : le plancher ci-dessous s'en sert pour choisir
+    // les cases à promouvoir.
   }
+
+  // --- 4 ter. Le plancher : chaque ville produit tout, fût-ce à perte --------
+  //
+  // Une ville dont la vocation ne retient ni charbon ni minerai n'en a pas une
+  // case, et rien ne s'y ouvre avant que le rail n'arrive — vingt ans plus tard.
+  // Elle passe la moitié de la partie à ne pas exister. On lui garantit donc un
+  // nombre plancher de cases de qualité 1 sur CHACUNE des cinq ressources : de
+  // quoi produire, au rendement nul, ce que son sol ne lui donne pas.
+  //
+  // Ce n'est pas une faveur, c'est ce qui rend le rail désirable au lieu d'être
+  // vital : la ville survit sans lui, elle ne prospère qu'avec.
+  for (const v of villes) {
+    for (const nom of QUALITES) {
+      const manquantes = v.cases.filter(c => c.q[nom] < 1);
+      const deja = v.cases.length - manquantes.length;
+      const aPromouvoir = P.minCasesParRessource - deja;
+      if (aPromouvoir <= 0) continue;
+      // Les meilleures d'abord — celles que le relief désignait déjà, pour que
+      // le filon promu reste au bon endroit plutôt que d'être saupoudré.
+      manquantes.sort((a, b) => b.qBrut[nom] - a.qBrut[nom]);
+      for (let i = 0; i < aPromouvoir && i < manquantes.length; i++) {
+        manquantes[i].q[nom] = 1;
+      }
+    }
+  }
+  for (const c of cases) c.qBrut = null;
 
   // --- 5. Le réseau ferroviaire -------------------------------------------
   // On relie les villes en arbre couvrant minimal, plus une boucle si la carte
@@ -2379,7 +2512,7 @@ class Batiment {
 
     // Qualité du sol : la sortie d'une exploitation vaut base × qualité ÷ 3.
     // Elle ne joue jamais sur la transformation.
-    this.qualite = 3;
+    this.qualite = 1;
     if (this.def.qual) {
       this.qualite = cases.reduce((s, c) => s + c.q[this.def.qual], 0) / cases.length;
     }
@@ -2436,13 +2569,16 @@ class Batiment {
   // niveau 5 fait vivre cinq fois plus de monde qu'un sol de niveau 1, sur la
   // même surface. C'est ce qui rend une bonne case précieuse : non pas plus
   // rentable à l'ouvrier, mais capable d'en porter beaucoup plus.
+  // L'emploi NE SUIT PLUS LE SOL. Une concession se travaille par une équipe
+  // fixe — quatre bras à la case, que le filon soit maigre ou gras — et c'est le
+  // filon qui décide de ce qu'elle en tire. C'est la condition pour que la
+  // qualité se voie sur la MARGE : tant que l'emploi suivait la production en
+  // proportion exacte, la recette par ouvrier valait débit × prix, une constante,
+  // et la bonne terre ne rapportait pas un sou de plus par ouvrier que la
+  // mauvaise. Elle ajoutait des ouvriers, elle n'enrichissait personne.
   get emplois() {
     if (this.def.cat === 'bur') return this.def.postes;
-    const k = echelleDe(this.type);
-    if (!this.def.qual) return this.n * k;
-    // L'emploi suit le sol MOINS VITE que la production : c'est tout l'écart qui
-    // fait la valeur d'une bonne terre.
-    return this.n * k * Math.pow(facteurQualite(this.qualite), P.exposantEmploi);
+    return this.n * echelleDe(this.type);
   }
 
   get masseSalarialePleine() {
@@ -2456,9 +2592,9 @@ class Batiment {
     // que sur ce qui pousse. Une mine ne connaît pas la pluie.
     const meteo = (this.def.qual === 'fertilite' && this.ville && this.ville.facteurSol)
       ? this.ville.facteurSol : 1;
-    // La production suit la qualité EN PLEIN : une case de niveau 5 sort cinq
-    // fois une case de niveau 1. L'emploi, lui, ne suit qu'à la racine — d'où la
-    // marge par ouvrier que donne une bonne terre.
+    // La production suit l'échelle du sol : 0 · 1 · 1,09 · 2,13. À qualité zéro
+    // elle est nulle — pas de gisement, rien à extraire — et le bâtiment ne
+    // devrait de toute façon jamais avoir pu s'y ouvrir.
     const k = echelleDe(this.type);
     const sol = this.def.qual ? facteurQualite(this.qualite) : 1;
     return this.def.debit * this.n * k * sol * meteo;
@@ -3308,7 +3444,7 @@ function rendementAttendu(monde, ville, type, cases) {
 
   const q = def.qual
     ? cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length
-    : 3;
+    : 1;
   const production = def.debit * def.cases * echelleDe(type)
     * (def.qual ? facteurQualite(q) : 1);
 
@@ -3966,7 +4102,11 @@ class Monde {
 
       if (def.qual) {
         // Une exploitation suit la ressource : c'est la seule chose qui compte.
+        // Et une case stérile est INTERDITE, pas seulement découragée : il n'y a
+        // rien dessous. Une exploitation à cheval sur une case à zéro produirait
+        // déjà moitié moins pour le même capital et les mêmes salaires.
         const moy = cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length;
+        if (cases.some(c => c.q[def.qual] < 1)) continue;
         score += moy * 45 - cases[0].distanceGare * 0.4;
       } else {
         // Le reste se rapproche de la gare, où la ville est dense.
@@ -5209,14 +5349,15 @@ function echelle(t) {
 // regardant le prix du sol y lisait le contraire de ce qui était affiché : le
 // centre en rouge — donc CHER — se lisait comme le parent pauvre de sa
 // périphérie verte.
-const SOL = ['pauvre · 1', 'excellent · 5'];
+const SOL = ['stérile · 0', `filon · ${P.qualiteSommet}`];
+const lireSol = (nom) => (c) => c.q[nom] / P.qualiteSommet;
 
 const FILTRES_CASE = {
-  fertilite: { nom: 'Fertilité', bornes: SOL, lire: (c) => (c.q.fertilite - 1) / 4 },
-  bois:      { nom: 'Bois',      bornes: SOL, lire: (c) => (c.q.bois - 1) / 4 },
-  argile:    { nom: 'Argile',    bornes: SOL, lire: (c) => (c.q.argile - 1) / 4 },
-  charbon:   { nom: 'Charbon',   bornes: SOL, lire: (c) => (c.q.charbon - 1) / 4 },
-  minerai:   { nom: 'Minerai',   bornes: SOL, lire: (c) => (c.q.minerai - 1) / 4 },
+  fertilite: { nom: 'Fertilité', bornes: SOL, lire: lireSol('fertilite') },
+  bois:      { nom: 'Bois',      bornes: SOL, lire: lireSol('bois') },
+  argile:    { nom: 'Argile',    bornes: SOL, lire: lireSol('argile') },
+  charbon:   { nom: 'Charbon',   bornes: SOL, lire: lireSol('charbon') },
+  minerai:   { nom: 'Minerai',   bornes: SOL, lire: lireSol('minerai') },
   terrain:   { nom: 'Prix du sol', bornes: ['cher · 540 $', 'bon marché · 40 $'],
                lire: (c) => 1 - Math.min(1, (prixTerrain(c.ville ? c.ville.niveau : 1,
                                               c.distanceGare, qualiteMax(c)) - 40) / 500) },
@@ -6565,7 +6706,7 @@ function ficheTerrain(monde, v, c) {
     const n = c.q[q];
     const couleur = n >= 4 ? 'vert' : n <= 2 ? 'rouge' : 'doux';
     return `<div class="fiche"><div class="etiq">${NOMS_QUALITE[q]}</div>
-      <div class="v ${couleur}">${n}<span class="faible" style="font-size:11px"> / 5</span></div></div>`;
+      <div class="v ${couleur}">${n}<span class="faible" style="font-size:11px"> / 3</span></div></div>`;
   }).join('');
 
   let proprio = 'Vierge';
@@ -6804,7 +6945,7 @@ function ficheCampagne(c) {
     const n = c.q[q];
     return `<div class="fiche"><div class="etiq">${NOMS_QUALITE[q]}</div>
       <div class="v ${n >= 4 ? 'vert' : n <= 2 ? 'rouge' : 'doux'}">${n}
-      <span class="faible" style="font-size:11px"> / 5</span></div></div>`;
+      <span class="faible" style="font-size:11px"> / 3</span></div></div>`;
   }).join('');
   return entete(RELIEFS[c.relief].nom, 'Rase campagne — hors de tout territoire')
     + `<div class="grille">${qualites}</div>`
@@ -6990,7 +7131,7 @@ function ficheBatiment(monde, b, c) {
         return `<div class="fiche" ${vise ? 'style="border-color:var(--or)"' : ''}>
           <div class="etiq">${NOMS_QUALITE[q]}${vise ? ' ★' : ''}</div>
           <div class="v ${n >= 3.5 ? 'vert' : n <= 2.2 ? 'rouge' : 'doux'}">${n.toFixed(1)}
-            <span class="faible" style="font-size:11px"> / 5</span></div></div>`;
+            <span class="faible" style="font-size:11px"> / 3</span></div></div>`;
       }).join('')}
     </div>
     <div class="grille">
@@ -7004,10 +7145,12 @@ function ficheBatiment(monde, b, c) {
         <div class="v doux" style="font-size:12px">${NOMS_QUARTIER[b.cases[0].quartier] || '—'}</div></div>
     </div>
     ${jaugePotentiel(b.ville, b.cases, b)}
-    ${def.qual ? `<div class="note">Sol de qualité <b>${b.qualite.toFixed(1)} / 5</b> : cette
-      exploitation sort ${facteurQualite(b.qualite).toFixed(2)}× ce que sortirait la même sur une terre
-      moyenne. Un handicap de terrain ne fait aucun bruit — il se lit uniquement dans la
-      marge, et il ne se guérit jamais.</div>` : ''}`;
+    ${def.qual ? `<div class="note">Sol de qualité <b>${b.qualite.toFixed(1)} / ${P.qualiteSommet}</b> :
+      cette exploitation sort ${facteurQualite(b.qualite).toFixed(2)}× ce que sortirait la même sur
+      une case de qualité 1 — et elle emploie le même nombre de bras. Une case 1 ne rapporte
+      rien : elle couvre son entretien au prix de référence, et perd de l'argent dès que le
+      cours passe dessous. Un handicap de terrain ne fait aucun bruit, il se lit uniquement
+      dans la marge, et il ne se guérit jamais.</div>` : ''}`;
 
   // --- Ce qu'on peut en faire ---------------------------------------------
   let actions = '';
