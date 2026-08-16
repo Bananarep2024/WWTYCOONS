@@ -29,8 +29,13 @@ const rdt = (type, marge) => {
 // tiennent. Une exploitation se lit à la QUALITÉ 1, celle du sol de partout :
 // elle doit y rendre exactement zéro, sa marge brute couvrant tout juste son
 // entretien. C'est de cette promesse que découle tout le reste de l'échelle.
+// La marge se compte contre le salaire ATTENDU — celui que la partie pratique,
+// 24 $ — et non contre l'unité de compte du barème. Calibrée sur les 20 $ de
+// référence, la promesse « case 1 = rendement nul » était fausse en jeu de
+// quatre dollars par ouvrier, ce qui suffisait à faire mourir dix-huit villes
+// sur quarante.
 const k = P.echelleIndustrielle;
-const margeQ1 = k * (P.recetteOuvrierQ1 - P.salaireCase);
+const margeQ1 = k * P.margeOuvrierQ1;
 ok('coupe forestière, case 1', rdt('coupe', margeQ1), 0, 0.001);
 ok('ferme céréalière, case 1', rdt('ferme', margeQ1), 0, 0.001);
 ok('maison', rdt('maison', 5), 15, 0.03);
@@ -52,7 +57,7 @@ const marge = (t) => {
 // est le sol de partout, elle ne doit rien rapporter. Les six exploitations sont
 // rigoureusement équivalentes, la marchandise chère étant sortie d'autant plus
 // lentement que son prix est élevé.
-const ecartQ1 = P.recetteOuvrierQ1 - P.salaireCase;
+const ecartQ1 = P.recetteOuvrierQ1 - P.salaireCase;   // recette moins l'unité de compte
 for (const t of ['coupe', 'carriere', 'mineCharbon', 'mineFer', 'ferme', 'ranch']) {
   ok(`${BAT[t].nom.toLowerCase()}, par ouvrier`, marge(t), ecartQ1, 0.001);
 }

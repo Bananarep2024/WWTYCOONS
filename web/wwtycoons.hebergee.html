@@ -929,11 +929,21 @@ const P = {
   rendementQ2: 0.05,           // ce que doit rendre une case 2, au prix de référence
   rendementQ3: 0.15,           // ce que doit rendre une case 3, sur un cours effondré
   prixEffondre: 0.60,          // et « effondré » veut dire 60 % de la référence
-  // La recette mensuelle d'un ouvrier sur une case 1, au prix de référence.
-  // L'écart au salaire est ce qui paie l'entretien — et c'est lui qui fixe le
-  // capital d'une exploitation, puisque « case 1 = rendement nul » veut dire
-  // « marge brute = entretien ».
-  recetteOuvrierQ1: 24,
+  // LE SALAIRE QUI SERT À CALIBRER N'EST PAS LE SALAIRE DE RÉFÉRENCE.
+  //
+  // salaireCase — 20 $ — est l'unité de compte du barème. Ce n'est pas ce que
+  // la partie paie : le salaire est endogène, il monte avec la tension du
+  // marché du travail, et il s'établit autour de 24 $. Calibrer « la case 1
+  // couvre tout juste son entretien » sur 20 $ revient donc à la calibrer sur
+  // une marge qui n'existe pas — mesuré : la case 1 tournait à −7,9 %, la case 2
+  // à −3,3 %, toute la base extractive fermait, et dix-huit villes sur quarante
+  // mouraient.
+  salaireAttendu: 24,
+  // Ce qu'un ouvrier dégage AU-DESSUS de son salaire sur une case 1. C'est cette
+  // marge, et elle seule, qui fixe le capital d'une exploitation : « case 1 =
+  // rendement nul » veut dire « marge brute annuelle = entretien », donc
+  // capital = 12 × effectif × marge ÷ 10 %.
+  margeOuvrierQ1: 4,
   // Ce qu'une case vaut quand elle ne vaut rien : une case sans gisement garde
   // sa valeur de terrain nu. Sans ce plancher, la moitié de la carte serait
   // gratuite et le foncier cesserait d'être un arbitrage.
@@ -1037,7 +1047,8 @@ const P = {
 // Le capital d'une case d'exploitation, déduit de la promesse « une case 1 rend
 // zéro au prix de référence » : son entretien annuel égale exactement sa marge
 // brute. C'est lui qui fixe les coûts de construction plus bas.
-const CAPITAL_CASE = 120 * P.echelleIndustrielle * (P.recetteOuvrierQ1 - P.salaireCase);
+P.recetteOuvrierQ1 = P.salaireAttendu + P.margeOuvrierQ1;
+const CAPITAL_CASE = 120 * P.echelleIndustrielle * P.margeOuvrierQ1;
 
 // --- Ressources -------------------------------------------------------------
 // prix = prix de référence, celui qui s'établit quand la demande égale l'offre.
@@ -1216,7 +1227,7 @@ function niveauVille(menages) {
 
 function echelonPour(rendementVise, indicePrix) {
   const k = P.echelleIndustrielle, C = CAPITAL_CASE;
-  const num = rendementVise * C + P.entretienAnnuel * C + 12 * k * P.salaireCase;
+  const num = rendementVise * C + P.entretienAnnuel * C + 12 * k * P.salaireAttendu;
   const den = 12 * k * P.recetteOuvrierQ1 * indicePrix - rendementVise * P.terrainRef;
   return num / den;
 }
