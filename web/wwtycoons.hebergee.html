@@ -3564,10 +3564,17 @@ function piloterVille(monde, ville) {
   // sans sortie de marché, une filière mal proportionnée le reste pour
   // toujours. On n'en ferme qu'une par mois — une ville ne se vide pas d'un
   // coup, et le joueur doit avoir le temps de racheter.
-  for (const b of ville.batIndependants) {
-    if (b.def.cat === 'loge' || b.def.cat === 'bur') continue;
-    if (b.moisDeficit >= P.moisAvantFaillite) { monde.demolir(b); break; }
-  }
+  // UN BÂTIMENT DÉFICITAIRE RESTE DEBOUT. Il était démoli au bout de deux ans de
+  // pertes ; depuis que les marges sont calibrées au salaire de référence alors
+  // que les villes en pénurie paient le salaire plafond, la quasi-totalité de
+  // l'économie est déficitaire — 124 bâtiments sur 152 dans une ville mesurée —
+  // et la règle rasait la ville entière en deux ans.
+  //
+  // Elle ne disparaît pas pour autant du modèle : la faillite est une décision
+  // de propriétaire, pas une loi de la nature. Un atelier qui perd de l'argent
+  // continue de tourner, de payer ses ouvriers et de fournir sa ville ; c'est au
+  // joueur de le fermer ou de le racheter.
+  void P.moisAvantFaillite;
 
   // Une ville ne bâtit pas un chantier par mois par décret : elle bâtit tant
   // qu'elle a de l'argent, des bras et un besoin. Le plafond d'un seul chantier
