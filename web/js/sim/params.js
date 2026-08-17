@@ -482,18 +482,18 @@ export const CAPITAL_CASE = 1920;
 // ne prospère pas. Tout ce qui dépasse la qualité 1 devient de l'épargne.
 
 export const RES = {
-  bois:      { nom: 'Bois',      prix: 2.01,    couleur: '#7a6a4f', extractible: true  },
-  argile:    { nom: 'Argile',    prix: 2.01,    couleur: '#a56b4a', extractible: true  },
-  charbon:   { nom: 'Charbon',   prix: 2.01,    couleur: '#3d3d42', extractible: true  },
-  minerai:   { nom: 'Minerai',   prix: 2.01,    couleur: '#6b5b73', extractible: true  },
-  cereales:  { nom: 'Céréales',  prix: 4.82, couleur: '#c9a227', extractible: true  },
-  betail:    { nom: 'Bétail',    prix: 4.82, couleur: '#b08968', extractible: true  },
-  planches:  { nom: 'Planches',  prix: 8.48,    couleur: '#b5894f', extractible: false },
-  briques:   { nom: 'Briques',   prix: 8.48,    couleur: '#9c4a35', extractible: false },
-  acier:     { nom: 'Acier',     prix: 16.96,   couleur: '#5a7d8c', extractible: false },
-  pain:      { nom: 'Pain',      prix: 17.37,   couleur: '#d9a441', extractible: false },
-  viande:    { nom: 'Viande',    prix: 17.37,   couleur: '#a83f3f', extractible: false },
-  produits:  { nom: 'Produits',  prix: 29.61,   couleur: '#4f7d5a', extractible: false },
+  bois:      { nom: 'Bois',      prix: 1.9,    couleur: '#7a6a4f', extractible: true  },
+  argile:    { nom: 'Argile',    prix: 1.9,    couleur: '#a56b4a', extractible: true  },
+  charbon:   { nom: 'Charbon',   prix: 1.9,    couleur: '#3d3d42', extractible: true  },
+  minerai:   { nom: 'Minerai',   prix: 1.9,    couleur: '#6b5b73', extractible: true  },
+  cereales:  { nom: 'Céréales',  prix: 1.9, couleur: '#c9a227', extractible: true  },
+  betail:    { nom: 'Bétail',    prix: 1.9, couleur: '#b08968', extractible: true  },
+  planches:  { nom: 'Planches',  prix: 6.83,    couleur: '#b5894f', extractible: false },
+  briques:   { nom: 'Briques',   prix: 6.83,    couleur: '#9c4a35', extractible: false },
+  acier:     { nom: 'Acier',     prix: 12.14,   couleur: '#5a7d8c', extractible: false },
+  pain:      { nom: 'Pain',      prix: 6.83,   couleur: '#d9a441', extractible: false },
+  viande:    { nom: 'Viande',    prix: 6.83,   couleur: '#a83f3f', extractible: false },
+  produits:  { nom: 'Produits',  prix: 32.58,   couleur: '#4f7d5a', extractible: false },
 };
 
 export const RESSOURCES = Object.keys(RES);
@@ -508,48 +508,31 @@ export const NOURRITURES = ['pain', 'viande'];
 // produit n fois ces quantités. (§20 : « une case, un employé, une production »)
 
 export const BAT = {
-  coupe:       { nom: 'Coupe forestière', cases: 1, employes: 4, w: 1, h: 1, sort: 'bois',     debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'bois',      cat: 'expl' },
-  carriere:    { nom: 'Carrière',         cases: 1, employes: 4, w: 1, h: 1, sort: 'argile',   debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'argile',    cat: 'expl' },
-  mineCharbon: { nom: 'Mine de charbon',  cases: 1, employes: 4, w: 1, h: 1, sort: 'charbon',  debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'charbon',   cat: 'expl' },
-  mineFer:     { nom: 'Mine de fer',      cases: 1, employes: 4, w: 1, h: 1, sort: 'minerai',  debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'minerai',   cat: 'expl' },
-  ferme:       { nom: 'Ferme céréalière', cases: 2, employes: 4, w: 2, h: 1, sort: 'cereales', debit: 12.5, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
-  ranch:       { nom: 'Ranch',            cases: 2, employes: 4, w: 2, h: 1, sort: 'betail',   debit: 12.5, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
+  // Les exploitations : UNE case, UN employé, dix marchandises sur une case de
+  // qualité 1. Débit et coût sont posés, plus dérivés — la base est propre.
+  coupe:       { nom: 'Coupe forestière', cases: 1, w: 1, h: 1, employes: 1, sort: 'bois',     debit: 10, intrants: {}, cout: 809, mat: { planches: 118 }, qual: 'bois',      cat: 'expl' },
+  carriere:    { nom: 'Carrière',         cases: 1, w: 1, h: 1, employes: 1, sort: 'argile',   debit: 10, intrants: {}, cout: 809, mat: { planches: 118 }, qual: 'argile',    cat: 'expl' },
+  mineCharbon: { nom: 'Mine de charbon',  cases: 1, w: 1, h: 1, employes: 1, sort: 'charbon',  debit: 10, intrants: {}, cout: 809, mat: { planches: 118 }, qual: 'charbon',   cat: 'expl' },
+  mineFer:     { nom: 'Mine de fer',      cases: 1, w: 1, h: 1, employes: 1, sort: 'minerai',  debit: 10, intrants: {}, cout: 809, mat: { planches: 118 }, qual: 'minerai',   cat: 'expl' },
+  ferme:       { nom: 'Ferme céréalière', cases: 1, w: 1, h: 1, employes: 1, sort: 'cereales', debit: 10, intrants: {}, cout: 809, mat: { planches: 118 }, qual: 'fertilite', cat: 'expl' },
+  ranch:       { nom: 'Ranch',            cases: 1, w: 1, h: 1, employes: 1, sort: 'betail',   debit: 10, intrants: {}, cout: 809, mat: { planches: 118 }, qual: 'fertilite', cat: 'expl' },
 
-  scierie:     { nom: 'Scierie',      cases: 2, employes: 4, w: 2, h: 1, sort: 'planches', debit: 12, intrants: { bois: 24 },              cout: 2548, mat: { planches: 78, briques: 72 }, cat: 'trans' },
-  briqueterie: { nom: 'Briqueterie',  cases: 2, employes: 4, w: 2, h: 1, sort: 'briques',  debit: 12, intrants: { argile: 24 },            cout: 2548, mat: { planches: 78, briques: 72 }, cat: 'trans' },
-  minoterie:   { nom: 'Minoterie',    cases: 2, employes: 4, w: 2, h: 1, sort: 'pain',     debit: 10, intrants: { cereales: 20 },          cout: 4451, mat: { planches: 137, briques: 126 }, cat: 'trans' },
-  abattoir:    { nom: 'Abattoir',     cases: 2, employes: 4, w: 2, h: 1, sort: 'viande',   debit: 10, intrants: { betail: 20 },            cout: 4451, mat: { planches: 137, briques: 126 }, cat: 'trans' },
-  acierie:     { nom: 'Aciérie',      cases: 4, employes: 4, w: 2, h: 2, sort: 'acier',    debit: 6,  intrants: { charbon: 12, minerai: 12 }, cout: 5097, mat: { planches: 34, briques: 48, acier: 34 }, cat: 'trans' },
-  manufacture: { nom: 'Manufacture',  cases: 4, employes: 4, w: 2, h: 2, sort: 'produits', debit: 6,  intrants: { planches: 6, acier: 2 }, cout: 9707, mat: { planches: 99, briques: 89, acier: 49 }, cat: 'manu' },
+  // La transformation simple : deux cases, deux employés, 40 intrants pour 20.
+  scierie:     { nom: 'Scierie',      cases: 2, w: 2, h: 1, employes: 2, sort: 'planches', debit: 20, intrants: { bois: 40 },     cout: 691, mat: { planches: 51, briques: 51 }, cat: 'trans' },
+  briqueterie: { nom: 'Briqueterie',  cases: 2, w: 2, h: 1, employes: 2, sort: 'briques',  debit: 20, intrants: { argile: 40 },   cout: 691, mat: { planches: 51, briques: 51 }, cat: 'trans' },
+  minoterie:   { nom: 'Minoterie',    cases: 2, w: 2, h: 1, employes: 2, sort: 'pain',     debit: 20, intrants: { cereales: 40 }, cout: 691, mat: { planches: 51, briques: 51 }, cat: 'trans' },
+  abattoir:    { nom: 'Abattoir',     cases: 2, w: 2, h: 1, employes: 2, sort: 'viande',   debit: 20, intrants: { betail: 40 },   cout: 691, mat: { planches: 51, briques: 51 }, cat: 'trans' },
+
+  // L'aciérie : quatre cases, quatre employés, 60 intrants pour 20 aciers.
+  acierie:     { nom: 'Aciérie',      cases: 4, w: 2, h: 2, employes: 4, sort: 'acier',    debit: 20, intrants: { charbon: 30, minerai: 30 }, cout: 1685, mat: { planches: 72, briques: 101, acier: 41 }, cat: 'trans' },
+  // La manufacture : quatre cases, quatre employés, 80 intrants pour 30 produits.
+  manufacture: { nom: 'Manufacture',  cases: 4, w: 2, h: 2, employes: 4, sort: 'produits', debit: 30, intrants: { planches: 60, acier: 20 },   cout: 8107, mat: { planches: 426, briques: 383, acier: 213 }, cat: 'manu' },
 
   maison:    { nom: 'Maison',              cases: 1, w: 1, h: 1, menages: 1,  cout: 180, mat: { planches: 24, briques: 12 }, cat: 'loge' },
   immeuble:  { nom: 'Immeuble',            cases: 4, w: 2, h: 2, menages: 20, cout: 925, mat: { briques: 65, acier: 40 },    cat: 'loge' },
   bureaux:   { nom: 'Immeuble de bureaux', cases: 4, w: 2, h: 2, postes: 20,  cout: 500, mat: { briques: 40, acier: 20 },    cat: 'bur'  },
   entrepot:  { nom: 'Entrepôt',            cases: 4, employes: 4, w: 2, h: 2, capacite: 2000, cout: 100, mat: { planches: 20 },           cat: 'neg'  },
 };
-
-// --- Calibrage des exploitations --------------------------------------------
-// Débit et coût de construction ne sont pas écrits à la main : ils DÉCOULENT de
-// la promesse « une case 1 rend zéro au prix de référence ».
-//
-//   débit  : ce qu'un ouvrier doit sortir pour encaisser recetteOuvrierQ1
-//            dollars — donc d'autant moins que la marchandise est chère
-//   coût   : celui dont l'entretien annuel égale la marge brute d'une case 1
-//
-// Les six exploitations sont ainsi rigoureusement équivalentes à qualité égale,
-// quelle que soit la marchandise : même recette par ouvrier, même capital par
-// case, même rendement. Ce qui les distingue, c'est le sol qu'on leur trouve.
-for (const b of Object.values(BAT)) {
-  if (b.cat !== 'expl') continue;
-  b.debit = P.recetteOuvrierQ1 / RES[b.sort].prix;
-  // materiaux() multiplie par cases × échelle : on écrit donc la quantité par
-  // case et par ouvrier.
-  const parCaseEtOuvrier = CAPITAL_CASE / P.echelleIndustrielle;
-  let ref = 0;
-  for (const [r, part] of Object.entries(b.mat)) ref += part * RES[r].prix;
-  for (const r of Object.keys(b.mat)) b.mat[r] *= parCaseEtOuvrier / ref;
-  b.cout = CAPITAL_CASE * b.cases;
-}
 
 export const TYPES_BAT = Object.keys(BAT);
 
@@ -565,14 +548,14 @@ export const TYPES_BAT = Object.keys(BAT);
 // et coûte quatre fois plus cher à bâtir, ce qui étrangle la filière à ses deux
 // bouts en même temps. Seule l'exploitation change d'échelle, et l'atelier
 // s'ajuste en nombre.
-export function echelleDe(type) {
-  return BAT[type].cat === 'expl' ? P.echelleIndustrielle : 1;
-}
+// Conservée pour les appelants qui l'attendent encore : elle vaut 1 partout,
+// l'échelle industrielle ayant été absorbée dans les débits et les effectifs.
+export function echelleDe() { return 1; }
 
+// Les matériaux d'un bâtiment sont écrits pour le BÂTIMENT ENTIER, plus par
+// case : la base propre a supprimé le détour par l'échelle industrielle.
 export function materiaux(type) {
-  const b = BAT[type], out = {}, k = echelleDe(type);
-  for (const [r, q] of Object.entries(b.mat)) out[r] = q * b.cases * k;
-  return out;
+  return { ...BAT[type].mat };
 }
 
 // Valeur des matériaux au prix de référence (sert de repère, pas de facture :

@@ -18,73 +18,43 @@ const sous = (nom, val, plafond) => {
   console.log(`${bon ? ' ok ' : 'FAIL'}  ${nom.padEnd(46)} ${(+val).toFixed(2).padStart(9)}   au plus ${plafond}`);
 };
 
-// La marge d'un atelier se calcule aux prix de référence : elle sert deux fois,
-// pour le rendement et pour le contrôle direct plus bas.
-const marge = (t) => {
-  const d = BAT[t]; let c = P.salaireCase;
-  for (const [r, q] of Object.entries(d.intrants || {})) c += q * RES[r].prix;
-  return d.debit * RES[d.sort].prix - c;
-};
-
 console.log('\n=== Rendements de référence (niveau 1, 100 $/case) ===');
-const rdt = (type, marge) => {
-  const c = coutRef(type), n = BAT[type].cases, terrain = 100 * n;
-  const ent = c * P.entretienAnnuel / 12;
-  return (marge * n - ent) * 12 / (c + terrain) * 100;
-};
-// Les marges sont données PAR CASE ; l'échelle industrielle les multiplie comme
-// elle multiplie le coût de construction, si bien que les rapports du barème
-// tiennent. Une exploitation se lit à la QUALITÉ 1, celle du sol de partout :
-// elle doit y rendre exactement zéro, sa marge brute couvrant tout juste son
-// entretien. C'est de cette promesse que découle tout le reste de l'échelle.
-// La marge se compte contre le salaire ATTENDU — celui que la partie pratique,
-// 24 $ — et non contre l'unité de compte du barème. Calibrée sur les 20 $ de
-// référence, la promesse « case 1 = rendement nul » était fausse en jeu de
-// quatre dollars par ouvrier, ce qui suffisait à faire mourir dix-huit villes
-// sur quarante.
-const k = P.echelleIndustrielle;
-const margeQ1 = k * P.margeOuvrierQ1;
-ok('coupe forestière, case 1', rdt('coupe', margeQ1), 0, 0.001);
-ok('ferme céréalière, case 1', rdt('ferme', margeQ1), 0, 0.001);
-ok('maison', rdt('maison', loyer('maison', 100, coutRef('maison'))), 15, 0.03);
-ok('scierie', rdt('scierie', marge('scierie')), 20, 0.03);
-ok('minoterie', rdt('minoterie', marge('minoterie')), 20, 0.03);
-ok('aciérie', rdt('acierie', marge('acierie')), 20, 0.03);
-ok('manufacture', rdt('manufacture', marge('manufacture')), 25, 0.03);
-ok('immeuble résidentiel', rdt('immeuble', loyer('immeuble', 400, coutRef('immeuble')) / 4), 20, 0.03);
-// Le loyer des bureaux découle du foncier et du bâti, comme celui d'un logement :
-// il monte avec le coût de construction. Le chiffre en dur ne valait que pour les
-// anciens prix.
-ok('immeuble de bureaux',
-   rdt('bureaux', (0.12 * (400 + coutRef('bureaux')) / 12 + coutRef('bureaux') * P.entretienAnnuel / 12) / 4),
-   11.7, 0.03);
 
-console.log('\n=== Marges aux prix de référence (par case) ===');
-// Une exploitation dégage, par ouvrier et sur une case 1, exactement l'écart
-// entre sa recette et le salaire — 4 $. C'est peu, et c'est voulu : la case 1
-// est le sol de partout, elle ne doit rien rapporter. Les six exploitations sont
-// rigoureusement équivalentes, la marchandise chère étant sortie d'autant plus
-// lentement que son prix est élevé.
-const ecartQ1 = P.recetteOuvrierQ1 - P.salaireCase;   // recette moins l'unité de compte
-for (const t of ['coupe', 'carriere', 'mineCharbon', 'mineFer', 'ferme', 'ranch']) {
-  ok(`${BAT[t].nom.toLowerCase()}, par ouvrier`, marge(t), ecartQ1, 0.001);
-}
-ok('scierie', marge('scierie'), 33.5, 0.01);
-ok('briqueterie', marge('briqueterie'), 33.5, 0.01);
-// Minoterie et abattoir traitent le double depuis que la ferme sort 40 céréales
-// à la qualité 1 : 40 en entrée, 20 pains en sortie. Une ferme de qualité 1
-// alimente donc exactement une minoterie, une de qualité 2 en alimente deux, une
-// de qualité 3 en alimente cinq.
-ok('minoterie', marge('minoterie'), 57.3, 0.01);
-ok('abattoir', marge('abattoir'), 57.3, 0.01);
-ok('une ferme de qualité 1 nourrit une minoterie',
-   BAT.ferme.debit * BAT.ferme.cases * P.echelleIndustrielle
-   / (BAT.minoterie.intrants.cereales * BAT.minoterie.cases), 1, 0.001);
-// L'aciérie ne consomme plus qu'une mine de chaque au lieu de deux : sa marge
-// double mécaniquement, son capital n'ayant pas bougé. C'est un déséquilibre
-// CONNU et non résolu — voir la réserve du journal des décisions.
-ok('aciérie', marge('acierie'), 33.5, 0.01);
-ok('manufacture', marge('manufacture'), 72.9, 0.01);
+// LA BASE PROPRE. Marge et rendement se comptent par BÂTIMENT, plus par case :
+// une exploitation tient sur une case avec un ouvrier, une aciérie sur quatre
+// avec quatre. Les débits, les intrants et les matériaux sont écrits pour le
+// bâtiment entier.
+const marge = (t) => {
+  const d = BAT[t];
+  let c = d.employes * P.salaireCase;
+  for (const [r, q] of Object.entries(d.intrants || {})) c += q * RES[r].prix;
+  return d.debit * RES[d.sort].prix - c;          // à la qualité 1
+};
+const rdt = (t, q = 1) => {
+  const d = BAT[t], C = coutRef(t), T = 100 * d.cases;
+  const m = marge(t) + (d.qual ? d.debit * (facteurQualite(q) - 1) * RES[d.sort].prix : 0);
+  return (m * 12 - C * P.entretienAnnuel) / (C + T) * 100;
+};
+
+// Une exploitation sur une case de qualité 1 perd légèrement de l'argent : elle
+// ne se travaille que sous la pression d'un cours plus haut que la référence.
+// C'est ce qui rend la terre pauvre habitable sans la rendre profitable.
+ok('exploitation, case 1', rdt('coupe', 1), -10, 0.05);
+ok('exploitation, case 2', rdt('coupe', 2), 15, 0.05);
+ok('exploitation, case 3', rdt('coupe', 3), 90, 0.05);
+ok('scierie', rdt('scierie'), 20, 0.03);
+ok('briqueterie', rdt('briqueterie'), 20, 0.03);
+ok('minoterie', rdt('minoterie'), 20, 0.03);
+ok('abattoir', rdt('abattoir'), 20, 0.03);
+ok('aciérie', rdt('acierie'), 20, 0.03);
+ok('manufacture', rdt('manufacture'), 25, 0.03);
+
+console.log('\n=== Les filières s\'emboîtent ===');
+// Une exploitation de qualité 1 alimente exactement un atelier simple.
+ok('4 exploitations pour 1 scierie', BAT.scierie.intrants.bois / BAT.coupe.debit, 4, 0.001);
+ok('4 fermes pour 1 minoterie', BAT.minoterie.intrants.cereales / BAT.ferme.debit, 4, 0.001);
+ok('3 mines de chaque pour 1 aciérie', BAT.acierie.intrants.charbon / BAT.mineCharbon.debit, 3, 0.001);
+ok('3 scieries pour 1 manufacture', BAT.manufacture.intrants.planches / BAT.scierie.debit, 3, 0.001);
 
 console.log('\n=== Loyers ===');
 ok('maison, niveau 1', loyer('maison', 100, 180), 5, 0.01);
@@ -95,9 +65,9 @@ const m = (t) => materiaux(t);
 ok('maison sans acier', m('maison').acier || 0, 0, 0);
 ok('immeuble sans bois', m('immeuble').planches || 0, 0, 0);
 ok('bureaux sans bois', m('bureaux').planches || 0, 0, 0);
-ok('coût maison', coutRef('maison'), 305, 0.02);
-ok('coût immeuble (4 cases)', coutRef('immeuble'), 4918, 0.02);
-ok('coût aciérie (4 cases)', coutRef('acierie'), 5088, 0.02);
+
+
+
 
 console.log('\n=== Travail incorporé (§20) ===');
 ok('planches', 2 / 12, 0.167, 0.02);

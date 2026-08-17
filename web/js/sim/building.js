@@ -124,16 +124,18 @@ export class Batiment {
     // La production suit l'échelle du sol : 0 · 1 · 1,09 · 2,13. À qualité zéro
     // elle est nulle — pas de gisement, rien à extraire — et le bâtiment ne
     // devrait de toute façon jamais avoir pu s'y ouvrir.
-    const k = echelleDe(this.type);
+    // Le débit est celui du BÂTIMENT, plus celui d'une case : une ferme d'une
+    // case et une aciérie de quatre en portent chacune le leur.
     const sol = this.def.qual ? facteurQualite(this.qualite) : 1;
-    return this.def.debit * this.n * k * sol * meteo;
+    return this.def.debit * sol * meteo;
   }
 
+  // Les intrants sont eux aussi ceux du BÂTIMENT : 40 pour une scierie, 60 pour
+  // une aciérie, 80 pour une manufacture — pas par case.
   besoinsIntrants() {
     const out = {};
-    const k = echelleDe(this.type);
     for (const [r, q] of Object.entries(this.def.intrants || {})) {
-      out[r] = q * this.n * k * this.activite;
+      out[r] = q * this.activite;
     }
     return out;
   }
