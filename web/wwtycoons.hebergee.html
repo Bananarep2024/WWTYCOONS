@@ -1263,6 +1263,22 @@ function entretien(type, valeurBatie) {
   return (valeurBatie ?? coutRef(type)) * P.entretienAnnuel / 12;
 }
 
+// COMBIEN DE BRAS IL FAUT POUR LE FAIRE TOURNER EN PLEIN.
+//
+// C'est le chiffre qui manque à toute décision de construction : un bâtiment
+// qu'on élève dans une ville sans main-d'œuvre disponible ne tournera jamais à
+// pleine capacité, et rien ne le disait avant de payer.
+//
+// Il ne dépend PLUS du sol pour une exploitation — quatre bras à la case, filon
+// maigre ou gras — et il vaut le nombre de postes pour un immeuble de bureaux,
+// qui n'emploie personne mais en loge vingt.
+function emploisRequis(type) {
+  const b = BAT[type];
+  if (b.cat === 'bur') return b.postes;
+  if (b.cat === 'loge') return 0;
+  return b.cases * echelleDe(type);
+}
+
 // LE DEVIS D'UNE GARE FONDATRICE.
 //
 // Ce qu'elle emporte, et ce qu'elle coûte. Les deux sont le même objet : le
@@ -6950,7 +6966,13 @@ function voletBatir(monde, rendu) {
                 ${abordable ? '' : 'disabled'}>
         <span class="puce" style="background:${COULEURS[t]}"></span>
         <span class="nomBat">${def.nom}</span>
-        <span class="sousBat">${def.w}×${def.h}${vise ? ' · visé ' + Math.round(vise * 100) + ' %' : ''}</span>
+        <span class="sousBat">${def.w}×${def.h}${
+          // Les bureaux n'exigent pas de bras, ils en OFFRENT : dire « requis »
+          // là-dessus inverserait le sens du seul bâtiment qui amène du travail.
+          def.cat === 'bur' ? ` · ${def.postes} postes offerts`
+          : def.cat === 'loge' ? ` · ${def.menages} ménage${def.menages > 1 ? 's' : ''}`
+          : ` · ${emploisRequis(t)} ouvrier${emploisRequis(t) > 1 ? 's' : ''}`
+        }${vise ? ' · visé ' + Math.round(vise * 100) + ' %' : ''}</span>
         <span class="prixBat ${cher > 1.25 ? 'rouge' : cher < 0.85 ? 'vert' : 'doux'}">${eur(materiel)}</span>
       </button>`;
     }).join('');
@@ -7527,6 +7549,9 @@ function ficheBatiment(monde, b, c) {
           <div class="v ${b.margeUnitaire > 0 ? 'vert' : 'rouge'}">${b.margeUnitaire.toFixed(2)} $</div></div>
         <div class="fiche"><div class="etiq">Seuil d'activité</div>
           <div class="v ${seuil > 0.6 ? 'rouge' : 'doux'}">${isFinite(seuil) ? pct(seuil) : 'hors d\'atteinte'}</div></div>
+        <div class="fiche"><div class="etiq">Ouvriers requis</div>
+          <div class="v">${b.emplois.toFixed(0)}
+            <span class="faible" style="font-size:11px"> pour tourner en plein</span></div></div>
       </div>`;
   }
 

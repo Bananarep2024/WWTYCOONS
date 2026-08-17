@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 
 import { P, RES, RESSOURCES, BAT, TYPES_BAT, niveauVille, materiaux, coutRef,
-         rendementVise, devisGare } from '../sim/params.js';
+         rendementVise, devisGare, emploisRequis } from '../sim/params.js';
 import { COULEURS, FILTRES_CASE, FILTRES_VILLE, echelle } from './render.js';
 import { EVENEMENTS } from '../sim/evenements.js';
 
@@ -676,7 +676,13 @@ export function voletBatir(monde, rendu) {
                 ${abordable ? '' : 'disabled'}>
         <span class="puce" style="background:${COULEURS[t]}"></span>
         <span class="nomBat">${def.nom}</span>
-        <span class="sousBat">${def.w}×${def.h}${vise ? ' · visé ' + Math.round(vise * 100) + ' %' : ''}</span>
+        <span class="sousBat">${def.w}×${def.h}${
+          // Les bureaux n'exigent pas de bras, ils en OFFRENT : dire « requis »
+          // là-dessus inverserait le sens du seul bâtiment qui amène du travail.
+          def.cat === 'bur' ? ` · ${def.postes} postes offerts`
+          : def.cat === 'loge' ? ` · ${def.menages} ménage${def.menages > 1 ? 's' : ''}`
+          : ` · ${emploisRequis(t)} ouvrier${emploisRequis(t) > 1 ? 's' : ''}`
+        }${vise ? ' · visé ' + Math.round(vise * 100) + ' %' : ''}</span>
         <span class="prixBat ${cher > 1.25 ? 'rouge' : cher < 0.85 ? 'vert' : 'doux'}">${eur(materiel)}</span>
       </button>`;
     }).join('');

@@ -462,6 +462,9 @@ function ficheBatiment(monde, b, c) {
           <div class="v ${b.margeUnitaire > 0 ? 'vert' : 'rouge'}">${b.margeUnitaire.toFixed(2)} $</div></div>
         <div class="fiche"><div class="etiq">Seuil d'activité</div>
           <div class="v ${seuil > 0.6 ? 'rouge' : 'doux'}">${isFinite(seuil) ? pct(seuil) : 'hors d\'atteinte'}</div></div>
+        <div class="fiche"><div class="etiq">Ouvriers requis</div>
+          <div class="v">${b.emplois.toFixed(0)}
+            <span class="faible" style="font-size:11px"> pour tourner en plein</span></div></div>
       </div>`;
   }
 

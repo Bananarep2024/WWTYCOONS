@@ -525,6 +525,22 @@ export function entretien(type, valeurBatie) {
   return (valeurBatie ?? coutRef(type)) * P.entretienAnnuel / 12;
 }
 
+// COMBIEN DE BRAS IL FAUT POUR LE FAIRE TOURNER EN PLEIN.
+//
+// C'est le chiffre qui manque à toute décision de construction : un bâtiment
+// qu'on élève dans une ville sans main-d'œuvre disponible ne tournera jamais à
+// pleine capacité, et rien ne le disait avant de payer.
+//
+// Il ne dépend PLUS du sol pour une exploitation — quatre bras à la case, filon
+// maigre ou gras — et il vaut le nombre de postes pour un immeuble de bureaux,
+// qui n'emploie personne mais en loge vingt.
+export function emploisRequis(type) {
+  const b = BAT[type];
+  if (b.cat === 'bur') return b.postes;
+  if (b.cat === 'loge') return 0;
+  return b.cases * echelleDe(type);
+}
+
 // LE DEVIS D'UNE GARE FONDATRICE.
 //
 // Ce qu'elle emporte, et ce qu'elle coûte. Les deux sont le même objet : le
