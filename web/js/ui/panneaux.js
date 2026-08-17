@@ -703,14 +703,17 @@ export function voletBatir(monde, rendu) {
               ${joueur.tresorerie >= dg.cout ? '' : 'disabled'}>
         <span class="puce" style="background:#c9a227"></span>
         <span class="nomBat">Gare fondatrice</span>
-        <span class="sousBat">${P.colonsGare} colons · ${P.moisDeVivres} mois de vivres</span>
+        <span class="sousBat">${P.logementsGare} logements · ${P.moisDeVivres} mois de vivres</span>
         <span class="prixBat ${joueur.tresorerie >= dg.cout ? 'doux' : 'rouge'}">${eur(dg.cout)}</span>
       </button>
     </div>
-    <div class="note">Une gare s'installe <b>hors de tout territoire</b> et fonde une localité :
-      elle arrive avec ses colons, leurs maisons, ${P.exploitationsFournies} exploitations et
-      ${P.moisDeVivres} mois de vivres. Passé ce délai, ou elle se nourrit seule, ou une voie la
-      relie, ou elle s'éteint.</div>`;
+    <div class="note">Une gare s'installe <b>hors de tout territoire</b> et fonde une localité.
+      Elle n'apporte <b>pas d'habitants</b> — elle apporte de quoi en attirer :
+      ${P.logementsGare} maisons vides, ${P.exploitationsFournies} exploitations pour donner du
+      travail, et ${P.moisDeVivres} mois de vivres et de produits pour que les premiers venus y
+      vivent au plein. La population arrive ensuite d'elle-même, tant que les trois baromètres
+      tiennent. Passé ce délai, ou le hameau se nourrit seul, ou une voie le relie, ou il
+      s'éteint.</div>`;
 
   return `<div class="grille">
       <div class="fiche"><div class="etiq">Trésorerie</div>

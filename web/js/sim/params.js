@@ -331,7 +331,17 @@ export const P = {
   //
   // Son prix inclut tout — le bâtiment, les matériaux et les vivres — et se
   // calcule aux prix de référence. Voir devisGare().
-  colonsGare: 10,              // ménages qui arrivent avec la gare
+  // ON N'ACHÈTE PAS DES COLONS. La gare n'apporte pas d'habitants : elle apporte
+  // les CONDITIONS pour qu'il en vienne — des maisons vides, du travail, et de
+  // quoi manger et s'équiper le temps que la filière locale se monte. La
+  // population arrive ensuite d'elle-même, par la migration de frontière, si et
+  // seulement si les trois baromètres tiennent.
+  logementsGare: 10,           // maisons vides montées le jour de la fondation
+  // Combien de ménages viennent chaque mois du dehors de la carte, à
+  // attractivité maximale. C'est un flux ABSOLU, en ménages : le taux de
+  // croissance ordinaire est un pourcentage de la population présente, et zéro
+  // pour cent de zéro ne peuple jamais un endroit vide.
+  immigrationFrontiere: 0.8,
   moisDeVivres: 24,            // deux ans de nourriture et de produits, à 100 %
   exploitationsFournies: 3,    // ce que le stock de matériaux permet d'ouvrir
   coutGareNu: 2000,            // le bâtiment de gare seul, hors cargaison
@@ -511,10 +521,10 @@ export function devisGare() {
   const ajouter = (m, k) => {
     for (const [r, q] of Object.entries(m)) mat[r] = (mat[r] || 0) + q * k;
   };
-  ajouter(materiaux('maison'), P.colonsGare);
+  ajouter(materiaux('maison'), P.logementsGare);
   ajouter(materiaux('coupe'), P.exploitationsFournies);
 
-  const rations = P.colonsGare * P.moisDeVivres;
+  const rations = P.logementsGare * P.moisDeVivres;
   const vivres = { pain: rations, produits: rations };
 
   let cout = P.coutGareNu;

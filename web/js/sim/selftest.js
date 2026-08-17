@@ -207,8 +207,16 @@ ok('potentiel à 30 cases, comptoir', potentielTerrain(1, 30), 1.677, 0.02);
 
 console.log('\n=== Vingt ans de simulation, sans joueur ===');
 const monde = new Monde({ nbVilles: 5, duree: 240, graine: 12345 });
+// Le rail n'est plus construit par personne d'office : c'est le joueur qui le
+// pose. Le banc d'essai tient donc ce rôle — il finance le maillage des cinq
+// villes — sinon il mesurerait un monde morcelé en cinq marchés isolés, qui
+// n'est pas celui qu'on prétend contrôler ici.
 const t0 = Date.now();
-while (monde.tick());
+for (let i = 1; i < monde.villes.length; i++) {
+  monde.joueur.tresorerie += 1e6;
+  monde.lancerVoie(i - 1, i, monde.joueur);
+}
+while (monde.tick()) monde.joueur.tresorerie += 5000;
 const dt = Date.now() - t0;
 console.log(`  ${monde.mois} mois simulés en ${dt} ms (${(dt / monde.mois).toFixed(2)} ms/mois)\n`);
 for (const v of monde.villes) {

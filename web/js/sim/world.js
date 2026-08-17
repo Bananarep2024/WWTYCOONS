@@ -156,7 +156,7 @@ export class Monde {
       id: this.villes.length, nom: this.nomDeGare(), profil: null,
       temperament: { taille: 1, nom: 'colonie' },
       gare: { x, y }, rayon: P.rayonGare, cases: [],
-      menages: P.colonsGare,
+      menages: 0,
       occupation: 0.85, salaire: P.salaireCase, niveau: 1,
       barometres: { nourriture: 1, emploi: 0.78, produits: 1 },
       epargne: 0, marche: null, histo: [], fondee: this.mois,
@@ -208,7 +208,7 @@ export class Monde {
     // et sont montées le jour même ; le reste des matériaux dort en réserve pour
     // que les colons ouvrent leurs exploitations eux-mêmes.
     let logees = 0;
-    for (let i = 0; i < P.colonsGare; i++) {
+    for (let i = 0; i < P.logementsGare; i++) {
       const site = this.trouverEmplacement(v, 'maison', null, 2);
       if (!site) break;
       this.poser('maison', v, site, null);
@@ -255,7 +255,7 @@ export class Monde {
     v.marche.recomposerStock();
 
     this.journal.push(`${this.mois} · ⚑ ${societe.nom} fonde ${v.nom}`
-      + ` — ${logees} logements, ${ouvertes} exploitations,`
+      + ` — ${logees} logements vides, ${ouvertes} exploitations,`
       + ` ${P.moisDeVivres} mois de vivres, ${Math.round(devis.cout)} $`);
     return v;
   }
@@ -1389,6 +1389,37 @@ export class Monde {
       v.enCrise = false;
     }
 
+    // LA MIGRATION DE FRONTIÈRE.
+    //
+    // Le taux ci-dessus est un POURCENTAGE de la population présente : il ne
+    // peuple jamais un endroit vide, puisque zéro pour cent de zéro fait zéro.
+    // Une gare qu'on vient de fonder n'a personne, et n'aurait donc jamais
+    // personne — on serait obligé de lui livrer ses habitants avec sa
+    // cargaison, ce qui n'a pas de sens : on n'achète pas des colons.
+    //
+    // On ajoute donc un flux ABSOLU, en ménages et non en pourcentage : tant
+    // qu'un endroit a du travail, de quoi manger, de quoi s'équiper et un toit
+    // libre, il arrive des gens du dehors de la carte. C'est ce qui fait qu'une
+    // gare posée au milieu de nulle part se peuple — et c'est aussi ce qui rend
+    // les vivres de fondation utiles, puisqu'ils tiennent les baromètres au vert
+    // le temps que la filière locale se monte.
+    //
+    // Un endroit VIDE ne se juge pas sur ses baromètres : ceux-ci mesurent une
+    // consommation qui n'a pas lieu, et valent donc zéro — ce qui interdirait à
+    // quiconque de jamais s'y installer. On regarde alors ce qu'il OFFRE :
+    // du travail à prendre, de quoi manger, de quoi s'équiper. C'est exactement
+    // ce que regarde un migrant qui n'y est pas encore.
+    let frontiere = 0;
+    if (v.menages < 1) {
+      const mk = v.marche, l = mk.livre(v);
+      const postes = this.tousBatiments(v)
+        .reduce((s, b) => s + (b.def.cat === 'loge' ? 0 : b.emplois), 0);
+      const mange = NOURRITURES.reduce((s, r) => s + l.stock[r], 0);
+      if (postes > 0 && mange > 0 && l.stock.produits > 0) frontiere = P.immigrationFrontiere;
+    } else if (!critique && moyenne > P.pivot) {
+      frontiere = P.immigrationFrontiere * (moyenne - P.pivot) / (1 - P.pivot);
+    }
+
     // La capacité de logement BORNE l'afflux ; elle ne l'appelle pas. Bâtir un
     // immeuble ne fait venir personne : il ouvre vingt logements que
     // l'attractivité de la ville remplira, ou pas. Une ville sans attrait qui
@@ -1398,7 +1429,7 @@ export class Monde {
       .filter(x => x.def.cat === 'loge')
       .reduce((s, x) => s + x.def.menages, 0);
 
-    let nouveau = v.menages * (1 + taux);
+    let nouveau = v.menages * (1 + taux) + frontiere;
     nouveau = Math.max(0, Math.min(nouveau, capacite));
     v.immigration = nouveau - v.menages;      // ce qui est venu du dehors
     v.tauxCroissance = taux;
