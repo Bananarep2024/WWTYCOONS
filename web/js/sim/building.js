@@ -99,9 +99,15 @@ export class Batiment {
   // proportion exacte, la recette par ouvrier valait débit × prix, une constante,
   // et la bonne terre ne rapportait pas un sou de plus par ouvrier que la
   // mauvaise. Elle ajoutait des ouvriers, elle n'enrichissait personne.
+  // L'EFFECTIF EST ÉCRIT, PLUS CALCULÉ. Il valait « cases × échelle », si bien
+  // qu'une ferme de deux cases faisait travailler huit personnes quand une mine
+  // d'une case en faisait travailler quatre — pour le même métier. Tous les
+  // bâtiments de production portent désormais quatre ouvriers, quelle que soit
+  // leur emprise au sol.
   get emplois() {
     if (this.def.cat === 'bur') return this.def.postes;
-    return this.n * echelleDe(this.type);
+    if (this.def.cat === 'loge') return 0;
+    return this.def.employes;
   }
 
   get masseSalarialePleine() {

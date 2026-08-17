@@ -508,24 +508,24 @@ export const NOURRITURES = ['pain', 'viande'];
 // produit n fois ces quantités. (§20 : « une case, un employé, une production »)
 
 export const BAT = {
-  coupe:       { nom: 'Coupe forestière', cases: 1, w: 1, h: 1, sort: 'bois',     debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'bois',      cat: 'expl' },
-  carriere:    { nom: 'Carrière',         cases: 1, w: 1, h: 1, sort: 'argile',   debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'argile',    cat: 'expl' },
-  mineCharbon: { nom: 'Mine de charbon',  cases: 1, w: 1, h: 1, sort: 'charbon',  debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'charbon',   cat: 'expl' },
-  mineFer:     { nom: 'Mine de fer',      cases: 1, w: 1, h: 1, sort: 'minerai',  debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'minerai',   cat: 'expl' },
-  ferme:       { nom: 'Ferme céréalière', cases: 2, w: 2, h: 1, sort: 'cereales', debit: 12.5, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
-  ranch:       { nom: 'Ranch',            cases: 2, w: 2, h: 1, sort: 'betail',   debit: 12.5, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
+  coupe:       { nom: 'Coupe forestière', cases: 1, employes: 4, w: 1, h: 1, sort: 'bois',     debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'bois',      cat: 'expl' },
+  carriere:    { nom: 'Carrière',         cases: 1, employes: 4, w: 1, h: 1, sort: 'argile',   debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'argile',    cat: 'expl' },
+  mineCharbon: { nom: 'Mine de charbon',  cases: 1, employes: 4, w: 1, h: 1, sort: 'charbon',  debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'charbon',   cat: 'expl' },
+  mineFer:     { nom: 'Mine de fer',      cases: 1, employes: 4, w: 1, h: 1, sort: 'minerai',  debit: 30, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'minerai',   cat: 'expl' },
+  ferme:       { nom: 'Ferme céréalière', cases: 2, employes: 4, w: 2, h: 1, sort: 'cereales', debit: 12.5, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
+  ranch:       { nom: 'Ranch',            cases: 2, employes: 4, w: 2, h: 1, sort: 'betail',   debit: 12.5, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
 
-  scierie:     { nom: 'Scierie',      cases: 2, w: 2, h: 1, sort: 'planches', debit: 12, intrants: { bois: 24 },              cout: 2548, mat: { planches: 78, briques: 72 }, cat: 'trans' },
-  briqueterie: { nom: 'Briqueterie',  cases: 2, w: 2, h: 1, sort: 'briques',  debit: 12, intrants: { argile: 24 },            cout: 2548, mat: { planches: 78, briques: 72 }, cat: 'trans' },
-  minoterie:   { nom: 'Minoterie',    cases: 2, w: 2, h: 1, sort: 'pain',     debit: 10, intrants: { cereales: 20 },          cout: 4451, mat: { planches: 137, briques: 126 }, cat: 'trans' },
-  abattoir:    { nom: 'Abattoir',     cases: 2, w: 2, h: 1, sort: 'viande',   debit: 10, intrants: { betail: 20 },            cout: 4451, mat: { planches: 137, briques: 126 }, cat: 'trans' },
-  acierie:     { nom: 'Aciérie',      cases: 4, w: 2, h: 2, sort: 'acier',    debit: 6,  intrants: { charbon: 12, minerai: 12 }, cout: 5097, mat: { planches: 34, briques: 48, acier: 34 }, cat: 'trans' },
-  manufacture: { nom: 'Manufacture',  cases: 4, w: 2, h: 2, sort: 'produits', debit: 6,  intrants: { planches: 6, acier: 2 }, cout: 9707, mat: { planches: 99, briques: 89, acier: 49 }, cat: 'manu' },
+  scierie:     { nom: 'Scierie',      cases: 2, employes: 4, w: 2, h: 1, sort: 'planches', debit: 12, intrants: { bois: 24 },              cout: 2548, mat: { planches: 78, briques: 72 }, cat: 'trans' },
+  briqueterie: { nom: 'Briqueterie',  cases: 2, employes: 4, w: 2, h: 1, sort: 'briques',  debit: 12, intrants: { argile: 24 },            cout: 2548, mat: { planches: 78, briques: 72 }, cat: 'trans' },
+  minoterie:   { nom: 'Minoterie',    cases: 2, employes: 4, w: 2, h: 1, sort: 'pain',     debit: 10, intrants: { cereales: 20 },          cout: 4451, mat: { planches: 137, briques: 126 }, cat: 'trans' },
+  abattoir:    { nom: 'Abattoir',     cases: 2, employes: 4, w: 2, h: 1, sort: 'viande',   debit: 10, intrants: { betail: 20 },            cout: 4451, mat: { planches: 137, briques: 126 }, cat: 'trans' },
+  acierie:     { nom: 'Aciérie',      cases: 4, employes: 4, w: 2, h: 2, sort: 'acier',    debit: 6,  intrants: { charbon: 12, minerai: 12 }, cout: 5097, mat: { planches: 34, briques: 48, acier: 34 }, cat: 'trans' },
+  manufacture: { nom: 'Manufacture',  cases: 4, employes: 4, w: 2, h: 2, sort: 'produits', debit: 6,  intrants: { planches: 6, acier: 2 }, cout: 9707, mat: { planches: 99, briques: 89, acier: 49 }, cat: 'manu' },
 
   maison:    { nom: 'Maison',              cases: 1, w: 1, h: 1, menages: 1,  cout: 180, mat: { planches: 24, briques: 12 }, cat: 'loge' },
   immeuble:  { nom: 'Immeuble',            cases: 4, w: 2, h: 2, menages: 20, cout: 925, mat: { briques: 65, acier: 40 },    cat: 'loge' },
   bureaux:   { nom: 'Immeuble de bureaux', cases: 4, w: 2, h: 2, postes: 20,  cout: 500, mat: { briques: 40, acier: 20 },    cat: 'bur'  },
-  entrepot:  { nom: 'Entrepôt',            cases: 4, w: 2, h: 2, capacite: 2000, cout: 100, mat: { planches: 20 },           cat: 'neg'  },
+  entrepot:  { nom: 'Entrepôt',            cases: 4, employes: 4, w: 2, h: 2, capacite: 2000, cout: 100, mat: { planches: 20 },           cat: 'neg'  },
 };
 
 // --- Calibrage des exploitations --------------------------------------------
@@ -602,7 +602,7 @@ export function emploisRequis(type) {
   const b = BAT[type];
   if (b.cat === 'bur') return b.postes;
   if (b.cat === 'loge') return 0;
-  return b.cases * echelleDe(type);
+  return b.employes;
 }
 
 // LE DEVIS D'UNE GARE FONDATRICE.
