@@ -5,11 +5,11 @@
 // pour saisir une opportunité, puis a sept secondes pour réfléchir.
 // ---------------------------------------------------------------------------
 
-import { P, RES, BAT } from './sim/params.js';
+import { P, RES, BAT, devisGare } from './sim/params.js';
 import { Monde } from './sim/world.js';
 import { Rendu, FILTRES_CASE, FILTRES_VILLE } from './ui/render.js';
 import { $, eur, pct, voletFiltres, voletVilles, voletMarche, voletSociete, voletRail,
-         voletBatir, voletBourse, voletEvenements }
+         voletBatir, voletBourse, voletEvenements, choixVoie }
   from './ui/panneaux.js';
 import { contenuFeuille, empriseDepuis, empriseConstructible, devis }
   from './ui/feuille.js';
@@ -198,6 +198,21 @@ function brancherVolet(corps) {
     monde.investirRail(monde.joueur, 800);
     rafraichirTout();
   });
+
+  // Le choix des deux gares, et l'ouverture du chantier.
+  const selA = corps.querySelector('#railA'), selB = corps.querySelector('#railB');
+  if (selA) selA.onchange = () => { choixVoie.a = +selA.value; rafraichirVolet(); };
+  if (selB) selB.onchange = () => { choixVoie.b = +selB.value; rafraichirVolet(); };
+  const btnVoie = corps.querySelector('#btnVoie');
+  if (btnVoie) btnVoie.onclick = () => {
+    const r = monde.lancerVoie(choixVoie.a, choixVoie.b, monde.joueur);
+    if (typeof r === 'string') {
+      btnVoie.textContent = r;
+      btnVoie.classList.add('rouge');
+      return;
+    }
+    rafraichirTout();
+  };
 }
 
 // Le bandeau rappelle en permanence qu'on regarde une donnée et non la carte :
@@ -242,7 +257,9 @@ function majBandeauPose() {
     return;
   }
   b.classList.remove('cachee');
-  $('#bandeauNom').textContent = `Poser — ${BAT[rendu.pose].nom}`
+  $('#bandeauNom').textContent =
+    (rendu.pose === 'gare' ? `Fonder une gare — ${eur(devisGare().cout)}`
+                           : `Poser — ${BAT[rendu.pose].nom}`)
     + (posesDeSuite ? ` · ${posesDeSuite} posé${posesDeSuite > 1 ? 's' : ''}, continuez`
                     : ' · touchez la carte');
   // La mesure entière disparaît, pas seulement son dégradé : ses deux libellés
@@ -254,6 +271,21 @@ function majBandeauPose() {
 // Poser un bâtiment : on achète le foncier manquant et on ouvre le chantier
 // d'un seul geste. Le joueur voit le total avant de valider.
 function poser(c) {
+  // FONDER UNE GARE n'est pas bâtir : on ne pose pas un bâtiment sur un terrain
+  // qu'on possède, on ouvre un territoire là où il n'y en a pas. Le devis, les
+  // refus et la cargaison sont l'affaire du monde.
+  if (rendu.pose === 'gare') {
+    const r = monde.fonderGare(c.x, c.y, monde.joueur);
+    if (typeof r === 'string') {
+      $('#bandeauNom').textContent = `Fonder une gare — ${r}`;
+      return false;
+    }
+    rendu.rafraichirIndex();
+    posesDeSuite++;
+    majBandeauPose();
+    rafraichirTout();
+    return true;
+  }
   const d = devis(monde, c, rendu.pose);
   if (!d) return false;
   const joueur = monde.joueur;

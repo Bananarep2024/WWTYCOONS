@@ -5957,8 +5957,36 @@ class Rendu {
   // choisi, et on montre en plein l'emprise exacte sous le doigt : sans cet
   // aperçu, poser un carré de quatre cases relève de la divination.
   dessinerPose(ctx, p, ox, oy, x0, y0, x1, y1) {
-    const m = this.monde, def = BAT[this.pose];
+    const m = this.monde;
 
+    // LA GARE SE POSE HORS DES VILLES, donc on ne peut pas balayer les cases des
+    // territoires pour trouver où elle tient : c'est exactement le contraire.
+    // On cercle la terre libre, et on marque en rouge ce qui est trop près d'une
+    // gare existante — le refus le plus fréquent, et le seul qu'on ne devine pas.
+    if (this.pose === 'gare') {
+      for (let y = Math.max(0, y0); y <= y1 && y < m.H; y++) {
+        for (let x = Math.max(0, x0); x <= x1 && x < m.L; x++) {
+          const c = m.caseAt(x, y);
+          if (!c || c.ville) continue;
+          const refus = m.peutFonderGare(x, y);
+          ctx.fillStyle = refus ? 'rgba(184,102,58,.20)' : 'rgba(224,177,85,.28)';
+          ctx.fillRect(ox + x * p, oy + y * p, p, p);
+        }
+      }
+      if (this.survol && !this.survol.ville) {
+        const ok = !m.peutFonderGare(this.survol.x, this.survol.y);
+        ctx.strokeStyle = ok ? '#fff' : '#b8663a';
+        ctx.lineWidth = 2;
+        // Le territoire qu'ouvrirait la gare : sans lui, on pose à l'aveugle.
+        ctx.beginPath();
+        ctx.arc(ox + (this.survol.x + .5) * p, oy + (this.survol.y + .5) * p,
+                P.rayonGare * p, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      return;
+    }
+
+    const def = BAT[this.pose];
     ctx.strokeStyle = 'rgba(224,177,85,.85)';
     ctx.lineWidth = Math.max(1, p * 0.12);
     for (const v of m.villes) for (const c of v.cases) {
@@ -5980,6 +6008,7 @@ class Rendu {
 
   // Une case est posable si le bâtiment choisi tient quelque part autour d'elle.
   posable(c) {
+    if (this.pose === 'gare') return !c.ville && !this.monde.peutFonderGare(c.x, c.y);
     return this.emprise ? !!this.emprise(c, this.pose) : false;
   }
 
@@ -6715,89 +6744,79 @@ function voletBourse(monde, rendu) {
       </div>`;
 }
 
+// Le choix des deux gares. Il vit ici plutôt que dans le monde : c'est un
+// état d'interface, pas un fait de simulation.
+const choixVoie = { a: null, b: null };
+
 function voletRail(monde) {
-  const co = monde.compagnie;
-  const chantier = monde.chantierRail;
+  const joueur = monde.joueur;
+  const villes = monde.villes;
+  if (choixVoie.a === null && villes.length) choixVoie.a = 0;
+  if (choixVoie.b === null && villes.length > 1) choixVoie.b = 1;
 
-  const lignes = monde.liaisons.map((l) => {
-    const etat = l.achevee ? '<span class="vert">ouverte</span>'
-      : l === chantier && l.date !== null
-        ? `<span class="or">${Math.max(0, l.date - monde.mois)} mois</span>`
-      : '<span class="faible">à venir</span>';
-    return `<tr>
-      <td>${l.nom}<br><span class="faible">${l.longueur} cases</span></td>
-      <td class="n">${etat}</td>
-    </tr>`;
-  }).join('');
+  const options = (sel) => villes.map((v, i) =>
+    `<option value="${i}" ${i === sel ? 'selected' : ''}>${v.nom}</option>`).join('');
 
-  const mien = co.parts[monde.joueur.id] || 0;
-  const part = co.actions > 0 ? mien / co.actions : 0;
+  const devis = monde.devisVoie(choixVoie.a, choixVoie.b);
+  const deja = devis && monde.dejaReliees(choixVoie.a, choixVoie.b);
+  const assez = devis && joueur.tresorerie >= devis.cout;
 
-  const souscrire = chantier && chantier.date !== null
-    ? `<div class="actions"><button class="miniInvest primaire">Souscrire 800 $</button></div>
-       <div class="note">
-         Chaque tranche de 800 $ avance la livraison d'un mois, dans la limite de 40 % du délai
-         annoncé : on peut avancer le rendez-vous, jamais le supprimer. La souscription vous
-         donne des actions de la compagnie — voir l'onglet <b>Bourse</b>.</div>`
-    : `<div class="note">${chantier ? 'Le chantier n\'a pas encore ouvert.'
-        : 'Le réseau est achevé : il n\'y a plus rien à poser.'}</div>`;
+  let resume;
+  if (!devis) resume = '<div class="note">Choisissez deux gares différentes.</div>';
+  else if (deja) resume = `<div class="note">Ces deux gares partagent déjà un marché —
+    une seconde ligne n'y ajouterait rien.</div>`;
+  else resume = `
+    <div class="grille">
+      <div class="fiche"><div class="etiq">Longueur</div>
+        <div class="v">${devis.longueur}<span class="faible" style="font-size:11px"> cases</span></div></div>
+      <div class="fiche"><div class="etiq">Devis</div>
+        <div class="v ${assez ? '' : 'rouge'}">${eur(devis.cout)}</div></div>
+      <div class="fiche"><div class="etiq">Durée annoncée</div>
+        <div class="v">${devis.mois}<span class="faible" style="font-size:11px"> mois</span></div></div>
+    </div>
+    <div class="actions"><button id="btnVoie" class="primaire">Ouvrir le chantier</button></div>
+    <div class="note">Le devis n'est pas prélevé d'avance : chaque mois le chantier présente
+      sa facture et la voie avance <b>au prorata de ce qui est payé</b>. Caisse vide, il se
+      suspend là où il en est et repart dès qu'il y a de quoi — rien de posé n'est perdu.</div>`;
 
-  const reseaux = monde.marches.map(m => m.villes.map(v => v.nom).join(' + ')).join('<br>');
+  // Les chantiers en cours, et ce qui est déjà ouvert.
+  const enCours = monde.liaisons.filter(l => l.societe && !l.achevee);
+  const ouvertes = monde.liaisons.filter(l => l.achevee);
+
+  const barre = (l) => {
+    const p = Math.max(0, Math.min(1, l.pose / l.longueur));
+    const teinte = l.arret ? '#b8663a' : '#5f8f6a';
+    return `<div class="miniPiste" style="margin:5px 0 2px">
+      <div style="width:${(100 * p).toFixed(0)}%;background:${teinte}"></div></div>
+      <span class="faible">${Math.round(l.pose)} / ${l.longueur} cases ·
+      ${eur(l.depense)} engagés${l.arret ? ' · <span class="rouge">suspendu, caisse vide</span>' : ''}</span>`;
+  };
+
+  const listeChantiers = enCours.length ? enCours.map(l =>
+    `<div class="fiche" style="margin-bottom:6px"><div class="etiq">${l.nom}</div>${barre(l)}</div>`
+  ).join('') : '<div class="note">Aucun chantier en cours.</div>';
+
+  const listeOuvertes = ouvertes.length
+    ? `<table>${ouvertes.map(l => `<tr><td>${l.nom}</td>
+        <td class="n"><span class="vert">ouverte</span><br>
+        <span class="faible">${l.longueur} cases</span></td></tr>`).join('')}</table>`
+    : '<div class="note">Aucune ligne ouverte. Tant que rien ne relie deux gares,'
+      + ' chacune vit sur son seul marché.</div>';
 
   return `
-    <h3>La compagnie</h3>
+    <h3>Tirer une voie</h3>
     <div class="grille">
-      <div class="fiche"><div class="etiq">Lignes ouvertes</div>
-        <div class="v">${co.lignes.length} / ${monde.liaisons.length}</div></div>
-      <div class="fiche"><div class="etiq">Action</div>
-        <div class="v or">${monde.coursRail().toFixed(2)} $</div>
-        <div class="etiq" style="margin-top:2px">${co.cotee ? 'cotée' : 'non cotée'}</div></div>
-      <div class="fiche"><div class="etiq">Votre part</div>
-        <div class="v ${part > 0 ? '' : 'doux'}">${part > 0 ? pct(part) : '—'}</div></div>
+      <div class="fiche"><div class="etiq">Départ</div>
+        <select id="railA" class="choix">${options(choixVoie.a)}</select></div>
+      <div class="fiche"><div class="etiq">Arrivée</div>
+        <select id="railB" class="choix">${options(choixVoie.b)}</select></div>
     </div>
-    <div class="note">
-      Il n'y a qu'<b>une compagnie</b>, et elle pose ses lignes <b>l'une après l'autre</b>.
-      Le chantier ouvert est le seul qu'on puisse financer ; le suivant ne commencera qu'une
-      fois celui-ci livré.
-    </div>
-
-    <h3>Le chantier</h3>
-    ${chantier
-      ? `<div class="carteRes"><div class="tetRes">
-           <span><b>${chantier.nom}</b><span class="cv"><br>${chantier.longueur} cases</span></span>
-           <span class="prixRes ${chantier.date !== null ? 'or' : 'doux'}">${
-             chantier.date !== null ? Math.max(0, chantier.date - monde.mois) : '—'}
-             <span class="etiq" style="display:block;text-align:right">mois</span></span>
-         </div></div>`
-      : ''}
-    ${souscrire}
-
-    <h3>Le réseau planifié</h3>
-    <table>
-      <tr><th>Ligne</th><th class="n">État</th></tr>
-      ${lignes}
-    </table>
-
-    <h3>Marchés en présence</h3>
-    <div class="note">${reseaux}<br><br>
-      Les liaisons ne s'additionnent pas, elles se chaînent : si A rejoint B et B rejoint C,
-      alors A et C partagent déjà le même marché, sans qu'aucune ligne supplémentaire ait
-      été posée. Un marché desservi paie ${pct(P.peageRail)} de péage à la compagnie.</div>
-
-    <h3>Journal</h3>
-    <div class="note">${monde.journal.slice(-8).reverse().join('<br>') || 'Rien à signaler.'}</div>
-  `;
+    ${resume}
+    <h3>Chantiers</h3>
+    ${listeChantiers}
+    <h3>Lignes ouvertes</h3>
+    ${listeOuvertes}`;
 }
-
-// ---------------------------------------------------------------------------
-// Bâtir. Le volet qui manquait.
-//
-// Le joueur commence sans un pouce de terre. Pour bâtir il fallait deviner
-// qu'une case libre de la frontière était achetable, l'acheter, puis la
-// re-cliquer — deux gestes que rien n'annonçait, sur une case que la carte ne
-// distinguait pas des autres. On choisit maintenant le bâtiment d'abord, et la
-// carte montre elle-même où il peut aller.
-// ---------------------------------------------------------------------------
 
 const MENU_BATIR = [
   ['Logement', ['maison', 'immeuble']],
@@ -6835,7 +6854,8 @@ function voletBatir(monde, rendu) {
   }).join('');
 
   const enCours = rendu.pose
-    ? `<div class="avertBatir">Posez la <b>${BAT[rendu.pose].nom}</b> — touchez la carte.
+    ? `<div class="avertBatir">Posez la <b>${rendu.pose === 'gare' ? 'gare fondatrice'
+          : BAT[rendu.pose].nom}</b> — touchez la carte.
          Les cases possibles sont cerclées d'or.
          <button id="btnAnnulerPose">Annuler</button></div>`
     : `<div class="note">Choisissez un bâtiment, puis touchez la carte à l'endroit voulu.
@@ -6843,13 +6863,32 @@ function voletBatir(monde, rendu) {
          qu'une terre vierge touchant la frontière urbaine, ou celle d'un indépendant,
          jamais celle d'un rival.</div>`;
 
+  // LA GARE EST EN TÊTE, ET À PART. Elle ne se pose pas dans une ville : elle en
+  // fonde une. C'est le seul bâtiment qui s'installe hors de tout territoire, et
+  // le seul dont le prix comprend une cargaison.
+  const dg = devisGare();
+  const gare = `<h3>Fonder</h3>
+    <div class="listeBatir">
+      <button class="ligneBatir ${rendu.pose === 'gare' ? 'actif' : ''}" data-batir="gare"
+              ${joueur.tresorerie >= dg.cout ? '' : 'disabled'}>
+        <span class="puce" style="background:#c9a227"></span>
+        <span class="nomBat">Gare fondatrice</span>
+        <span class="sousBat">${P.colonsGare} colons · ${P.moisDeVivres} mois de vivres</span>
+        <span class="prixBat ${joueur.tresorerie >= dg.cout ? 'doux' : 'rouge'}">${eur(dg.cout)}</span>
+      </button>
+    </div>
+    <div class="note">Une gare s'installe <b>hors de tout territoire</b> et fonde une localité :
+      elle arrive avec ses colons, leurs maisons, ${P.exploitationsFournies} exploitations et
+      ${P.moisDeVivres} mois de vivres. Passé ce délai, ou elle se nourrit seule, ou une voie la
+      relie, ou elle s'éteint.</div>`;
+
   return `<div class="grille">
       <div class="fiche"><div class="etiq">Trésorerie</div>
         <div class="v or">${eur(joueur.tresorerie)}</div></div>
       <div class="fiche"><div class="etiq">Devis établi à</div>
         <div class="v" style="font-size:12px">${v.nom}</div></div>
     </div>
-    ${enCours}${groupes}
+    ${enCours}${gare}${groupes}
     <div class="note">Le prix affiché est celui des <b>matériaux au marché du jour</b> ;
       le foncier s'y ajoute selon l'endroit et vous est annoncé avant de valider. Le cash
       part immédiatement, le chantier ne sort de terre qu'à la dernière brique livrée.</div>`;
@@ -7719,6 +7758,21 @@ function brancherVolet(corps) {
     monde.investirRail(monde.joueur, 800);
     rafraichirTout();
   });
+
+  // Le choix des deux gares, et l'ouverture du chantier.
+  const selA = corps.querySelector('#railA'), selB = corps.querySelector('#railB');
+  if (selA) selA.onchange = () => { choixVoie.a = +selA.value; rafraichirVolet(); };
+  if (selB) selB.onchange = () => { choixVoie.b = +selB.value; rafraichirVolet(); };
+  const btnVoie = corps.querySelector('#btnVoie');
+  if (btnVoie) btnVoie.onclick = () => {
+    const r = monde.lancerVoie(choixVoie.a, choixVoie.b, monde.joueur);
+    if (typeof r === 'string') {
+      btnVoie.textContent = r;
+      btnVoie.classList.add('rouge');
+      return;
+    }
+    rafraichirTout();
+  };
 }
 
 // Le bandeau rappelle en permanence qu'on regarde une donnée et non la carte :
@@ -7763,7 +7817,9 @@ function majBandeauPose() {
     return;
   }
   b.classList.remove('cachee');
-  $('#bandeauNom').textContent = `Poser — ${BAT[rendu.pose].nom}`
+  $('#bandeauNom').textContent =
+    (rendu.pose === 'gare' ? `Fonder une gare — ${eur(devisGare().cout)}`
+                           : `Poser — ${BAT[rendu.pose].nom}`)
     + (posesDeSuite ? ` · ${posesDeSuite} posé${posesDeSuite > 1 ? 's' : ''}, continuez`
                     : ' · touchez la carte');
   // La mesure entière disparaît, pas seulement son dégradé : ses deux libellés
@@ -7775,6 +7831,21 @@ function majBandeauPose() {
 // Poser un bâtiment : on achète le foncier manquant et on ouvre le chantier
 // d'un seul geste. Le joueur voit le total avant de valider.
 function poser(c) {
+  // FONDER UNE GARE n'est pas bâtir : on ne pose pas un bâtiment sur un terrain
+  // qu'on possède, on ouvre un territoire là où il n'y en a pas. Le devis, les
+  // refus et la cargaison sont l'affaire du monde.
+  if (rendu.pose === 'gare') {
+    const r = monde.fonderGare(c.x, c.y, monde.joueur);
+    if (typeof r === 'string') {
+      $('#bandeauNom').textContent = `Fonder une gare — ${r}`;
+      return false;
+    }
+    rendu.rafraichirIndex();
+    posesDeSuite++;
+    majBandeauPose();
+    rafraichirTout();
+    return true;
+  }
   const d = devis(monde, c, rendu.pose);
   if (!d) return false;
   const joueur = monde.joueur;

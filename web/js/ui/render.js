@@ -385,8 +385,36 @@ export class Rendu {
   // choisi, et on montre en plein l'emprise exacte sous le doigt : sans cet
   // aperçu, poser un carré de quatre cases relève de la divination.
   dessinerPose(ctx, p, ox, oy, x0, y0, x1, y1) {
-    const m = this.monde, def = BAT[this.pose];
+    const m = this.monde;
 
+    // LA GARE SE POSE HORS DES VILLES, donc on ne peut pas balayer les cases des
+    // territoires pour trouver où elle tient : c'est exactement le contraire.
+    // On cercle la terre libre, et on marque en rouge ce qui est trop près d'une
+    // gare existante — le refus le plus fréquent, et le seul qu'on ne devine pas.
+    if (this.pose === 'gare') {
+      for (let y = Math.max(0, y0); y <= y1 && y < m.H; y++) {
+        for (let x = Math.max(0, x0); x <= x1 && x < m.L; x++) {
+          const c = m.caseAt(x, y);
+          if (!c || c.ville) continue;
+          const refus = m.peutFonderGare(x, y);
+          ctx.fillStyle = refus ? 'rgba(184,102,58,.20)' : 'rgba(224,177,85,.28)';
+          ctx.fillRect(ox + x * p, oy + y * p, p, p);
+        }
+      }
+      if (this.survol && !this.survol.ville) {
+        const ok = !m.peutFonderGare(this.survol.x, this.survol.y);
+        ctx.strokeStyle = ok ? '#fff' : '#b8663a';
+        ctx.lineWidth = 2;
+        // Le territoire qu'ouvrirait la gare : sans lui, on pose à l'aveugle.
+        ctx.beginPath();
+        ctx.arc(ox + (this.survol.x + .5) * p, oy + (this.survol.y + .5) * p,
+                P.rayonGare * p, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      return;
+    }
+
+    const def = BAT[this.pose];
     ctx.strokeStyle = 'rgba(224,177,85,.85)';
     ctx.lineWidth = Math.max(1, p * 0.12);
     for (const v of m.villes) for (const c of v.cases) {
@@ -408,6 +436,7 @@ export class Rendu {
 
   // Une case est posable si le bâtiment choisi tient quelque part autour d'elle.
   posable(c) {
+    if (this.pose === 'gare') return !c.ville && !this.monde.peutFonderGare(c.x, c.y);
     return this.emprise ? !!this.emprise(c, this.pose) : false;
   }
 
