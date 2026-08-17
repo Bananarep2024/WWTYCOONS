@@ -1350,25 +1350,20 @@ export class Monde {
     v.moyenne = moyenne;
     v.aisanceMenage = this.aisance(v);
 
-    let taux;
-    // Un seuil absent ne condamne plus : les produits manufacturés ont quitté la
-    // liste, on parcourt donc ce qui reste au lieu de nommer trois baromètres.
-    const critique = Object.entries(P.seuilsCritiques)
-      .some(([nom, seuil]) => b[nom] < seuil);
-    if (critique) {
-      // Un seul seuil franchi vers le bas suffit à vider la ville, quels que
-      // soient les autres.
-      taux = -P.exodeCritique;
-      v.enCrise = true;
-    } else {
-      // La cadence était écrite en dur ici, et P.cadenceDemo ne servait à
-      // personne. Elle vaut « tant de pour-cent de la population par mois et
-      // par point d'écart au pivot » : c'est le seul cadran qui décide de la
-      // vitesse à laquelle une partie se déploie.
-      taux = P.cadenceDemo * 100 * (moyenne - P.pivot);
-      taux = Math.max(-P.cadenceMax, Math.min(P.cadenceMax, taux));
-      v.enCrise = false;
-    }
+    // DEUX CRITÈRES, ET RIEN D'AUTRE. Le chômage et la faim.
+    //
+    //   chômage au-dessus de 15 %, OU nourriture sous 85 %  →  la ville se vide
+    //   sinon                                               →  elle se remplit
+    //
+    // La moyenne des trois baromètres pondérée par l'aisance a été abandonnée :
+    // elle plafonnait à 67 % une ville sans manufacture — treize points sous le
+    // pivot — qui perdait donc de la population chaque mois avec une nourriture
+    // à 100 % et un plein emploi. Ce qu'une ville possède en produits décide de
+    // son confort, plus de sa survie.
+    const critique = b.emploi < P.seuilsCritiques.emploi
+                  || b.nourriture < P.seuilsCritiques.nourriture;
+    v.enCrise = critique;
+    const taux = critique ? -P.exodeCritique : P.cadenceMax;
 
     // LA MIGRATION DE FRONTIÈRE.
     //

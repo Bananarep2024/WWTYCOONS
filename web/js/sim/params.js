@@ -118,7 +118,17 @@ export const P = {
   // nourriture. Sans lui, fonder une ville et n'y bâtir que des maisons
   // suffirait à faire venir du monde — des gens sans travail, sans revenu, donc
   // sans repas.
-  seuilsCritiques: { nourriture: 0.90, emploi: 0.50 },
+  // L'ATTRACTIVITÉ TIENT EN DEUX CRITÈRES, ET RIEN D'AUTRE.
+  //
+  //   chômage au-dessus de 15 %, OU nourriture sous 85 %  →  la ville se vide
+  //   sinon                                               →  elle se remplit
+  //
+  // C'est tout. La moyenne des trois baromètres pondérée par l'aisance a été
+  // abandonnée : elle plafonnait à 67 % une ville sans manufacture — treize
+  // points sous le pivot — qui perdait donc de la population chaque mois avec
+  // une nourriture à 100 % et un plein emploi. Une ville n'a pas à mourir de ne
+  // pas s'équiper.
+  seuilsCritiques: { nourriture: 0.85, emploi: 0.85 },
   employesParMenage: 2,
   coefChantiers: 1.45,         // au-delà de la consommation : matériaux et entretien
 
