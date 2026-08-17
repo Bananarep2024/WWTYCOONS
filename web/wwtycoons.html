@@ -1019,7 +1019,18 @@ const P = {
   //
   // Une ferme : 12 ÷ 2,40 = 5 par case, × 2 cases × 4 ouvriers = 40 céréales.
   // Une coupe : 12 ÷ 1 = 12 par case, × 1 case × 4 ouvriers = 48 bois.
-  recetteOuvrierQ1: 12,
+  // 24,10 $, c'est-à-dire le salaire lui-même à dix centimes près : une case de
+  // qualité 1 couvre exactement sa masse salariale et rien de plus.
+  //
+  // Ce n'est pas un choix, c'est le point fixe du système. Les prix de référence
+  // se déduisent de ce que sort un ouvrier ; ce que sort un ouvrier se déduit de
+  // cette recette. Elle valait 12 $ le temps d'un tour — la moitié du salaire —
+  // et les prix redéduits l'ont ramenée d'eux-mêmes ici, en doublant. Ce chiffre
+  // et la table des prix sont la même équation vue des deux bouts.
+  //
+  // Une ferme : 24,10 ÷ 4,82 = 5 par case, × 2 cases × 4 ouvriers = 40 céréales.
+  // Une coupe : 24,10 ÷ 2,01 = 12 par case, × 1 case × 4 ouvriers = 48 bois.
+  recetteOuvrierQ1: 24.10,
   // Ce qu'un ouvrier dégage AU-DESSUS de son salaire sur une case 1. C'est cette
   // marge, et elle seule, qui fixe le capital d'une exploitation : « case 1 =
   // rendement nul » veut dire « marge brute annuelle = entretien », donc
@@ -1253,12 +1264,12 @@ const BAT = {
   ferme:       { nom: 'Ferme céréalière', cases: 2, w: 2, h: 1, sort: 'cereales', debit: 12.5, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
   ranch:       { nom: 'Ranch',            cases: 2, w: 2, h: 1, sort: 'betail',   debit: 12.5, intrants: {}, cout: 700, mat: { planches: 35 }, qual: 'fertilite', cat: 'expl' },
 
-  scierie:     { nom: 'Scierie',      cases: 2, w: 2, h: 1, sort: 'planches', debit: 12, intrants: { bois: 24 },              cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
-  briqueterie: { nom: 'Briqueterie',  cases: 2, w: 2, h: 1, sort: 'briques',  debit: 12, intrants: { argile: 24 },            cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
-  minoterie:   { nom: 'Minoterie',    cases: 2, w: 2, h: 1, sort: 'pain',     debit: 10, intrants: { cereales: 20 },          cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
-  abattoir:    { nom: 'Abattoir',     cases: 2, w: 2, h: 1, sort: 'viande',   debit: 10, intrants: { betail: 20 },            cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
-  acierie:     { nom: 'Aciérie',      cases: 4, w: 2, h: 2, sort: 'acier',    debit: 6,  intrants: { charbon: 12, minerai: 12 }, cout: 810, mat: { planches: 30, briques: 42, acier: 30 }, cat: 'trans' },
-  manufacture: { nom: 'Manufacture',  cases: 4, w: 2, h: 2, sort: 'produits', debit: 6,  intrants: { planches: 6, acier: 2 }, cout: 680, mat: { planches: 40, briques: 36, acier: 20 }, cat: 'manu' },
+  scierie:     { nom: 'Scierie',      cases: 2, w: 2, h: 1, sort: 'planches', debit: 12, intrants: { bois: 24 },              cout: 2548, mat: { planches: 78, briques: 72 }, cat: 'trans' },
+  briqueterie: { nom: 'Briqueterie',  cases: 2, w: 2, h: 1, sort: 'briques',  debit: 12, intrants: { argile: 24 },            cout: 2548, mat: { planches: 78, briques: 72 }, cat: 'trans' },
+  minoterie:   { nom: 'Minoterie',    cases: 2, w: 2, h: 1, sort: 'pain',     debit: 10, intrants: { cereales: 20 },          cout: 4451, mat: { planches: 137, briques: 126 }, cat: 'trans' },
+  abattoir:    { nom: 'Abattoir',     cases: 2, w: 2, h: 1, sort: 'viande',   debit: 10, intrants: { betail: 20 },            cout: 4451, mat: { planches: 137, briques: 126 }, cat: 'trans' },
+  acierie:     { nom: 'Aciérie',      cases: 4, w: 2, h: 2, sort: 'acier',    debit: 6,  intrants: { charbon: 12, minerai: 12 }, cout: 5097, mat: { planches: 34, briques: 48, acier: 34 }, cat: 'trans' },
+  manufacture: { nom: 'Manufacture',  cases: 4, w: 2, h: 2, sort: 'produits', debit: 6,  intrants: { planches: 6, acier: 2 }, cout: 9707, mat: { planches: 99, briques: 89, acier: 49 }, cat: 'manu' },
 
   maison:    { nom: 'Maison',              cases: 1, w: 1, h: 1, menages: 1,  cout: 180, mat: { planches: 24, briques: 12 }, cat: 'loge' },
   immeuble:  { nom: 'Immeuble',            cases: 4, w: 2, h: 2, menages: 20, cout: 925, mat: { briques: 65, acier: 40 },    cat: 'loge' },
