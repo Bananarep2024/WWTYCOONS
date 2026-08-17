@@ -1419,70 +1419,97 @@ export class Monde {
     return this.liaisons.find(l => !l.achevee) || null;
   }
 
-  avancerRail() {
-    const l = this.chantierRail;
-    if (!l) return;
+  // --- La voie, payée au fur et à mesure ------------------------------------
+  //
+  // On choisit deux gares, ce qui donne un devis global. La voie se pose ensuite
+  // toute seule, quelques mois durant, en prélevant chaque mois sa part sur la
+  // trésorerie. Si la caisse est vide, LE CHANTIER S'ARRÊTE OÙ IL EN EST et
+  // reprend dès qu'il y a de quoi payer — on ne perd rien de ce qui est posé.
+  //
+  // C'est ce qui fait du rail un engagement et non un achat : on peut se lancer
+  // trop grand et se retrouver avec quarante cases de ballast au milieu de nulle
+  // part, à regarder ses mines attendre.
 
-    // Le chantier n'est daté qu'au moment où il s'ouvre : dater d'avance des
-    // travaux qui n'ont pas encore d'ouvriers n'aurait aucun sens, et le joueur
-    // verrait un compte à rebours courir sur une ligne dont rien ne bouge.
-    if (l.date === null) {
-      l.debut = this.mois;
-      l.date = this.mois + l.dateInitiale;
-      // La voie part d'UNE gare et va vers l'autre — jamais des deux à la fois.
-      // On part de la ville déjà reliée quand il y en a une : le réseau
-      // s'étend depuis son noyau, ce qui se lit d'un coup d'œil sur la carte.
-      const relieeA = this.compagnie.lignes.some(x => x.a === l.a || x.b === l.a);
-      const relieeB = this.compagnie.lignes.some(x => x.a === l.b || x.b === l.b);
-      l.depuisB = relieeB && !relieeA;
-      this.journal.push(`${this.mois} · ⚒ ${this.compagnie.nom} ouvre le chantier`
-        + ` ${l.nom} — ${l.longueur} cases, livraison annoncée dans ${l.dateInitiale} mois`);
-      return;
-    }
-    if (this.mois < l.date) return;
-
-    l.achevee = true;
-    this.compagnie.lignes.push(l);
-
-    // Le consortium extérieur complète le capital nominal — les joueurs gardent
-    // la part qu'ils ont souscrite — et la compagnie passe d'une valeur
-    // comptable à une valeur de rendement le jour de sa PREMIÈRE ligne.
-    const manquant = Math.max(0, this.capitalNominal() - this.compagnie.capital);
-    this.compagnie.actions += manquant / P.prixNominalAction;
-    this.compagnie.capital += manquant;
-
-    if (!this.compagnie.cotee) {
-      this.compagnie.cotee = true;
-      this.compagnie.introduiteLe = this.mois;
-      this.journal.push(`${this.mois} · ★ ${l.nom} ouverte — les marchés fusionnent,`
-        + ` ${this.compagnie.nom} entre en bourse à ${this.coursRail().toFixed(2)} $ l'action`);
-    } else {
-      this.journal.push(`${this.mois} · ★ ${l.nom} ouverte — les marchés fusionnent,`
-        + ` la compagnie porte ${this.compagnie.lignes.length} lignes`);
-    }
-    this.recomposerMarches();
+  devisVoie(iA, iB) {
+    const a = this.villes[iA], b = this.villes[iB];
+    if (!a || !b || a === b) return null;
+    const longueur = Math.round(Math.hypot(a.gare.x - b.gare.x, a.gare.y - b.gare.y));
+    return {
+      a: iA, b: iB, longueur,
+      cout: longueur * P.coutVoieParCase,
+      mois: Math.max(1, Math.ceil(longueur * P.moisParCaseDeVoie)),
+      nom: `${a.nom} – ${b.nom}`,
+    };
   }
 
+  // Deux gares déjà reliées, fût-ce par une chaîne d'autres, n'ont pas besoin
+  // d'une seconde ligne : leurs marchés n'en font déjà qu'un.
+  dejaReliees(iA, iB) {
+    return this.villes[iA] && this.villes[iA].marche === this.villes[iB].marche;
+  }
 
-  // ==========================================================================
-  //  LES COMPAGNIES DE CHEMIN DE FER
-  //
-  //  Une liaison a deux vies. Pendant les travaux elle n'est pas cotée : on y
-  //  souscrit au franc le franc, et chaque tranche avance la date d'ouverture.
-  //  Le jour où la ligne s'ouvre, elle entre en bourse — elle acquiert d'un coup
-  //  tout son goodwill, et le souscripteur de la première heure encaisse le pari
-  //  qu'il avait pris en aveugle, cinquante mois plus tôt, sur les villes qui
-  //  allaient grandir.
-  //
-  //  Elle vit ensuite d'un péage sur le trafic qu'elle porte : un pour cent du
-  //  chiffre d'affaires du marché qu'elle dessert, au prorata de la longueur de
-  //  rail qu'elle a posée. C'est la valeur de croissance du jeu — son bénéfice
-  //  monte mécaniquement avec les villes, sans que son porteur ait rien à faire.
-  // ==========================================================================
+  lancerVoie(iA, iB, societe) {
+    const devis = this.devisVoie(iA, iB);
+    if (!devis) return 'gares invalides';
+    if (this.dejaReliees(iA, iB)) return 'ces deux gares partagent déjà un marché';
+    if (this.liaisons.some(l => !l.achevee && l.societe
+        && ((l.a === iA && l.b === iB) || (l.a === iB && l.b === iA)))) {
+      return 'chantier déjà ouvert sur cette ligne';
+    }
+    const l = {
+      ...devis, pose: 0, depense: 0, societe, debut: this.mois, achevee: false,
+      // La voie part de la gare A et va vers B : c'est ce que le tracé affiche.
+      depuisB: false, arret: false,
+    };
+    this.liaisons.push(l);
+    this.journal.push(`${this.mois} · ⚒ ${societe.nom} ouvre le chantier ${l.nom}`
+      + ` — ${l.longueur} cases, ${Math.round(l.cout)} $, ${l.mois} mois`);
+    return l;
+  }
 
-  // Le capital nominal de la compagnie : ce que coûte le rail POSÉ, au kilomètre.
-  // Il grandit à chaque ligne ouverte, et c'est lui que le consortium extérieur
-  // complète le jour de l'ouverture.
+  avancerRail() {
+    let fusionner = false;
+    for (const l of this.liaisons) {
+      if (l.achevee || !l.societe) continue;      // les routes non lancées attendent
+
+      // Ce qu'on poserait ce mois-ci si la caisse suivait, et ce que ça coûte.
+      const cadence = l.longueur / l.mois;
+      const reste = l.longueur - l.pose;
+      const vise = Math.min(cadence, reste);
+      const facture = vise * P.coutVoieParCase;
+
+      // On paie ce qu'on peut. Le chantier avance au prorata — pas d'à-valoir,
+      // pas de dette cachée : trente pour cent payés, trente pour cent posés.
+      const dispo = Math.max(0, l.societe.tresorerie);
+      const paye = Math.min(facture, dispo);
+      if (paye <= 0.01) {
+        if (!l.arret) {
+          l.arret = true;
+          this.journal.push(`${this.mois} · ⏸ ${l.nom} — chantier suspendu,`
+            + ` trésorerie épuisée à ${Math.round(l.pose)}/${l.longueur} cases`);
+        }
+        continue;
+      }
+      if (l.arret) {
+        l.arret = false;
+        this.journal.push(`${this.mois} · ▶ ${l.nom} — le chantier repart`);
+      }
+      l.societe.payer(paye);
+      l.depense += paye;
+      l.pose += vise * (paye / facture);
+
+      if (l.pose >= l.longueur - 0.001) {
+        l.pose = l.longueur;
+        l.achevee = true;
+        fusionner = true;
+        this.compagnie.lignes.push(l);
+        this.journal.push(`${this.mois} · ✔ ${l.nom} est ouverte à l'exploitation`
+          + ` — ${Math.round(l.depense)} $ dépensés`);
+      }
+    }
+    if (fusionner) this.recomposerMarches();
+  }
+
   capitalNominal() {
     return this.compagnie.lignes.reduce((s, l) => s + l.longueur, 0) * P.capitalParCaseDeVoie;
   }

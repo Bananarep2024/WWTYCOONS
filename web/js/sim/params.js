@@ -362,6 +362,11 @@ export const P = {
   rayonVille: 44,              // rayon moyen d'un territoire, dévié par ville
   distanceMinVilles: 94,       // de centre à centre : sans quoi le rail n'a pas de sens
   moisParCaseDeVoie: 0.24,     // durée d'un chantier, à la case de longueur
+  // Ce que coûte une case de voie. Une ligne de cent cases revient donc à
+  // 12 000 $, contre 16 520 $ pour la gare qu'elle dessert : relier coûte moins
+  // cher que fonder, et c'est ce qui doit pousser à relier ce qu'on a fondé
+  // plutôt qu'à essaimer sans fin.
+  coutVoieParCase: 120,
   // Elle valait 0,42 quand les cinq lignes se construisaient EN PARALLÈLE. La
   // compagnie n'en pose plus qu'une à la fois, si bien que les durées
   // s'additionnent au lieu de se recouvrir : le réseau ne s'achevait qu'au mois
