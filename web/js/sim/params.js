@@ -308,6 +308,12 @@ export const P = {
   vocationRiche: 3,
   vocationMoyenMin: 2, vocationMoyenMax: 2,
   vocationPauvreMin: 1, vocationPauvreMax: 1,
+  // LE FILON EST TOUJOURS HORS LES MURS. Une ville, si bien dotée soit-elle,
+  // plafonne à la qualité 2 sur son propre territoire : elle vit correctement
+  // de son sol, elle ne s'enrichit pas dessus. Toute la qualité 3 se trouve dans
+  // la terre que personne ne possède — il faut y fonder une gare pour l'atteindre.
+  // C'est ce qui fait de la colonisation le seul chemin vers le vrai profit.
+  plafondEnVille: 2,
   // La portée de la vocation, en cases : l'écart-type de la gaussienne qui
   // mélange les plafonds de deux villes voisines. À peu près le rayon d'une
   // ville, de sorte qu'un territoire lit sa propre vocation presque pure et que

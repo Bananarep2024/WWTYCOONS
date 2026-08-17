@@ -391,7 +391,11 @@ export function genererMonde(nbVilles, graine) {
       // de zéro : une carte pauvre en charbon n'a pas des mines médiocres, elle
       // n'a pas de charbon.
       const v = c.qBrut[nom] * plafonds[nom] / P.vocationRiche;
-      q[nom] = Math.max(0, Math.min(P.qualiteSommet, Math.round(v)));
+      // Le filon est toujours hors les murs : sur un territoire de ville, on
+      // plafonne à 2. La qualité 3 n'existe que sur la terre libre, et c'est ce
+      // qui oblige à fonder une gare pour l'atteindre.
+      const haut = c.ville ? P.plafondEnVille : P.qualiteSommet;
+      q[nom] = Math.max(0, Math.min(haut, Math.round(v)));
     }
     c.q = q;
     // On garde la valeur brute : le plancher ci-dessous s'en sert pour choisir
