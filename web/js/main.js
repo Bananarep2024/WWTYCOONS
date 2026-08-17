@@ -215,6 +215,41 @@ function brancherVolet(corps) {
   };
 }
 
+// LE BAPTÊME. Une ville qu'on fonde porte le nom qu'on lui donne : c'est la
+// seule chose du jeu qui appartienne vraiment au joueur, et un nom tiré au sort
+// la lui rend étrangère. Le champ est prérempli d'une suggestion — il faut
+// pouvoir aller vite quand on essaime — mais il est modifiable et il a le
+// dernier mot.
+function demanderNom(c) {
+  const boite = $('#bapteme');
+  const champ = $('#baptemeNom');
+  champ.value = monde.nomDeGare();
+  $('#baptemeLieu').textContent = `${devisGare().cout.toLocaleString('fr-FR')} $`
+    + ` · ${P.logementsGare} logements, ${P.exploitationsFournies} exploitations,`
+    + ` ${P.moisDeVivres} mois de vivres`;
+  boite.classList.remove('cachee');
+  champ.focus(); champ.select();
+
+  const fermer = () => { boite.classList.add('cachee'); };
+  $('#baptemeAnnuler').onclick = fermer;
+  const valider = () => {
+    const nom = champ.value.trim();
+    if (!nom) { champ.focus(); return; }
+    const r = monde.fonderGare(c.x, c.y, monde.joueur, nom);
+    fermer();
+    if (typeof r === 'string') { $('#bandeauNom').textContent = `Fonder une gare — ${r}`; return; }
+    rendu.rafraichirIndex();
+    posesDeSuite++;
+    majBandeauPose();
+    rafraichirTout();
+  };
+  $('#baptemeValider').onclick = valider;
+  champ.onkeydown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); valider(); }
+    if (e.key === 'Escape') fermer();
+  };
+}
+
 // Le bandeau rappelle en permanence qu'on regarde une donnée et non la carte :
 // sans lui, on oublie le filtre actif et on lit des couleurs qui ne sont pas
 // celles des bâtiments.
@@ -275,15 +310,15 @@ function poser(c) {
   // qu'on possède, on ouvre un territoire là où il n'y en a pas. Le devis, les
   // refus et la cargaison sont l'affaire du monde.
   if (rendu.pose === 'gare') {
-    const r = monde.fonderGare(c.x, c.y, monde.joueur);
-    if (typeof r === 'string') {
-      $('#bandeauNom').textContent = `Fonder une gare — ${r}`;
+    // On refuse AVANT de demander le nom : baptiser une ville pour s'entendre
+    // dire ensuite qu'elle ne peut pas exister est une perte de temps.
+    const refus = monde.peutFonderGare(c.x, c.y);
+    if (refus) { $('#bandeauNom').textContent = `Fonder une gare — ${refus}`; return false; }
+    if (monde.joueur.tresorerie < devisGare().cout) {
+      $('#bandeauNom').textContent = 'Fonder une gare — trésorerie insuffisante';
       return false;
     }
-    rendu.rafraichirIndex();
-    posesDeSuite++;
-    majBandeauPose();
-    rafraichirTout();
+    demanderNom(c);
     return true;
   }
   const d = devis(monde, c, rendu.pose);
@@ -482,7 +517,10 @@ cv.addEventListener('pointerup', (e) => {
         // l'emprise et le second la valide — sur un écran tactile il n'y a pas
         // de survol, et poser à l'aveugle un carré de quatre cases n'est pas
         // jouable.
-        if (BAT[rendu.pose].cases === 1 || rendu.survol === c) poser(c);
+        // La gare n'est pas un bâtiment : elle n'a pas d'emprise à prévisualiser,
+        // et `BAT['gare']` n'existe pas — lire `.cases` dessus levait une
+        // exception à chaque toucher, si bien que rien ne se posait jamais.
+        if (rendu.pose === 'gare' || BAT[rendu.pose].cases === 1 || rendu.survol === c) poser(c);
         else rendu.survol = c;
       } else if (c) {
         rendu.selection = c;

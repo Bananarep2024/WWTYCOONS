@@ -146,14 +146,14 @@ export class Monde {
     return null;
   }
 
-  fonderGare(x, y, societe) {
+  fonderGare(x, y, societe, nom = null) {
     const refus = this.peutFonderGare(x, y);
     if (refus) return refus;
     const devis = devisGare();
     if (!societe.peutPayer(devis.cout)) return 'trésorerie insuffisante';
 
     const v = {
-      id: this.villes.length, nom: this.nomDeGare(), profil: null,
+      id: this.villes.length, nom: (nom || '').trim() || this.nomDeGare(), profil: null,
       temperament: { taille: 1, nom: 'colonie' },
       gare: { x, y }, rayon: P.rayonGare, cases: [],
       menages: 0,

@@ -591,3 +591,31 @@ svg.cours {
 @media (max-width: 400px) {
   .jauge:nth-child(3) { display: none; }   /* la fortune vit dans « Société » */
 }
+
+/* ---------- Le baptême d'une ville fondée ---------- */
+/* Une ville qu'on fonde porte le nom qu'on lui donne : c'est la seule chose du
+   jeu qui appartienne vraiment au joueur. Le dialogue est volontairement nu —
+   un champ, deux boutons — parce qu'il paraît au milieu d'un geste et ne doit
+   pas l'interrompre plus d'une seconde. */
+
+#bapteme {
+  position: fixed; inset: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(10, 9, 7, .62); padding: 20px;
+}
+#bapteme.cachee { display: none; }
+.bapteneCorps {
+  width: 340px; max-width: 100%;
+  background: var(--papier); border: 1px solid var(--trait); border-radius: var(--r3);
+  box-shadow: 0 18px 50px rgba(0,0,0,.6);
+  padding: 18px;
+}
+#baptemeNom {
+  width: 100%; margin-top: 8px;
+  background: var(--creux); color: var(--texte);
+  border: 1px solid var(--trait); border-radius: var(--r2);
+  padding: 11px 13px; font-family: var(--romaine); font-size: 17px; font-weight: 600;
+}
+#baptemeNom:focus { outline: none; border-color: var(--or); }
+.bapteneCorps .actions { margin-top: 14px; }
+.bapteneCorps .actions button { flex: 1 1 0; }

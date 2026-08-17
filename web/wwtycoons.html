@@ -603,6 +603,34 @@ svg.cours {
   .jauge:nth-child(3) { display: none; }   /* la fortune vit dans « Société » */
 }
 
+/* ---------- Le baptême d'une ville fondée ---------- */
+/* Une ville qu'on fonde porte le nom qu'on lui donne : c'est la seule chose du
+   jeu qui appartienne vraiment au joueur. Le dialogue est volontairement nu —
+   un champ, deux boutons — parce qu'il paraît au milieu d'un geste et ne doit
+   pas l'interrompre plus d'une seconde. */
+
+#bapteme {
+  position: fixed; inset: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(10, 9, 7, .62); padding: 20px;
+}
+#bapteme.cachee { display: none; }
+.bapteneCorps {
+  width: 340px; max-width: 100%;
+  background: var(--papier); border: 1px solid var(--trait); border-radius: var(--r3);
+  box-shadow: 0 18px 50px rgba(0,0,0,.6);
+  padding: 18px;
+}
+#baptemeNom {
+  width: 100%; margin-top: 8px;
+  background: var(--creux); color: var(--texte);
+  border: 1px solid var(--trait); border-radius: var(--r2);
+  padding: 11px 13px; font-family: var(--romaine); font-size: 17px; font-weight: 600;
+}
+#baptemeNom:focus { outline: none; border-color: var(--or); }
+.bapteneCorps .actions { margin-top: 14px; }
+.bapteneCorps .actions button { flex: 1 1 0; }
+
 </style>
 </head>
 <body>
@@ -695,6 +723,19 @@ svg.cours {
     <button id="btnFermerVolet" aria-label="Fermer">✕</button>
   </div>
   <div id="voletCorps"></div>
+</div>
+
+<!-- Le baptême d'une ville fondée. Elle porte le nom qu'on lui donne. -->
+<div id="bapteme" class="cachee">
+  <div class="bapteneCorps">
+    <div class="etiq">Fonder une ville</div>
+    <input id="baptemeNom" type="text" maxlength="28" autocomplete="off" spellcheck="false">
+    <div class="note" id="baptemeLieu"></div>
+    <div class="actions">
+      <button id="baptemeValider" class="primaire">Fonder</button>
+      <button id="baptemeAnnuler">Annuler</button>
+    </div>
+  </div>
 </div>
 
 <!-- Feuille d'inspection, remontée du bas -->
@@ -3837,14 +3878,14 @@ class Monde {
     return null;
   }
 
-  fonderGare(x, y, societe) {
+  fonderGare(x, y, societe, nom = null) {
     const refus = this.peutFonderGare(x, y);
     if (refus) return refus;
     const devis = devisGare();
     if (!societe.peutPayer(devis.cout)) return 'trésorerie insuffisante';
 
     const v = {
-      id: this.villes.length, nom: this.nomDeGare(), profil: null,
+      id: this.villes.length, nom: (nom || '').trim() || this.nomDeGare(), profil: null,
       temperament: { taille: 1, nom: 'colonie' },
       gare: { x, y }, rayon: P.rayonGare, cases: [],
       menages: 0,
@@ -7819,6 +7860,41 @@ function brancherVolet(corps) {
   };
 }
 
+// LE BAPTÊME. Une ville qu'on fonde porte le nom qu'on lui donne : c'est la
+// seule chose du jeu qui appartienne vraiment au joueur, et un nom tiré au sort
+// la lui rend étrangère. Le champ est prérempli d'une suggestion — il faut
+// pouvoir aller vite quand on essaime — mais il est modifiable et il a le
+// dernier mot.
+function demanderNom(c) {
+  const boite = $('#bapteme');
+  const champ = $('#baptemeNom');
+  champ.value = monde.nomDeGare();
+  $('#baptemeLieu').textContent = `${devisGare().cout.toLocaleString('fr-FR')} $`
+    + ` · ${P.logementsGare} logements, ${P.exploitationsFournies} exploitations,`
+    + ` ${P.moisDeVivres} mois de vivres`;
+  boite.classList.remove('cachee');
+  champ.focus(); champ.select();
+
+  const fermer = () => { boite.classList.add('cachee'); };
+  $('#baptemeAnnuler').onclick = fermer;
+  const valider = () => {
+    const nom = champ.value.trim();
+    if (!nom) { champ.focus(); return; }
+    const r = monde.fonderGare(c.x, c.y, monde.joueur, nom);
+    fermer();
+    if (typeof r === 'string') { $('#bandeauNom').textContent = `Fonder une gare — ${r}`; return; }
+    rendu.rafraichirIndex();
+    posesDeSuite++;
+    majBandeauPose();
+    rafraichirTout();
+  };
+  $('#baptemeValider').onclick = valider;
+  champ.onkeydown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); valider(); }
+    if (e.key === 'Escape') fermer();
+  };
+}
+
 // Le bandeau rappelle en permanence qu'on regarde une donnée et non la carte :
 // sans lui, on oublie le filtre actif et on lit des couleurs qui ne sont pas
 // celles des bâtiments.
@@ -7879,15 +7955,15 @@ function poser(c) {
   // qu'on possède, on ouvre un territoire là où il n'y en a pas. Le devis, les
   // refus et la cargaison sont l'affaire du monde.
   if (rendu.pose === 'gare') {
-    const r = monde.fonderGare(c.x, c.y, monde.joueur);
-    if (typeof r === 'string') {
-      $('#bandeauNom').textContent = `Fonder une gare — ${r}`;
+    // On refuse AVANT de demander le nom : baptiser une ville pour s'entendre
+    // dire ensuite qu'elle ne peut pas exister est une perte de temps.
+    const refus = monde.peutFonderGare(c.x, c.y);
+    if (refus) { $('#bandeauNom').textContent = `Fonder une gare — ${refus}`; return false; }
+    if (monde.joueur.tresorerie < devisGare().cout) {
+      $('#bandeauNom').textContent = 'Fonder une gare — trésorerie insuffisante';
       return false;
     }
-    rendu.rafraichirIndex();
-    posesDeSuite++;
-    majBandeauPose();
-    rafraichirTout();
+    demanderNom(c);
     return true;
   }
   const d = devis(monde, c, rendu.pose);
@@ -8086,7 +8162,10 @@ cv.addEventListener('pointerup', (e) => {
         // l'emprise et le second la valide — sur un écran tactile il n'y a pas
         // de survol, et poser à l'aveugle un carré de quatre cases n'est pas
         // jouable.
-        if (BAT[rendu.pose].cases === 1 || rendu.survol === c) poser(c);
+        // La gare n'est pas un bâtiment : elle n'a pas d'emprise à prévisualiser,
+        // et `BAT['gare']` n'existe pas — lire `.cases` dessus levait une
+        // exception à chaque toucher, si bien que rien ne se posait jamais.
+        if (rendu.pose === 'gare' || BAT[rendu.pose].cases === 1 || rendu.survol === c) poser(c);
         else rendu.survol = c;
       } else if (c) {
         rendu.selection = c;
