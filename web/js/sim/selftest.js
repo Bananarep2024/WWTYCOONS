@@ -72,7 +72,10 @@ ok('abattoir', marge('abattoir'), 52, 0.01);
 ok('une ferme de qualité 1 nourrit une minoterie',
    BAT.ferme.debit * BAT.ferme.cases * P.echelleIndustrielle
    / (BAT.minoterie.intrants.cereales * BAT.minoterie.cases), 1, 0.001);
-ok('aciérie', marge('acierie'), 22, 0.01);
+// L'aciérie ne consomme plus qu'une mine de chaque au lieu de deux : sa marge
+// double mécaniquement, son capital n'ayant pas bougé. C'est un déséquilibre
+// CONNU et non résolu — voir la réserve du journal des décisions.
+ok('aciérie', marge('acierie'), 46, 0.01);
 ok('manufacture', marge('manufacture'), 22, 0.01);
 
 console.log('\n=== Loyers ===');
@@ -258,5 +261,8 @@ console.log('   ' + Object.keys(RES).map(r => `${r.slice(0, 4)} ${couverture[r].
 // si bien qu'un tas minuscule y pèse des dizaines de mois de couverture.
 const surveillees = Object.keys(RES).filter(r => r !== 'betail');
 const pire = Math.max(...surveillees.map(r => couverture[r]));
+// Le seuil reste à 4 mois : c'est la promesse du §4.2 bis. Il est FRANCHI
+// depuis le rééquilibrage des filières — l'économie n'est plus calibrée et le
+// contrôle doit le dire, pas s'adapter. On le laisse échouer bruyamment.
 sous('aucune montagne de marchandise', pire, 4);
 console.log(`\n${ko === 0 ? '✓ tous les contrôles passent' : '✗ ' + ko + ' contrôle(s) en échec'}\n`);
