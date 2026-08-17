@@ -321,6 +321,25 @@ export const P = {
   // encore.
   porteeVocation: 30,
 
+  // --- La gare fondatrice -------------------------------------------------
+  //
+  // Poser une gare, ce n'est pas poser un bâtiment : c'est FONDER. Elle arrive
+  // avec ses colons, de quoi les loger, de quoi ouvrir leurs premières
+  // exploitations, et de quoi les nourrir deux ans. Passé ce délai les vivres
+  // sont épuisés : ou le hameau a monté sa propre filière, ou il est relié au
+  // rail, ou il s'éteint. C'est ce pari qui donne son prix à la voie.
+  //
+  // Son prix inclut tout — le bâtiment, les matériaux et les vivres — et se
+  // calcule aux prix de référence. Voir devisGare().
+  colonsGare: 10,              // ménages qui arrivent avec la gare
+  moisDeVivres: 24,            // deux ans de nourriture et de produits, à 100 %
+  exploitationsFournies: 3,    // ce que le stock de matériaux permet d'ouvrir
+  coutGareNu: 2000,            // le bâtiment de gare seul, hors cargaison
+  rayonGare: 16,               // le territoire qu'ouvre une gare, en cases
+  // Une gare ne se pose pas contre une ville ni contre une autre gare : sans
+  // cette distance, on annexerait le territoire du voisin au lieu de coloniser.
+  distanceMinGare: 26,
+
   // Amorçage
   stockAmorcage: { planches: 3000, briques: 1500 },
 
@@ -468,6 +487,35 @@ export function coutRef(type) {
 // Il ne se contracte jamais — c'est lui qui borne les pertes.
 export function entretien(type, valeurBatie) {
   return (valeurBatie ?? coutRef(type)) * P.entretienAnnuel / 12;
+}
+
+// LE DEVIS D'UNE GARE FONDATRICE.
+//
+// Ce qu'elle emporte, et ce qu'elle coûte. Les deux sont le même objet : le
+// prix est la valeur de la cargaison aux prix de référence, plus le bâtiment.
+// Un joueur ne paie donc jamais une gare « à vide » — il achète une colonie
+// prête à vivre deux ans.
+//
+//   logements     une maison par ménage de colons
+//   exploitations de quoi en ouvrir trois, l'archétype étant la coupe
+//   vivres        un repas et un produit manufacturé par ménage et par mois,
+//                 pendant vingt-quatre mois — de quoi tenir les trois baromètres
+//                 au plein pendant que le hameau se met debout
+export function devisGare() {
+  const mat = {};
+  const ajouter = (m, k) => {
+    for (const [r, q] of Object.entries(m)) mat[r] = (mat[r] || 0) + q * k;
+  };
+  ajouter(materiaux('maison'), P.colonsGare);
+  ajouter(materiaux('coupe'), P.exploitationsFournies);
+
+  const rations = P.colonsGare * P.moisDeVivres;
+  const vivres = { pain: rations, produits: rations };
+
+  let cout = P.coutGareNu;
+  for (const [r, q] of Object.entries(mat)) cout += q * RES[r].prix;
+  for (const [r, q] of Object.entries(vivres)) cout += q * RES[r].prix;
+  return { mat, vivres, cout };
 }
 
 // Le rendement annuel que chaque palier est censé rendre, à cent pour cent

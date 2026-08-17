@@ -316,11 +316,24 @@ export class Marche {
   // répartie au prorata sur tous les livres, si bien que la ville qui n'avait
   // rien en trop payait pour le tas de la voisine. Sur la graine 12345, deux
   // villes sur cinq y sont mortes pendant qu'une sixième doublait.
-  perimer() {
-    const livres = [...this.parVille.values()];
+  // `mois` sert à épargner les réserves d'une colonie neuve : les vivres livrés
+  // avec une gare doivent tenir les deux ans promis, or la freinte les mangeait
+  // en dix-huit mois — un tas de deux ans de couverture est par définition un
+  // excédent. Une cargaison de fondation n'est pas un tas oublié, c'est une
+  // provision datée.
+  perimer(mois = Infinity) {
+    const livres = [];
+    for (const [ville, l] of this.parVille) {
+      if (ville && ville.vivresJusqua > mois) continue;
+      livres.push(l);
+    }
     if (this._orphelin) livres.push(this._orphelin);
     for (const r of RESSOURCES) {
       let total = 0;
+      for (const l of this.parVille.values()) total += l.stock[r];
+      if (this._orphelin) total += this._orphelin.stock[r];
+      this.stock[r] = total;
+      total = 0;
       for (const l of livres) {
         // Le débit est une enveloppe qui redescend lentement, pas la mesure du
         // mois. Sans mémoire, une scierie mise en sommeil un mois ramène le
@@ -329,9 +342,9 @@ export class Marche {
         l.debit[r] = Math.max(l.besoins[r], l.entrees[r], l.debit[r] * P.memoireDebit);
         const exces = l.stock[r] - P.matelasMois * l.debit[r];
         if (exces > 0) l.stock[r] -= exces * P.freinteExcedent;
-        total += l.stock[r];
+        total += exces > 0 ? exces * P.freinteExcedent : 0;
       }
-      this.stock[r] = total;
+      this.stock[r] -= total;
     }
   }
 

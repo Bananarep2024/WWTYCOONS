@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import { P, RES, RESSOURCES, BAT, NOURRITURES, materiaux, coutRef,
-         niveauVille, prixTerrain, qualiteMax } from './params.js';
+         niveauVille, prixTerrain, qualiteMax, devisGare, QUALITES } from './params.js';
 import { genererMonde, estAchetable, rng } from './mapgen.js';
 import { Marche } from './market.js';
 import { Batiment } from './building.js';
@@ -124,6 +124,154 @@ export class Monde {
     this.beneficesCotes = benefices;
     this.histoPER.push(this.per);
     if (this.histoPER.length > P.histoireDesCours) this.histoPER.shift();
+  }
+
+  // --- Fonder une gare ------------------------------------------------------
+  //
+  // Poser une gare, ce n'est pas poser un bâtiment : c'est fonder une localité.
+  // Elle naît avec ses colons, ses matériaux, et deux ans de vivres. Elle a son
+  // propre marché, ISOLÉ — c'est tout l'enjeu : ou elle monte sa filière avant
+  // que les vivres ne s'épuisent, ou une voie la relie, ou elle s'éteint.
+  //
+  // Renvoie la ville créée, ou une chaîne expliquant le refus.
+  peutFonderGare(x, y) {
+    const c = this.caseAt(x, y);
+    if (!c) return 'hors carte';
+    if (c.ville) return 'déjà dans un territoire';
+    if (c.relief === 'montagne') return 'on ne bâtit pas de gare en montagne';
+    for (const v of this.villes) {
+      const d = Math.hypot(v.gare.x - x, v.gare.y - y);
+      if (d < P.distanceMinGare) return `trop près de ${v.nom} (${Math.round(d)} cases)`;
+    }
+    return null;
+  }
+
+  fonderGare(x, y, societe) {
+    const refus = this.peutFonderGare(x, y);
+    if (refus) return refus;
+    const devis = devisGare();
+    if (!societe.peutPayer(devis.cout)) return 'trésorerie insuffisante';
+
+    const v = {
+      id: this.villes.length, nom: this.nomDeGare(), profil: null,
+      temperament: { taille: 1, nom: 'colonie' },
+      gare: { x, y }, rayon: P.rayonGare, cases: [],
+      menages: P.colonsGare,
+      occupation: 0.85, salaire: P.salaireCase, niveau: 1,
+      barometres: { nourriture: 1, emploi: 0.78, produits: 1 },
+      epargne: 0, marche: null, histo: [], fondee: this.mois,
+      // Les vivres de fondation sont datés : la freinte ne les touche pas tant
+      // qu'ils durent, sinon les deux ans promis n'en font que dix-huit.
+      vivresJusqua: this.mois + P.moisDeVivres,
+      // Les mêmes collections que les villes de la génération : sans elles, le
+      // pilote de ville tombe au premier mois sur un champ qui n'existe pas.
+      batIndependants: [], chantiersInd: [], germes: [],
+    };
+
+    // Le territoire. Premier arrivé, premier servi, comme à la génération.
+    for (let dy = -P.rayonGare; dy <= P.rayonGare; dy++) {
+      for (let dx = -P.rayonGare; dx <= P.rayonGare; dx++) {
+        const c = this.caseAt(x + dx, y + dy);
+        if (!c || c.ville) continue;
+        const d = Math.hypot(dx, dy);
+        if (d > P.rayonGare) continue;
+        c.ville = v;
+        c.distanceGare = Math.round(d);
+        // Un hameau n'a pas de plan d'urbanisme : le centre se loge, la
+        // couronne travaille, et la terre qui donne quelque chose est agricole.
+        c.quartier = d <= 4 ? 'residentiel'
+          : (c.q.fertilite >= 1 ? 'agricole' : 'industriel');
+        v.cases.push(c);
+      }
+    }
+    if (v.cases.length < 40) return 'pas assez de terrain libre autour';
+
+    this.caseAt(x, y).voie = true;
+    societe.payer(devis.cout);
+    this.villes.push(v);
+    this.recomposerMarches();
+
+    // La cargaison est déposée dans le livre de la ville, pas dans un tas
+    // commun : elle lui appartient, et la règle du service local la lui garde.
+    const livre = v.marche.livre(v);
+    for (const [r, q] of Object.entries(devis.mat)) livre.stock[r] += q;
+    for (const [r, q] of Object.entries(devis.vivres)) livre.stock[r] += q;
+    v.marche.recomposerStock();
+
+    // LES COLONS ARRIVENT AVEC LEUR TOIT, PAS SEULEMENT AVEC LES PLANCHES.
+    //
+    // Livrer les matériaux et laisser le hameau se construire ne marche pas :
+    // dix ménages sans logement ne s'installent pas, la ville est vide au
+    // premier mois, et personne ne bâtit jamais rien parce qu'il n'y a personne.
+    // Mesuré : population à zéro au sixième mois, aucun bâtiment, et les vivres
+    // qui pourrissent tout seuls. Les maisons font donc partie de la cargaison
+    // et sont montées le jour même ; le reste des matériaux dort en réserve pour
+    // que les colons ouvrent leurs exploitations eux-mêmes.
+    let logees = 0;
+    for (let i = 0; i < P.colonsGare; i++) {
+      const site = this.trouverEmplacement(v, 'maison', null, 2);
+      if (!site) break;
+      this.poser('maison', v, site, null);
+      logees++;
+    }
+    for (const [r, q] of Object.entries(materiaux('maison'))) {
+      livre.stock[r] = Math.max(0, livre.stock[r] - q * logees);
+    }
+
+    // ET AVEC LEUR TRAVAIL. Loger les colons ne suffit pas non plus : sans
+    // emploi ils n'ont aucun revenu, donc ils n'achètent pas les vivres qu'on
+    // vient pourtant de leur livrer. Mesuré : 6 % d'emploi, nourriture à 0 %
+    // avec cent vingt-cinq pains en réserve, et le hameau s'éteint quand même.
+    //
+    // Les exploitations font donc partie de la cargaison au même titre que les
+    // maisons. Elles reviennent à la société fondatrice — c'est le filon qu'elle
+    // est venue chercher, et c'est ce qui paie la gare.
+    let ouvertes = 0;
+    const parRessource = {};
+    for (const c of v.cases) for (const n of QUALITES) {
+      if (c.q[n] > (parRessource[n] || 0)) parRessource[n] = c.q[n];
+    }
+    // On ouvre sur ce que le sol donne de mieux, en commençant par le plus riche.
+    const ordre = Object.entries(parRessource).sort((a, b) => b[1] - a[1]);
+    const TYPE = { fertilite: 'ferme', bois: 'coupe', argile: 'carriere',
+                   charbon: 'mineCharbon', minerai: 'mineFer' };
+    for (const [ressource, q] of ordre) {
+      if (ouvertes >= P.exploitationsFournies || q < 1) break;
+      const type = TYPE[ressource];
+      while (ouvertes < P.exploitationsFournies) {
+        // On cherche l'emplacement sous les règles de la terre libre — la
+        // société ne possède encore aucune case de sa colonie — puis on lui
+        // attribue le bâtiment. Chercher en son nom ne trouvait jamais rien.
+        const site = this.trouverEmplacement(v, type, null, 2);
+        if (!site) break;
+        this.poser(type, v, site, societe);
+        ouvertes++;
+        break;   // une seule par ressource au premier tour : on diversifie
+      }
+    }
+    for (const [r, q] of Object.entries(materiaux('coupe'))) {
+      livre.stock[r] = Math.max(0, livre.stock[r] - q * ouvertes);
+    }
+    v.marche.recomposerStock();
+
+    this.journal.push(`${this.mois} · ⚑ ${societe.nom} fonde ${v.nom}`
+      + ` — ${logees} logements, ${ouvertes} exploitations,`
+      + ` ${P.moisDeVivres} mois de vivres, ${Math.round(devis.cout)} $`);
+    return v;
+  }
+
+  // Un nom pour la nouvelle gare : on emprunte à la géographie plutôt que de
+  // numéroter, sinon la carte se lit comme un inventaire.
+  nomDeGare() {
+    const tetes = ['Fort', 'Camp', 'Poste', 'Halte', 'Terminus', 'Jonction', 'Relais'];
+    const queues = ['du Filon', 'des Cèdres', 'de l\'Aigle', 'du Ravin', 'des Sources',
+                    'de la Mesa', 'du Grand Nord', 'des Coyotes', 'de la Faille', 'du Cuivre'];
+    for (let essai = 0; essai < 60; essai++) {
+      const n = `${tetes[Math.floor(this.hasard() * tetes.length)]} `
+        + `${queues[Math.floor(this.hasard() * queues.length)]}`;
+      if (!this.villes.some(v => v.nom === n)) return n;
+    }
+    return `Gare ${this.villes.length + 1}`;
   }
 
   // --- Marchés --------------------------------------------------------------
@@ -1000,7 +1148,7 @@ export class Monde {
     //
     // La freinte passe AVANT, pour que le prix soit fixé sur le stock qui
     // restera réellement en cave le mois prochain.
-    for (const m of this.marches) { m.perimer(); m.fixerPrix(); }
+    for (const m of this.marches) { m.perimer(this.mois); m.fixerPrix(); }
 
     // --- 8. Le salaire, variable d'ajustement de la ville -------------------
     for (const v of this.villes) this.ajusterSalaire(v);
