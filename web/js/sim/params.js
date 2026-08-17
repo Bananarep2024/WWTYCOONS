@@ -103,7 +103,22 @@ export const P = {
   cadenceDemo: 0.0035,         // % de population par mois et par point d'attractivité
   cadenceMax: 0.05,            // plafond ±5 % / mois
   exodeCritique: 0.05,         // seuil critique franchi -> -5 % / mois
-  seuilsCritiques: { nourriture: 0.80, emploi: 0.50, produits: 0.20 },
+  // LES SEUILS QUI VIDENT UNE VILLE.
+  //
+  // Les produits manufacturés n'en font plus partie. On ne quitte pas une ville
+  // parce qu'on n'y trouve pas de quoi s'équiper — on y vit moins bien, ce que
+  // l'attractivité dit déjà, et cela suffit. Le seuil produits transformait un
+  // inconfort en exode et condamnait toute ville jeune, dont la filière
+  // manufacturière est par construction la dernière à se monter.
+  //
+  // La nourriture monte en revanche de 80 à 90 % : c'est elle, et elle seule,
+  // qui retient une population. En dessous, on part.
+  //
+  // Et l'emploi reste, car c'est le SALAIRE qui permet d'acheter cette
+  // nourriture. Sans lui, fonder une ville et n'y bâtir que des maisons
+  // suffirait à faire venir du monde — des gens sans travail, sans revenu, donc
+  // sans repas.
+  seuilsCritiques: { nourriture: 0.90, emploi: 0.50 },
   employesParMenage: 2,
   coefChantiers: 1.45,         // au-delà de la consommation : matériaux et entretien
 
@@ -314,6 +329,12 @@ export const P = {
   // la terre que personne ne possède — il faut y fonder une gare pour l'atteindre.
   // C'est ce qui fait de la colonisation le seul chemin vers le vrai profit.
   plafondEnVille: 2,
+  // ET HORS DE PORTÉE. Un filon collé à la lisière d'une ville de départ se
+  // laisse cueillir en fondant une gare à vingt-six cases de là — c'est-à-dire
+  // sans rien risquer. On repousse donc la qualité 3 au-delà de cette distance
+  // du centre de toute ville fondatrice : pour l'atteindre il faut vraiment
+  // partir, et une colonie lointaine est une colonie qu'il faudra relier.
+  distanceMinFilon: 78,
   // La portée de la vocation, en cases : l'écart-type de la gaussienne qui
   // mélange les plafonds de deux villes voisines. À peu près le rayon d'une
   // ville, de sorte qu'un territoire lit sa propre vocation presque pure et que

@@ -284,9 +284,22 @@ indépendants, qui vendent au prix du marché **majoré de 20 %** — le raccour
 
 | Baromètre | Seuil critique | À l'équilibre |
 |---|---:|---:|
-| Nourriture | 80 % | 100 % |
+| Nourriture | **90 %** | 100 % |
 | Emploi | 50 % | 78 % |
-| Produits manufacturés | 20 % | 59 % |
+| Produits manufacturés | **aucun** | 59 % |
+
+**Les produits manufacturés ne vident plus une ville.** On ne la quitte pas parce qu'on n'y trouve
+pas de quoi s'équiper : on y vit moins bien, ce que l'attractivité dit déjà, et cela suffit. Le
+seuil transformait un inconfort en exode et condamnait par construction toute ville jeune, dont la
+filière manufacturière est la dernière à se monter — trois étages au-dessus de la mine.
+
+**La nourriture, elle, monte de 80 à 90 %** : c'est elle, et elle seule, qui retient une
+population.
+
+**Et l'emploi reste**, parce que c'est le SALAIRE qui permet d'acheter cette nourriture. Sans ce
+seuil, fonder une ville et n'y bâtir que des maisons suffirait à faire venir du monde — des gens
+sans travail, donc sans revenu, donc sans repas. Un logement ouvre une porte ; c'est la paie qui
+fait entrer.
 
 Pain et viande sont **substituables 1 pour 1** : le ménage veut une ration par mois, il mange ce
 qu'il y a. Une ville de blé se passe d'élevage sans être punie.
@@ -413,6 +426,14 @@ tant que l'emploi suivait la production en proportion exacte, la recette par ouv
 `débit × prix`, une constante, et la bonne terre n'enrichissait personne — elle ajoutait des
 ouvriers, rien de plus. L'échelle ne vaut que pour l'exploitation ; un atelier transforme ce qu'on
 lui livre, sa taille est celle de ses murs.
+
+**Le filon est toujours hors les murs, et hors de portée.** Une ville, si bien dotée soit-elle,
+plafonne à la **qualité 2** sur son territoire : elle vit correctement de son sol, elle ne
+s'enrichit pas dessus. Toute la qualité 3 se trouve sur la terre libre, et **à plus de 78 cases du
+centre de toute ville fondatrice** — sans quoi un filon de lisière se cueillerait en posant une
+gare juste derrière la frontière, sans rien risquer. Pour l'atteindre il faut vraiment partir, et
+une colonie lointaine est une colonie qu'il faudra relier. Mesuré sur la graine 1 : 512 cases de
+qualité 3, **aucune** en territoire, **aucune** à moins de 78 cases d'une ville.
 
 **Chaque ville produit tout, fût-ce à perte.** Deux ressources par ville montent à 3, une à 2, deux
 plafonnent à 1 — et le générateur garantit à chaque ville au moins **60 cases de qualité 1 sur

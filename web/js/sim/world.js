@@ -1371,9 +1371,10 @@ export class Monde {
     v.aisanceMenage = this.aisance(v);
 
     let taux;
-    const critique = b.nourriture < P.seuilsCritiques.nourriture
-                  || b.emploi < P.seuilsCritiques.emploi
-                  || b.produits < P.seuilsCritiques.produits;
+    // Un seuil absent ne condamne plus : les produits manufacturés ont quitté la
+    // liste, on parcourt donc ce qui reste au lieu de nommer trois baromètres.
+    const critique = Object.entries(P.seuilsCritiques)
+      .some(([nom, seuil]) => b[nom] < seuil);
     if (critique) {
       // Un seul seuil franchi vers le bas suffit à vider la ville, quels que
       // soient les autres.

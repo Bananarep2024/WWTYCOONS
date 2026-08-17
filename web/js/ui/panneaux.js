@@ -146,7 +146,7 @@ function carteVille(monde, v) {
     <div class="minis">
       ${miniJauge('Nourriture', b.nourriture, P.seuilsCritiques.nourriture)}
       ${miniJauge('Emploi', b.emploi, P.seuilsCritiques.emploi)}
-      ${miniJauge('Produits', b.produits, P.seuilsCritiques.produits)}
+      ${miniJauge('Produits', b.produits)}
       ${miniJauge('Pouvoir d\'achat', echelleAisance(ais), undefined,
                    (ais * 100).toFixed(0) + ' %')}
     </div>
@@ -227,7 +227,7 @@ export function detailVille(monde, v) {
     <h3>Les trois baromètres</h3>
     ${jauge('Nourriture', b.nourriture, P.seuilsCritiques.nourriture)}
     ${jauge('Emploi', b.emploi, P.seuilsCritiques.emploi)}
-    ${jauge('Produits manufacturés', b.produits, P.seuilsCritiques.produits)}
+    ${jauge('Produits manufacturés', b.produits)}
     <div class="barometre" style="margin-top:8px">
       <div class="tete"><span>Moyenne</span><span class="doux">${pct(moy)}</span></div>
       <div class="piste"><div class="jauge2" style="width:${moy * 100}%;background:var(--doux)"></div></div>

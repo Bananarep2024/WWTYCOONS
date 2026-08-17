@@ -841,7 +841,22 @@ const P = {
   cadenceDemo: 0.0035,         // % de population par mois et par point d'attractivité
   cadenceMax: 0.05,            // plafond ±5 % / mois
   exodeCritique: 0.05,         // seuil critique franchi -> -5 % / mois
-  seuilsCritiques: { nourriture: 0.80, emploi: 0.50, produits: 0.20 },
+  // LES SEUILS QUI VIDENT UNE VILLE.
+  //
+  // Les produits manufacturés n'en font plus partie. On ne quitte pas une ville
+  // parce qu'on n'y trouve pas de quoi s'équiper — on y vit moins bien, ce que
+  // l'attractivité dit déjà, et cela suffit. Le seuil produits transformait un
+  // inconfort en exode et condamnait toute ville jeune, dont la filière
+  // manufacturière est par construction la dernière à se monter.
+  //
+  // La nourriture monte en revanche de 80 à 90 % : c'est elle, et elle seule,
+  // qui retient une population. En dessous, on part.
+  //
+  // Et l'emploi reste, car c'est le SALAIRE qui permet d'acheter cette
+  // nourriture. Sans lui, fonder une ville et n'y bâtir que des maisons
+  // suffirait à faire venir du monde — des gens sans travail, sans revenu, donc
+  // sans repas.
+  seuilsCritiques: { nourriture: 0.90, emploi: 0.50 },
   employesParMenage: 2,
   coefChantiers: 1.45,         // au-delà de la consommation : matériaux et entretien
 
@@ -1052,6 +1067,12 @@ const P = {
   // la terre que personne ne possède — il faut y fonder une gare pour l'atteindre.
   // C'est ce qui fait de la colonisation le seul chemin vers le vrai profit.
   plafondEnVille: 2,
+  // ET HORS DE PORTÉE. Un filon collé à la lisière d'une ville de départ se
+  // laisse cueillir en fondant une gare à vingt-six cases de là — c'est-à-dire
+  // sans rien risquer. On repousse donc la qualité 3 au-delà de cette distance
+  // du centre de toute ville fondatrice : pour l'atteindre il faut vraiment
+  // partir, et une colonie lointaine est une colonie qu'il faudra relier.
+  distanceMinFilon: 78,
   // La portée de la vocation, en cases : l'écart-type de la gaussienne qui
   // mélange les plafonds de deux villes voisines. À peu près le rayon d'une
   // ville, de sorte qu'un territoire lit sa propre vocation presque pure et que
@@ -1825,7 +1846,18 @@ function genererMonde(nbVilles, graine) {
       // Le filon est toujours hors les murs : sur un territoire de ville, on
       // plafonne à 2. La qualité 3 n'existe que sur la terre libre, et c'est ce
       // qui oblige à fonder une gare pour l'atteindre.
-      const haut = c.ville ? P.plafondEnVille : P.qualiteSommet;
+      // Le plafond tient à deux choses : appartenir à un territoire, et être
+      // trop près d'une ville fondatrice. La seconde est ce qui oblige à
+      // s'éloigner vraiment — sans elle, un filon de lisière se cueille en
+      // posant une gare juste derrière la frontière, sans rien risquer.
+      let haut = c.ville ? P.plafondEnVille : P.qualiteSommet;
+      if (haut > P.plafondEnVille) {
+        for (const s of sites) {
+          if (Math.hypot(s.x - c.x, s.y - c.y) < P.distanceMinFilon) {
+            haut = P.plafondEnVille; break;
+          }
+        }
+      }
       q[nom] = Math.max(0, Math.min(haut, Math.round(v)));
     }
     c.q = q;
@@ -5092,9 +5124,10 @@ class Monde {
     v.aisanceMenage = this.aisance(v);
 
     let taux;
-    const critique = b.nourriture < P.seuilsCritiques.nourriture
-                  || b.emploi < P.seuilsCritiques.emploi
-                  || b.produits < P.seuilsCritiques.produits;
+    // Un seuil absent ne condamne plus : les produits manufacturés ont quitté la
+    // liste, on parcourt donc ce qui reste au lieu de nommer trois baromètres.
+    const critique = Object.entries(P.seuilsCritiques)
+      .some(([nom, seuil]) => b[nom] < seuil);
     if (critique) {
       // Un seul seuil franchi vers le bas suffit à vider la ville, quels que
       // soient les autres.
@@ -6387,7 +6420,7 @@ function carteVille(monde, v) {
     <div class="minis">
       ${miniJauge('Nourriture', b.nourriture, P.seuilsCritiques.nourriture)}
       ${miniJauge('Emploi', b.emploi, P.seuilsCritiques.emploi)}
-      ${miniJauge('Produits', b.produits, P.seuilsCritiques.produits)}
+      ${miniJauge('Produits', b.produits)}
       ${miniJauge('Pouvoir d\'achat', echelleAisance(ais), undefined,
                    (ais * 100).toFixed(0) + ' %')}
     </div>
@@ -6468,7 +6501,7 @@ function detailVille(monde, v) {
     <h3>Les trois baromètres</h3>
     ${jauge('Nourriture', b.nourriture, P.seuilsCritiques.nourriture)}
     ${jauge('Emploi', b.emploi, P.seuilsCritiques.emploi)}
-    ${jauge('Produits manufacturés', b.produits, P.seuilsCritiques.produits)}
+    ${jauge('Produits manufacturés', b.produits)}
     <div class="barometre" style="margin-top:8px">
       <div class="tete"><span>Moyenne</span><span class="doux">${pct(moy)}</span></div>
       <div class="piste"><div class="jauge2" style="width:${moy * 100}%;background:var(--doux)"></div></div>

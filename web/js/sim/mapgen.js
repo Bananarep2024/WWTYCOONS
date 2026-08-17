@@ -394,7 +394,18 @@ export function genererMonde(nbVilles, graine) {
       // Le filon est toujours hors les murs : sur un territoire de ville, on
       // plafonne à 2. La qualité 3 n'existe que sur la terre libre, et c'est ce
       // qui oblige à fonder une gare pour l'atteindre.
-      const haut = c.ville ? P.plafondEnVille : P.qualiteSommet;
+      // Le plafond tient à deux choses : appartenir à un territoire, et être
+      // trop près d'une ville fondatrice. La seconde est ce qui oblige à
+      // s'éloigner vraiment — sans elle, un filon de lisière se cueille en
+      // posant une gare juste derrière la frontière, sans rien risquer.
+      let haut = c.ville ? P.plafondEnVille : P.qualiteSommet;
+      if (haut > P.plafondEnVille) {
+        for (const s of sites) {
+          if (Math.hypot(s.x - c.x, s.y - c.y) < P.distanceMinFilon) {
+            haut = P.plafondEnVille; break;
+          }
+        }
+      }
       q[nom] = Math.max(0, Math.min(haut, Math.round(v)));
     }
     c.q = q;

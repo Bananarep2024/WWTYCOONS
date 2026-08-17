@@ -1340,3 +1340,46 @@ Ce n'est pas une faveur, c'est ce qui rend le rail **désirable** au lieu d'êtr
 survit sans lui, elle ne prospère qu'avec. Sans ce plancher, une ville sans charbon ni minerai
 n'ouvre rien avant l'arrivée de la voie, vingt ans plus tard, et passe la moitié de la partie à ne
 pas exister.
+
+## Les produits ne vident plus une ville, et le filon s'éloigne
+
+Trois changements demandés ensemble, et ils forment un tout : ils déplacent la contrainte de la
+consommation vers le SALAIRE, et le profit vers la colonisation.
+
+### Le seuil produits disparaît
+
+On ne quitte pas une ville parce qu'on n'y trouve pas de quoi s'équiper. On y vit moins bien —
+l'attractivité le dit déjà, et cela suffit. Le seuil transformait un inconfort en exode et
+condamnait par construction toute ville jeune : sa filière manufacturière est la dernière à se
+monter, trois étages au-dessus de la mine, et elle mourait avant d'y arriver.
+
+Le code parcourt désormais `P.seuilsCritiques` au lieu de nommer trois baromètres : retirer une
+entrée de la table suffit à retirer la règle.
+
+### La nourriture monte de 80 à 90 %
+
+C'est elle, et elle seule, qui retient une population.
+
+### L'emploi reste, et c'est le point
+
+Sans ce seuil, fonder une ville et n'y bâtir que des maisons suffirait à faire venir du monde —
+des gens sans travail, donc sans revenu, donc sans repas. Un logement ouvre une porte ; c'est la
+paie qui fait entrer. La contrainte n'est plus « avoir des biens » mais « avoir de quoi les
+acheter ».
+
+### Le filon est hors les murs ET hors de portée
+
+Le plafond de qualité 2 sur un territoire ne suffisait pas : un filon collé à la lisière se
+cueillait en posant une gare vingt-six cases plus loin, c'est-à-dire sans rien risquer. La
+qualité 3 est désormais repoussée au-delà de **78 cases du centre de toute ville fondatrice**.
+
+Pour l'atteindre il faut vraiment partir — et une colonie lointaine est une colonie qu'il faudra
+relier. C'est ce qui justifie la gare, et par elle la voie.
+
+Mesuré sur la graine 1 : 512 cases de qualité 3, **aucune** en territoire, **aucune** à moins de
+78 cases d'une ville.
+
+### Ce que ça donne
+
+Banc d'essai à vingt ans, les cinq villes reliées : **1 829 à 2 513 ménages, toutes à 100 % de
+nourriture**, emploi 86-87 %, produits 86-97 %. Contre 1 700-2 400 avant, avec une ville à zéro.
