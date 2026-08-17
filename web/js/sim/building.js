@@ -147,9 +147,12 @@ export class Batiment {
     if (!this.def.sort) return 0;
     const recette = this.capacite * marche.prix[this.def.sort];
     let couts = this.masseSalarialePleine;
-    const k = echelleDe(this.type);
+    // Les intrants sont ceux du BÂTIMENT. Les multiplier par le nombre de cases
+    // doublait la facture d'une minoterie et quadruplait celle d'une aciérie :
+    // leur marge brute passait sous zéro et elles se mettaient TOUTES à l'arrêt
+    // dès le premier mois, sans qu'aucune pénurie ne le justifie.
     for (const [r, q] of Object.entries(this.def.intrants || {})) {
-      couts += q * this.n * k * marche.prix[r];
+      couts += q * marche.prix[r];
     }
     return recette - couts;
   }
@@ -181,7 +184,7 @@ export class Batiment {
     // Le prix de revient réel fait plancher sur ce marché.
     if (this.def.sort && this.capacite > 0) {
       let c = this.masseSalarialePleine + this.entretien;
-      for (const [r, q] of Object.entries(this.def.intrants || {})) c += q * this.n * marche.prix[r];
+      for (const [r, q] of Object.entries(this.def.intrants || {})) c += q * marche.prix[r];
       marche.declarerRevient(this.def.sort, c / this.capacite);
     }
   }
@@ -361,7 +364,7 @@ export class Batiment {
   intrants() {
     const out = [];
     for (const [r, q] of Object.entries(this.def.intrants || {})) {
-      const demande = q * this.n * (this.activiteEffective ?? this.activite);
+      const demande = q * (this.activiteEffective ?? this.activite);
       const recu = (this.recu && this.recu[r]) || 0;
       out.push({ res: r, demande, recu, part: demande > 0 ? recu / demande : 1 });
     }

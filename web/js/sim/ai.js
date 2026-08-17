@@ -353,7 +353,21 @@ function unChantierDeVille(monde, ville) {
     if (!cases && type === 'immeuble') cases = raserPourDensifier(monde, ville);
     if (!cases) continue;
 
-    if (def.cat !== 'loge'
+    // LA VILLE QUI A FAIM SÈME, MÊME À PERTE.
+    //
+    // Le seuil de rendement est celui d'un INVESTISSEUR : sous 5 % attendu, on
+    // ne place pas son argent. Mais une ville dont la nourriture passe sous son
+    // seuil critique ne fait pas un placement, elle survit — et sur une terre de
+    // qualité 1, qui rend −10 % par construction, aucune ferme ne s'ouvrirait
+    // jamais. Une ville sans bonne terre mourait donc de faim en regardant ses
+    // champs vides.
+    //
+    // Le seuil ne vaut donc que pour ce qui n'est pas vital. Nourrir passe
+    // avant, et c'est ce qui donne son sens à la case de qualité 1 : un droit de
+    // produire à prix coûtant, qu'on exerce parce qu'on n'a pas le choix.
+    const vital = VIVRIER.has(type)
+      && ville.barometres.nourriture < P.seuilsCritiques.nourriture;
+    if (def.cat !== 'loge' && !vital
         && rendementAttendu(monde, ville, type, cases) < P.rendementMinimalPourBatir) continue;
 
     ville.epargne -= cout;
@@ -365,6 +379,9 @@ function unChantierDeVille(monde, ville) {
 
 // Ce que rapporterait ce bâtiment, sur ces cases, aux prix d'aujourd'hui —
 // avant qu'il n'existe. C'est le calcul que ferait n'importe quel investisseur.
+// Ce qui nourrit : les deux exploitations et les deux ateliers de la filière.
+const VIVRIER = new Set(['ferme', 'ranch', 'minoterie', 'abattoir']);
+
 export function rendementAttendu(monde, ville, type, cases) {
   const def = BAT[type];
   const m = ville.marche;

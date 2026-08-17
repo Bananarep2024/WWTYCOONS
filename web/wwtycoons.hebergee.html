@@ -2855,9 +2855,12 @@ class Batiment {
     if (!this.def.sort) return 0;
     const recette = this.capacite * marche.prix[this.def.sort];
     let couts = this.masseSalarialePleine;
-    const k = echelleDe(this.type);
+    // Les intrants sont ceux du BÂTIMENT. Les multiplier par le nombre de cases
+    // doublait la facture d'une minoterie et quadruplait celle d'une aciérie :
+    // leur marge brute passait sous zéro et elles se mettaient TOUTES à l'arrêt
+    // dès le premier mois, sans qu'aucune pénurie ne le justifie.
     for (const [r, q] of Object.entries(this.def.intrants || {})) {
-      couts += q * this.n * k * marche.prix[r];
+      couts += q * marche.prix[r];
     }
     return recette - couts;
   }
@@ -2889,7 +2892,7 @@ class Batiment {
     // Le prix de revient réel fait plancher sur ce marché.
     if (this.def.sort && this.capacite > 0) {
       let c = this.masseSalarialePleine + this.entretien;
-      for (const [r, q] of Object.entries(this.def.intrants || {})) c += q * this.n * marche.prix[r];
+      for (const [r, q] of Object.entries(this.def.intrants || {})) c += q * marche.prix[r];
       marche.declarerRevient(this.def.sort, c / this.capacite);
     }
   }
@@ -3069,7 +3072,7 @@ class Batiment {
   intrants() {
     const out = [];
     for (const [r, q] of Object.entries(this.def.intrants || {})) {
-      const demande = q * this.n * (this.activiteEffective ?? this.activite);
+      const demande = q * (this.activiteEffective ?? this.activite);
       const recu = (this.recu && this.recu[r]) || 0;
       out.push({ res: r, demande, recu, part: demande > 0 ? recu / demande : 1 });
     }
@@ -3664,7 +3667,21 @@ function unChantierDeVille(monde, ville) {
     if (!cases && type === 'immeuble') cases = raserPourDensifier(monde, ville);
     if (!cases) continue;
 
-    if (def.cat !== 'loge'
+    // LA VILLE QUI A FAIM SÈME, MÊME À PERTE.
+    //
+    // Le seuil de rendement est celui d'un INVESTISSEUR : sous 5 % attendu, on
+    // ne place pas son argent. Mais une ville dont la nourriture passe sous son
+    // seuil critique ne fait pas un placement, elle survit — et sur une terre de
+    // qualité 1, qui rend −10 % par construction, aucune ferme ne s'ouvrirait
+    // jamais. Une ville sans bonne terre mourait donc de faim en regardant ses
+    // champs vides.
+    //
+    // Le seuil ne vaut donc que pour ce qui n'est pas vital. Nourrir passe
+    // avant, et c'est ce qui donne son sens à la case de qualité 1 : un droit de
+    // produire à prix coûtant, qu'on exerce parce qu'on n'a pas le choix.
+    const vital = VIVRIER.has(type)
+      && ville.barometres.nourriture < P.seuilsCritiques.nourriture;
+    if (def.cat !== 'loge' && !vital
         && rendementAttendu(monde, ville, type, cases) < P.rendementMinimalPourBatir) continue;
 
     ville.epargne -= cout;
@@ -3676,6 +3693,9 @@ function unChantierDeVille(monde, ville) {
 
 // Ce que rapporterait ce bâtiment, sur ces cases, aux prix d'aujourd'hui —
 // avant qu'il n'existe. C'est le calcul que ferait n'importe quel investisseur.
+// Ce qui nourrit : les deux exploitations et les deux ateliers de la filière.
+const VIVRIER = new Set(['ferme', 'ranch', 'minoterie', 'abattoir']);
+
 function rendementAttendu(monde, ville, type, cases) {
   const def = BAT[type];
   const m = ville.marche;
