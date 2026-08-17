@@ -2881,11 +2881,17 @@ class Batiment {
     // Un atelier dont la marge brute est négative — la valeur de ce qu'il
     // produit tombe sous le coût de ce qu'il consomme — arrête sa production de
     // lui-même et retombe à son seul entretien.
-    if (this.margeBrute(marche) < 0 && !this.forcer) {
-      this.activiteEffective = 0;
-      this.alerte = 'perte';
-      return;
-    }
+    // LE GARDE-FOU EST RETIRÉ. Un atelier dont la marge brute passait sous zéro
+    // s'arrêtait de lui-même. C'était juste tant que les marges étaient larges ;
+    // depuis que les taux sont calibrés au salaire de référence de 20 $ alors
+    // que les villes en pénurie paient 30 $, la marge d'une minoterie tombe à
+    // soixante centimes et le moindre frémissement du grain la faisait basculer.
+    // Toutes les minoteries s'arrêtaient ensemble, sans qu'aucune pénurie ne le
+    // justifie, et la ville mourait de faim avec ses champs pleins.
+    //
+    // On signale la perte, on ne l'empêche plus : c'est au propriétaire de
+    // fermer, et à la faillite de trancher au bout de deux ans.
+    if (this.margeBrute(marche) < 0) this.alerte = 'perte';
     this.activiteEffective = this.activite;
     for (const [r, q] of Object.entries(this.besoinsIntrants())) marche.demander(r, q, this.ville);
 
