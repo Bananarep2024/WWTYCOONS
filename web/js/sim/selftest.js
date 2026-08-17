@@ -63,7 +63,15 @@ for (const t of ['coupe', 'carriere', 'mineCharbon', 'mineFer', 'ferme', 'ranch'
 }
 ok('scierie', marge('scierie'), 16, 0.01);
 ok('briqueterie', marge('briqueterie'), 16, 0.01);
-ok('minoterie', marge('minoterie'), 16, 0.01);
+// Minoterie et abattoir traitent le double depuis que la ferme sort 40 céréales
+// à la qualité 1 : 40 en entrée, 20 pains en sortie. Une ferme de qualité 1
+// alimente donc exactement une minoterie, une de qualité 2 en alimente deux, une
+// de qualité 3 en alimente cinq.
+ok('minoterie', marge('minoterie'), 52, 0.01);
+ok('abattoir', marge('abattoir'), 52, 0.01);
+ok('une ferme de qualité 1 nourrit une minoterie',
+   BAT.ferme.debit * BAT.ferme.cases * P.echelleIndustrielle
+   / (BAT.minoterie.intrants.cereales * BAT.minoterie.cases), 1, 0.001);
 ok('aciérie', marge('acierie'), 22, 0.01);
 ok('manufacture', marge('manufacture'), 22, 0.01);
 

@@ -257,6 +257,20 @@ export const P = {
   // à −3,3 %, toute la base extractive fermait, et dix-huit villes sur quarante
   // mouraient.
   salaireAttendu: 24,
+  // CE QU'UN OUVRIER SORT SUR UNE CASE 1, EN DOLLARS DE MARCHANDISE.
+  //
+  // 12 $, soit la MOITIÉ de son salaire : une exploitation de qualité 1 est
+  // franchement déficitaire au prix de référence, et ne revient à l'équilibre
+  // que si le cours double — ce qui est précisément ce qui arrive dans une ville
+  // qui n'a que du sol pauvre, puisqu'elle produit peu et manque de tout.
+  //
+  // C'est le mécanisme voulu : le sol pauvre ne se paie pas en faillites, il se
+  // paie en PRIX ÉLEVÉS et en salaires au plafond, donc en budgets de ménages
+  // contraints et en épargne nulle. La ville vit, elle ne prospère pas.
+  //
+  // Une ferme : 12 ÷ 2,40 = 5 par case, × 2 cases × 4 ouvriers = 40 céréales.
+  // Une coupe : 12 ÷ 1 = 12 par case, × 1 case × 4 ouvriers = 48 bois.
+  recetteOuvrierQ1: 12,
   // Ce qu'un ouvrier dégage AU-DESSUS de son salaire sur une case 1. C'est cette
   // marge, et elle seule, qui fixe le capital d'une exploitation : « case 1 =
   // rendement nul » veut dire « marge brute annuelle = entretien », donc
@@ -357,7 +371,24 @@ export const P = {
   // quoi manger et s'équiper le temps que la filière locale se monte. La
   // population arrive ensuite d'elle-même, par la migration de frontière, si et
   // seulement si les trois baromètres tiennent.
-  logementsGare: 10,           // maisons vides montées le jour de la fondation
+  // UNE GARE N'EMPORTE PLUS RIEN, SAUF DU PAIN.
+  //
+  // Elle livrait dix maisons, trois exploitations et deux ans de vivres : c'était
+  // acheter une colonie clé en main, pas la fonder. On n'y trouve désormais que
+  // de quoi manger — un an de pain pour cinq ménages — et le prix suit.
+  //
+  // Tout le reste se bâtit sur place, avec des matériaux qui viennent de la ville
+  // la plus proche et mettent longtemps à arriver (voir moisAcheminement). Et
+  // c'est assez pour attirer du monde : une colonie qui offre du TRAVAIL et du
+  // PAIN n'a pas besoin de produits manufacturés pour qu'on vienne s'y installer.
+  menagesNourris: 5,           // combien de ménages la cargaison de pain nourrit
+  moisDePain: 12,              // pendant combien de mois
+  // LE DÉLAI D'ACHEMINEMENT. Un chantier ouvert dans une colonie non reliée
+  // n'attend pas des ouvriers : il attend un convoi. Rien ne lui est livré
+  // pendant ce délai, et les matériaux viennent ensuite du marché de la ville
+  // fondatrice la plus proche. C'est ce qui rend la voie ferrée désirable pour
+  // autre chose que le commerce : sans elle, on bâtit au ralenti.
+  moisAcheminement: 10,
   // Combien de ménages viennent chaque mois du dehors de la carte, à
   // attractivité maximale. C'est un flux ABSOLU, en ménages : le taux de
   // croissance ordinaire est un pourcentage de la population présente, et zéro
@@ -411,8 +442,11 @@ export const P = {
 // Le capital d'une case d'exploitation, déduit de la promesse « une case 1 rend
 // zéro au prix de référence » : son entretien annuel égale exactement sa marge
 // brute. C'est lui qui fixe les coûts de construction plus bas.
-P.recetteOuvrierQ1 = P.salaireAttendu + P.margeOuvrierQ1;
-export const CAPITAL_CASE = 120 * P.echelleIndustrielle * P.margeOuvrierQ1;
+// Le capital d'une case d'exploitation. Il se déduisait de « marge brute =
+// entretien » ; cette promesse n'a plus cours, la case 1 étant maintenant
+// déficitaire par construction. On le pose donc directement, à la valeur que
+// les mesures avaient retenue.
+export const CAPITAL_CASE = 1920;
 
 // --- Ressources -------------------------------------------------------------
 // prix = prix de référence, celui qui s'établit quand la demande égale l'offre.
@@ -453,8 +487,8 @@ export const BAT = {
 
   scierie:     { nom: 'Scierie',      cases: 2, w: 2, h: 1, sort: 'planches', debit: 12, intrants: { bois: 24 },              cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
   briqueterie: { nom: 'Briqueterie',  cases: 2, w: 2, h: 1, sort: 'briques',  debit: 12, intrants: { argile: 24 },            cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
-  minoterie:   { nom: 'Minoterie',    cases: 2, w: 2, h: 1, sort: 'pain',     debit: 5,  intrants: { cereales: 10 },          cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
-  abattoir:    { nom: 'Abattoir',     cases: 2, w: 2, h: 1, sort: 'viande',   debit: 5,  intrants: { betail: 10 },            cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
+  minoterie:   { nom: 'Minoterie',    cases: 2, w: 2, h: 1, sort: 'pain',     debit: 10, intrants: { cereales: 20 },          cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
+  abattoir:    { nom: 'Abattoir',     cases: 2, w: 2, h: 1, sort: 'viande',   debit: 10, intrants: { betail: 20 },            cout: 575, mat: { planches: 60, briques: 55 }, cat: 'trans' },
   acierie:     { nom: 'Aciérie',      cases: 4, w: 2, h: 2, sort: 'acier',    debit: 6,  intrants: { charbon: 24, minerai: 24 }, cout: 810, mat: { planches: 30, briques: 42, acier: 30 }, cat: 'trans' },
   manufacture: { nom: 'Manufacture',  cases: 4, w: 2, h: 2, sort: 'produits', debit: 6,  intrants: { planches: 6, acier: 2 }, cout: 680, mat: { planches: 40, briques: 36, acier: 20 }, cat: 'manu' },
 
@@ -554,20 +588,10 @@ export function emploisRequis(type) {
 //                 pendant vingt-quatre mois — de quoi tenir les trois baromètres
 //                 au plein pendant que le hameau se met debout
 export function devisGare() {
-  const mat = {};
-  const ajouter = (m, k) => {
-    for (const [r, q] of Object.entries(m)) mat[r] = (mat[r] || 0) + q * k;
-  };
-  ajouter(materiaux('maison'), P.logementsGare);
-  ajouter(materiaux('coupe'), P.exploitationsFournies);
-
-  const rations = P.logementsGare * P.moisDeVivres;
-  const vivres = { pain: rations, produits: rations };
-
+  const vivres = { pain: P.menagesNourris * P.moisDePain };
   let cout = P.coutGareNu;
-  for (const [r, q] of Object.entries(mat)) cout += q * RES[r].prix;
   for (const [r, q] of Object.entries(vivres)) cout += q * RES[r].prix;
-  return { mat, vivres, cout };
+  return { mat: {}, vivres, cout };
 }
 
 // Le rendement annuel que chaque palier est censé rendre, à cent pour cent
@@ -642,11 +666,19 @@ function echelonPour(rendementVise, indicePrix) {
 }
 
 // 0 · 1 · 1,09 · 2,13 — accélérée, parce que les cibles l'imposent.
-export const ECHELLE_SOL = [
-  0, 1,
-  echelonPour(P.rendementQ2, 1),
-  echelonPour(P.rendementQ3, P.prixEffondre),
-];
+// L'ÉCHELLE EST DÉSORMAIS POSÉE, PLUS DÉDUITE.
+//
+// Elle l'était : on partait des rendements visés et on en tirait la production.
+// Cela donnait 1 · 1,07 · 2,06 — une case 2 produisait 7 % de plus qu'une case 1,
+// ce qui rendait le palier intermédiaire invisible en jeu. On inverse : la
+// production est la donnée, le rendement en est la conséquence.
+//
+//   1 · 2 · 5   →  une ferme sort 40, 80 puis 200 céréales par mois
+//
+// Le saut de 2 à 5 est ce qui fait la valeur d'un filon, et la marche de 1 à 2
+// est enfin franche. `echelonPour` reste plus bas : il sert à documenter le
+// rendement que chaque échelon produit, non à le fixer.
+export const ECHELLE_SOL = [0, 1, 2, 5];
 
 // Ce qu'une case SORT, rapporté à une case de qualité 1. Zéro à qualité zéro :
 // pas de gisement, rien à extraire. La qualité d'un bâtiment étant la moyenne de

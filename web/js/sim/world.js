@@ -198,65 +198,11 @@ export class Monde {
     for (const [r, q] of Object.entries(devis.vivres)) livre.stock[r] += q;
     v.marche.recomposerStock();
 
-    // LES COLONS ARRIVENT AVEC LEUR TOIT, PAS SEULEMENT AVEC LES PLANCHES.
-    //
-    // Livrer les matériaux et laisser le hameau se construire ne marche pas :
-    // dix ménages sans logement ne s'installent pas, la ville est vide au
-    // premier mois, et personne ne bâtit jamais rien parce qu'il n'y a personne.
-    // Mesuré : population à zéro au sixième mois, aucun bâtiment, et les vivres
-    // qui pourrissent tout seuls. Les maisons font donc partie de la cargaison
-    // et sont montées le jour même ; le reste des matériaux dort en réserve pour
-    // que les colons ouvrent leurs exploitations eux-mêmes.
-    let logees = 0;
-    for (let i = 0; i < P.logementsGare; i++) {
-      const site = this.trouverEmplacement(v, 'maison', null, 2);
-      if (!site) break;
-      this.poser('maison', v, site, null);
-      logees++;
-    }
-    for (const [r, q] of Object.entries(materiaux('maison'))) {
-      livre.stock[r] = Math.max(0, livre.stock[r] - q * logees);
-    }
-
-    // ET AVEC LEUR TRAVAIL. Loger les colons ne suffit pas non plus : sans
-    // emploi ils n'ont aucun revenu, donc ils n'achètent pas les vivres qu'on
-    // vient pourtant de leur livrer. Mesuré : 6 % d'emploi, nourriture à 0 %
-    // avec cent vingt-cinq pains en réserve, et le hameau s'éteint quand même.
-    //
-    // Les exploitations font donc partie de la cargaison au même titre que les
-    // maisons. Elles reviennent à la société fondatrice — c'est le filon qu'elle
-    // est venue chercher, et c'est ce qui paie la gare.
-    let ouvertes = 0;
-    const parRessource = {};
-    for (const c of v.cases) for (const n of QUALITES) {
-      if (c.q[n] > (parRessource[n] || 0)) parRessource[n] = c.q[n];
-    }
-    // On ouvre sur ce que le sol donne de mieux, en commençant par le plus riche.
-    const ordre = Object.entries(parRessource).sort((a, b) => b[1] - a[1]);
-    const TYPE = { fertilite: 'ferme', bois: 'coupe', argile: 'carriere',
-                   charbon: 'mineCharbon', minerai: 'mineFer' };
-    for (const [ressource, q] of ordre) {
-      if (ouvertes >= P.exploitationsFournies || q < 1) break;
-      const type = TYPE[ressource];
-      while (ouvertes < P.exploitationsFournies) {
-        // On cherche l'emplacement sous les règles de la terre libre — la
-        // société ne possède encore aucune case de sa colonie — puis on lui
-        // attribue le bâtiment. Chercher en son nom ne trouvait jamais rien.
-        const site = this.trouverEmplacement(v, type, null, 2);
-        if (!site) break;
-        this.poser(type, v, site, societe);
-        ouvertes++;
-        break;   // une seule par ressource au premier tour : on diversifie
-      }
-    }
-    for (const [r, q] of Object.entries(materiaux('coupe'))) {
-      livre.stock[r] = Math.max(0, livre.stock[r] - q * ouvertes);
-    }
     v.marche.recomposerStock();
 
     this.journal.push(`${this.mois} · ⚑ ${societe.nom} fonde ${v.nom}`
-      + ` — ${logees} logements vides, ${ouvertes} exploitations,`
-      + ` ${P.moisDeVivres} mois de vivres, ${Math.round(devis.cout)} $`);
+      + ` — ${P.moisDePain} mois de pain pour ${P.menagesNourris} ménages,`
+      + ` ${Math.round(devis.cout)} $`);
     return v;
   }
 
@@ -895,6 +841,36 @@ export class Monde {
     return out;
   }
 
+  // LE MARCHÉ QUI APPROVISIONNE UN CHANTIER.
+  //
+  // Une colonie neuve n'a ni scierie ni briqueterie, et son marché est isolé :
+  // ses chantiers n'y trouveraient jamais une planche et resteraient ouverts
+  // pour toujours. Les matériaux viennent donc de la VILLE LA PLUS PROCHE qui en
+  // ait un marché à elle — c'est le convoi de ravitaillement, et il explique le
+  // délai d'acheminement que paie tout chantier d'une ville non reliée.
+  //
+  // Une ville reliée au rail n'a pas ce problème : son marché est déjà celui de
+  // ses voisines.
+  marcheFournisseur(ville) {
+    if (ville.marche && ville.marche.villes.length > 1) return ville.marche;
+    let meilleure = null, best = Infinity;
+    for (const v of this.villes) {
+      if (v === ville || v.fondee !== undefined) continue;   // on se fournit chez les fondatrices
+      const d = Math.hypot(v.gare.x - ville.gare.x, v.gare.y - ville.gare.y);
+      if (d < best) { best = d; meilleure = v; }
+    }
+    return meilleure ? meilleure.marche : ville.marche;
+  }
+
+  // Le temps qu'il faut de plus pour bâtir au bout du monde. Un chantier isolé
+  // n'attend pas des ouvriers, il attend un convoi : tant que ce délai n'est pas
+  // écoulé, rien ne lui est livré.
+  chantierAcheminant(ch, ville) {
+    if (ville.fondee === undefined) return false;
+    if (ville.marche && ville.marche.villes.length > 1) return false;
+    return this.mois - ch.ouvertLe < P.moisAcheminement;
+  }
+
   tousChantiers(ville) {
     const out = [];
     for (const s of this.societes) for (const c of s.chantiers) if (c.ville === ville) out.push(c);
@@ -967,7 +943,9 @@ export class Monde {
       // C'est ainsi qu'une ville à court de briques finit par se donner une
       // briqueterie.
       for (const ch of this.tousChantiers(v)) {
-        for (const [r, q] of Object.entries(ch.restant)) if (q > 0) m.demander(r, q, v);
+        if (this.chantierAcheminant(ch, v)) continue;   // le convoi n'est pas arrivé
+        const mf = this.marcheFournisseur(v);
+        for (const [r, q] of Object.entries(ch.restant)) if (q > 0) mf.demander(r, q, mf === m ? v : null);
       }
 
       // L'entretien du bâti : une demande permanente de matériaux, qui donne
@@ -1048,12 +1026,14 @@ export class Monde {
           const m = v.marche;
           const chs = this.tousChantiers(v).sort((a, b) => a.ouvertLe - b.ouvertLe);
           for (const ch of chs) {
+            if (this.chantierAcheminant(ch, v)) continue;
+            const mf = this.marcheFournisseur(v);
             for (const [r, q] of Object.entries(ch.restant)) {
               if (q <= 0) continue;
-              const servi = m.prendre(r, q, v);
+              const servi = mf.prendre(r, q, mf === m ? v : null);
               ch.restant[r] = Math.max(0, q - servi);
               ch.recu[r] = (ch.recu[r] || 0) + servi;
-              if (ch.societe) ch.societe.payer(servi * m.prix[r]);
+              if (ch.societe) ch.societe.payer(servi * mf.prix[r]);
             }
           }
         }
@@ -1416,7 +1396,10 @@ export class Monde {
       const postes = this.tousBatiments(v)
         .reduce((s, b) => s + (b.def.cat === 'loge' ? 0 : b.emplois), 0);
       const mange = NOURRITURES.reduce((s, r) => s + l.stock[r], 0);
-      if (postes > 0 && mange > 0 && l.stock.produits > 0) frontiere = P.immigrationFrontiere;
+      // Du travail et du pain suffisent. Exiger en plus des produits
+      // manufacturés condamnait toute colonie neuve : sa manufacture est à
+      // trois étages de la mine, elle ne peut pas exister le premier mois.
+      if (postes > 0 && mange > 0) frontiere = P.immigrationFrontiere;
     } else if (!critique && moyenne > P.pivot) {
       frontiere = P.immigrationFrontiere * (moyenne - P.pivot) / (1 - P.pivot);
     }
