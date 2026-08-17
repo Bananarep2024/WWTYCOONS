@@ -450,20 +450,39 @@ export const CAPITAL_CASE = 1920;
 
 // --- Ressources -------------------------------------------------------------
 // prix = prix de référence, celui qui s'établit quand la demande égale l'offre.
+//
+// CES PRIX SE DÉDUISENT, ILS NE SE POSENT PAS. Méthode du §4.1 :
+//
+//   prix = coût direct par unité ÷ part du salaire dans le prix
+//   coût direct = salaires + intrants, à la production d'une case de QUALITÉ 1
+//
+// Ils valaient 1 $ le bois quand un ouvrier en sortait 30 par mois. Il n'en sort
+// plus que 12 depuis que l'échelle des sols a été reposée, et le prix devait
+// suivre : c'est le mécanisme de l'offre et de la demande, pas une décision.
+//
+// Les laisser périmés revenait à faire battre le marché contre un ancrage faux —
+// la tension montait jusqu'au plafond de 2,50× sans jamais rétablir la marge, et
+// le monde s'effondrait à zéro ménage par ville en vingt ans.
+//
+// Aux prix ci-dessous, un ouvrier sur une case 1 encaisse 24,10 $ contre 24 $ de
+// salaire : l'équilibre exact, la case pauvre ne rapportant rien. Et le ménage
+// paie son panier 46,98 $ pour un revenu de 48 $ au plein emploi — il boucle, il
+// n'épargne pas. C'est très exactement la ville de sol pauvre : elle vit, elle
+// ne prospère pas. Tout ce qui dépasse la qualité 1 devient de l'épargne.
 
 export const RES = {
-  bois:      { nom: 'Bois',      prix: 1,    couleur: '#7a6a4f', extractible: true  },
-  argile:    { nom: 'Argile',    prix: 1,    couleur: '#a56b4a', extractible: true  },
-  charbon:   { nom: 'Charbon',   prix: 1,    couleur: '#3d3d42', extractible: true  },
-  minerai:   { nom: 'Minerai',   prix: 1,    couleur: '#6b5b73', extractible: true  },
-  cereales:  { nom: 'Céréales',  prix: 2.40, couleur: '#c9a227', extractible: true  },
-  betail:    { nom: 'Bétail',    prix: 2.40, couleur: '#b08968', extractible: true  },
-  planches:  { nom: 'Planches',  prix: 5,    couleur: '#b5894f', extractible: false },
-  briques:   { nom: 'Briques',   prix: 5,    couleur: '#9c4a35', extractible: false },
-  acier:     { nom: 'Acier',     prix: 15,   couleur: '#5a7d8c', extractible: false },
-  pain:      { nom: 'Pain',      prix: 12,   couleur: '#d9a441', extractible: false },
-  viande:    { nom: 'Viande',    prix: 12,   couleur: '#a83f3f', extractible: false },
-  produits:  { nom: 'Produits',  prix: 17,   couleur: '#4f7d5a', extractible: false },
+  bois:      { nom: 'Bois',      prix: 2.01,    couleur: '#7a6a4f', extractible: true  },
+  argile:    { nom: 'Argile',    prix: 2.01,    couleur: '#a56b4a', extractible: true  },
+  charbon:   { nom: 'Charbon',   prix: 2.01,    couleur: '#3d3d42', extractible: true  },
+  minerai:   { nom: 'Minerai',   prix: 2.01,    couleur: '#6b5b73', extractible: true  },
+  cereales:  { nom: 'Céréales',  prix: 4.82, couleur: '#c9a227', extractible: true  },
+  betail:    { nom: 'Bétail',    prix: 4.82, couleur: '#b08968', extractible: true  },
+  planches:  { nom: 'Planches',  prix: 8.48,    couleur: '#b5894f', extractible: false },
+  briques:   { nom: 'Briques',   prix: 8.48,    couleur: '#9c4a35', extractible: false },
+  acier:     { nom: 'Acier',     prix: 16.96,   couleur: '#5a7d8c', extractible: false },
+  pain:      { nom: 'Pain',      prix: 17.37,   couleur: '#d9a441', extractible: false },
+  viande:    { nom: 'Viande',    prix: 17.37,   couleur: '#a83f3f', extractible: false },
+  produits:  { nom: 'Produits',  prix: 29.61,   couleur: '#4f7d5a', extractible: false },
 };
 
 export const RESSOURCES = Object.keys(RES);
