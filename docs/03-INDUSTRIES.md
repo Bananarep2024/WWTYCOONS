@@ -43,7 +43,7 @@ Trois contraintes tenues :
 | Bière | **Brasserie** | 2 | 40 céréales | 20 | 6,82 $ | courant |
 | Savon | **Savonnerie** | 2 | 40 bétail | 20 | 6,82 $ | courant |
 | Étoffes | **Filature** | 2 | 40 bétail | 20 | 6,82 $ | courant |
-| Papier | **Papeterie** | 4 | 60 bois + 20 charbon | 30 | 10,31 $ | courant |
+| Papier | **Papeterie** | 2 | 30 bois + 10 charbon | 20 | 6,82 $ | courant |
 | Outillage | **Forge** | 4 | 60 acier + 20 charbon | 30 | 37,56 $ | durable |
 | Meubles | **Fabrique de meubles** | 4 | 60 planches + 20 acier | 30 | 32,52 $ | durable |
 
@@ -135,14 +135,14 @@ Consommation mensuelle proposée, et ce qu'elle coûte au prix de référence, m
 | Pain ou viande | 1,00 | 6,82 $ | 6,82 $ | **nourriture** |
 | Savon | 0,50 | 6,82 $ | 3,41 $ | courant |
 | Bière | 0,50 | 6,82 $ | 3,41 $ | courant |
-| Papier | 0,50 | 10,31 $ | 5,16 $ | courant |
+| Papier | 0,50 | 6,82 $ | 3,41 $ | courant |
 | Étoffes | 0,35 | 6,82 $ | 2,39 $ | courant |
 | Vaisselle | 0,25 | 6,82 $ | 1,71 $ | courant |
 | Outillage | 0,08 | 37,56 $ | 3,00 $ | durable |
 | Meubles | 0,08 | 32,52 $ | 2,60 $ | durable |
-| | | **Total** | **28,49 $** | |
+| | | **Total** | **26,74 $** | |
 
-Avec 12 % de marge de commerce : **31,91 $**. Un ménage au plein emploi gagne 40 $ et paie ~5 $ de
+Avec 12 % de marge de commerce : **29,95 $**. Un ménage au plein emploi gagne 40 $ et paie ~5 $ de
 loyer : il lui reste 35 $. **Le panier complet est donc tout juste atteignable, et seulement au plein
 emploi dans une ville aux prix sages.** C'est exactement le réglage voulu — le panier doit être une
 ambition, pas un acquis.
@@ -201,13 +201,36 @@ ajouter une usine sans l'inscrire dans la liste la laissait à zéro pour toujou
 erreur. C'est arrivé aux sept nouvelles d'un coup. La profondeur se calcule désormais depuis les
 intrants ; on ne peut plus l'oublier.
 
+### La papeterie ramenée à deux cases
+
+Elle était bâtie sur le patron des quatre cases — 60 bois + 20 charbon pour 30 papier — ce qui lui
+donnait un prix de référence de **10,31 $**, une fois et demie celui des autres biens courants. À
+une demi-rame par mois, le papier pesait alors **6,60 $ sur les 19,98 $ de budget secondaire** d'un
+ménage : un tiers à lui seul. Le rang 1 consommait la totalité du budget, et **aucun ménage n'a
+jamais acheté un meuble ni un outil, pas même dans un monde de cases 3.**
+
+Ramenée à la recette commune — deux ouvriers, quarante matières, vingt unités, 30 bois + 10 charbon
+pour garder au charbon ses trois débouchés — elle sort à **6,83 $** comme le savon et la bière, pour
+un rendement de 19,8 % conforme au palier.
+
+Ce que ça débloque, mesuré à 240 mois sur trois richesses de sol :
+
+| Monde | Confort | Outillage | Meubles |
+|---|---:|---:|---:|
+| actuel (80 % de cases 0) | 52 → **61 %** | 0 % | 0 % |
+| riche | 76 → **84 %** | 0 → **17 %** | 33 → **67 %** |
+| très riche (35 % de cases 3) | 78 → **73 %** | 0 → **43 %** | 2 → **70 %** |
+
+**Les durables répondent enfin à la qualité du sol** — inatteignables sur terre pauvre, largement
+servis sur terre riche — ce qui était le but. Et dans une ville au plein emploi, le panier entier
+passe : Plaine-Dorée, 100 % d'emploi, achète ses 0,084 meubles et ses 0,084 outils par mois pour
+0,08 voulus, en épargnant encore 39 % de son revenu.
+
 ### Reste ouvert
 
 1. **Le grand magasin** est défini et constructible, mais rien ne le fait remplacer les petits
    commerces au-delà d'un seuil de ville. Il s'ajoute.
-2. **Les biens durables ne se vendent pas.** Outillage et meubles restent à 0 % de satisfaction : le
-   budget est épuisé par le rang 1. C'est cohérent — un durable est un luxe — mais cela veut dire
-   que la forge et la fabrique de meubles ne tournent que pour l'exportation. À surveiller.
+2. **Le grand magasin** ne remplace rien : il s'ajoute.
 3. **Les étoffes sortent du bétail**, ce qui met trois ateliers sur le même intrant. L'autre voie
    serait une septième matière première, du coton, au prix de la contrainte « aucune matière
    nouvelle ».

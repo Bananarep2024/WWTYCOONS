@@ -591,7 +591,7 @@ export const RES = {
   biere:     { nom: 'Bière',     prix: 6.83,    couleur: '#c9832b', extractible: false },
   savon:     { nom: 'Savon',     prix: 6.83,    couleur: '#cfc7a8', extractible: false },
   etoffes:   { nom: 'Étoffes',   prix: 6.83,    couleur: '#8a6f9e', extractible: false },
-  papier:    { nom: 'Papier',    prix: 10.31,   couleur: '#d8d2be', extractible: false },
+  papier:    { nom: 'Papier',    prix: 6.83,    couleur: '#d8d2be', extractible: false },
   meubles:   { nom: 'Meubles',   prix: 32.58,   couleur: '#4f7d5a', extractible: false },
   outillage: { nom: 'Outillage', prix: 37.62,   couleur: '#7c8ba0', extractible: false },
 };
@@ -671,13 +671,26 @@ export const BAT = {
   // `manufacture` est l'ancienne manufacture, renommée : mêmes intrants, même
   // débit, même prix. Rien n'a été recalibré de ce côté.
   manufacture: { nom: 'Fabrique de meubles', cases: 4, w: 2, h: 2, employes: 4, sort: 'meubles',   debit: 30, intrants: { planches: 60, acier: 20 },  cout: 8107, mat: { planches: 426, briques: 383, acier: 213 }, cat: 'manu' },
-  papeterie:   { nom: 'Papeterie',           cases: 4, w: 2, h: 2, employes: 4, sort: 'papier',    debit: 30, intrants: { bois: 60, charbon: 20 },    cout: 2369, mat: { planches: 144, briques: 130, acier: 41 },  cat: 'manu' },
   forge:       { nom: 'Forge',               cases: 4, w: 2, h: 2, employes: 4, sort: 'outillage', debit: 30, intrants: { acier: 60, charbon: 20 },   cout: 9392, mat: { planches: 573, briques: 516, acier: 161 }, cat: 'manu' },
 
   // Les ateliers de biens courants : la même recette que la scierie — deux
   // ouvriers, quarante matières, vingt unités — appliquée à quatre débouchés
   // que le modèle n'avait pas. Le bétail passe ainsi de une à trois issues et
   // le charbon de même : ce sont les deux matières que le jeu sous-employait.
+  // LA PAPETERIE EST UN ATELIER, PAS UNE MANUFACTURE.
+  //
+  // Elle était bâtie sur le patron des quatre cases — 60 bois + 20 charbon pour
+  // 30 papier — ce qui lui donnait un prix de référence de 10,31 $, une fois et
+  // demie celui des autres biens courants. Conséquence mesurée : à une
+  // demi-rame par mois, le papier pesait 6,60 $ sur les 19,98 $ de budget
+  // secondaire d'un ménage — UN TIERS À LUI SEUL — et le rang 1 consommait la
+  // totalité du budget, si bien qu'aucun ménage n'a jamais acheté un meuble ni
+  // un outil, pas même dans un monde de cases 3.
+  //
+  // Ramenée à la recette commune — deux ouvriers, quarante matières, vingt
+  // unités — elle sort à 6,83 $ comme le savon et la bière. Le charbon reste
+  // dans la recette pour lui garder ses trois débouchés.
+  papeterie:   { nom: 'Papeterie',    cases: 2, w: 2, h: 1, employes: 2, sort: 'papier',    debit: 20, intrants: { bois: 30, charbon: 10 }, cout: 691, mat: { planches: 51, briques: 51 }, cat: 'trans' },
   faiencerie:  { nom: 'Faïencerie',   cases: 2, w: 2, h: 1, employes: 2, sort: 'vaisselle', debit: 20, intrants: { argile: 40 },   cout: 683, mat: { planches: 50, briques: 50 }, cat: 'trans' },
   brasserie:   { nom: 'Brasserie',    cases: 2, w: 2, h: 1, employes: 2, sort: 'biere',     debit: 20, intrants: { cereales: 40 }, cout: 683, mat: { planches: 50, briques: 50 }, cat: 'trans' },
   savonnerie:  { nom: 'Savonnerie',   cases: 2, w: 2, h: 1, employes: 2, sort: 'savon',     debit: 20, intrants: { betail: 40 },   cout: 683, mat: { planches: 50, briques: 50 }, cat: 'trans' },
