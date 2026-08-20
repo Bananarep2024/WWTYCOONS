@@ -1,8 +1,7 @@
-# Usines et commerces — proposition
+# Usines et commerces
 
-**Statut : proposition, rien n'est implémenté.** Ce document découpe le fourre-tout « produits
-manufacturés » en une famille de biens, et introduit l'étage qui manque entre l'usine et le ménage :
-le commerce.
+**Statut : implémenté.** Sept biens, sept usines, cinq commerces. Ce document décrit ce qui tourne ;
+les écarts avec la proposition initiale sont signalés et expliqués.
 
 Tous les prix ci-dessous sont **dérivés**, pas posés. Méthode du § 4.1 du barème :
 
@@ -92,30 +91,37 @@ tient boutique, et revend au ménage avec une marge. Nouvelle catégorie `com`.
 
 | Commerce | Cases | Tient | Rôle |
 |---|---:|---|---|
-| **Épicerie** | 2 | pain, viande, bière, savon | l'ordinaire — toute ville en a |
+| **Épicerie** | 2 | bière, savon | l'ordinaire — toute ville en a |
 | **Nouveautés** | 2 | étoffes, vaisselle | le demi-luxe |
 | **Quincaillerie** | 2 | outillage, papier | l'équipement du ménage |
 | **Ameublement** | 2 | meubles | le durable, réservé aux villes riches |
 | **Grand magasin** | 4 | tout | la métropole — il remplace les autres |
 
-### Calibrage proposé
+### Calibrage — deux corrections mesurées
 
-Un commerce de 2 cases, 2 employés, **débit 100 unités par mois**, **marge 12 %** :
+**Le débit se compte en VALEUR, pas en unités.** C'est la seule mesure juste pour un détaillant :
+une unité de meubles pèse cinq unités de savon, et un débit en unités aurait fait d'un magasin de
+meubles une affaire cinq fois plus grosse qu'une épicerie à surface égale. Un commerce de 2 cases
+écoule **1 200 $ de marchandise par mois**, un grand magasin 3 600 $.
+
+**Et il est calibré à son activité RÉELLE, pas à son plein.** C'est la différence de fond avec un
+atelier. Une usine tourne à 90-100 % parce que sa production est poussée par ses intrants ; une
+boutique tourne à 60-70 % parce que sa vente est tirée par un budget qui fluctue. Calibrée au plein,
+elle ne rentrait dans ses frais qu'au-dessus de 75 % d'activité — **et l'on mesurait 123 commerces
+déficitaires sur 123**. Le capital se déduit donc d'un rendement de 20 % atteint à **70 % d'activité**,
+ce qui fait tomber le seuil de rentabilité à 43 %.
 
 ```
-chiffre d'affaires   100 × 6,82  =  682 $/mois
-marge                682 × 12 %  =   82 $/mois
-salaires                         =   40 $/mois
-entretien du bâti                =   12 $/mois
-──────────────────────────────────────────────
-résultat                             30 $/mois  →  23 %/an sur ~1 600 $ investis
+à 70 % d'activité :
+  marge      1 200 × 70 % × 12/112  =  90,0 $/mois
+  salaires                          = −40,0 $/mois
+  entretien                         = −15,6 $/mois
+  ─────────────────────────────────────────────────
+  résultat                             34,4 $/mois  →  20,0 %/an sur 2 067 $
 ```
 
-Le débit sort de la forme d'une ville, pas d'un souhait : une épicerie tenant environ deux unités
-par ménage et par mois sert cinquante ménages, ce qui donne à une ville de cinq cents habitants une
-dizaine de boutiques. La marge se déduit ensuite du rendement visé — 20 % l'an, celui de la
-transformation. **Ces deux nombres devront être mesurés comme l'a été la commission du rail** : ils
-sont posés ici pour donner un ordre de grandeur, pas pour être crus.
+Mesuré à 240 mois après correction : **76 boutiques, +1 542 $/mois de résultat, 22 en perte** —
+contre 160 boutiques toutes déficitaires avant.
 
 ---
 
@@ -175,17 +181,33 @@ effectivement obtenus, pondérée par le rang.
 
 ---
 
-## 6. Questions ouvertes
+## 6. Ce qui a été tranché, et ce qui reste
 
-1. **Le commerce gate-t-il l'accès, ou seulement la marge ?** La proposition dit les deux. N'en
-   garder qu'un — la marge — serait plus simple et moins risqué : aucune ville ne peut alors mourir
-   d'un manque de boutiques. Mais on perd ce qui rend le commerce intéressant à posséder.
-2. **Le grand magasin remplace-t-il les autres, ou s'y ajoute-t-il ?** S'il remplace, il faut un
-   seuil de niveau de ville. S'il s'ajoute, il écrase les petits commerces par sa marge.
-3. **Sept biens, est-ce trop ?** Le panier passe de deux lignes à huit. C'est plus riche et plus
-   lourd à lire. Un premier jet à **quatre** biens — savon, bière, papier, meubles — serait un test
-   honnête avant d'aller jusqu'à sept.
-4. **Les étoffes sortent-elles du bétail ou faut-il une matière ?** La laine sort du troupeau, ce
-   qui est juste, mais met trois ateliers sur le même intrant. L'autre voie serait une septième
-   matière première — du coton, sur les cases fertiles chaudes — au prix d'une exception à la
-   contrainte « aucune matière nouvelle ».
+**La nourriture ne passe pas par le commerce.** C'est un besoin primaire : le boulanger vend son
+pain, et aucune ville ne doit pouvoir mourir de faim faute d'épicerie. Le verrou du comptoir ne
+porte que sur les besoins secondaires — c'est exactement la ligne de partage entre les deux étages.
+
+**Le souhait est distinct de la demande.** Le ménage *souhaite* ce que son budget supporte ; il
+*demande* le minimum entre ce souhait et ce que les boutiques savent vendre. Sans cette distinction,
+la ville comparait ses comptoirs à un désir absolu que personne ne pouvait payer, et bâtissait des
+boutiques qui ne vendraient jamais rien. C'était la cause des 123 commerces déficitaires.
+
+**L'ameublement n'est pas au parc de départ.** Le meuble est un bien de rang 2 qu'aucun ménage de
+comptoir ne peut s'offrir ; la boutique ouvrirait pour ne rien vendre.
+
+**Les vagues de production sont dérivées.** L'ordre dans lequel les ateliers produisent — la scierie
+après la coupe, la manufacture après la scierie — était écrit à la main, et c'était un piège :
+ajouter une usine sans l'inscrire dans la liste la laissait à zéro pour toujours, sans la moindre
+erreur. C'est arrivé aux sept nouvelles d'un coup. La profondeur se calcule désormais depuis les
+intrants ; on ne peut plus l'oublier.
+
+### Reste ouvert
+
+1. **Le grand magasin** est défini et constructible, mais rien ne le fait remplacer les petits
+   commerces au-delà d'un seuil de ville. Il s'ajoute.
+2. **Les biens durables ne se vendent pas.** Outillage et meubles restent à 0 % de satisfaction : le
+   budget est épuisé par le rang 1. C'est cohérent — un durable est un luxe — mais cela veut dire
+   que la forge et la fabrique de meubles ne tournent que pour l'exportation. À surveiller.
+3. **Les étoffes sortent du bétail**, ce qui met trois ateliers sur le même intrant. L'autre voie
+   serait une septième matière première, du coton, au prix de la contrainte « aucune matière
+   nouvelle ».

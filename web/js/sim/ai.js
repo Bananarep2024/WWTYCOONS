@@ -7,15 +7,28 @@
 // pour un joueur — un joueur a simplement le droit de se tromper.
 // ---------------------------------------------------------------------------
 
-import { P, BAT, RES, facteurQualite, echelleDe, emploisRequis } from './params.js';
+import { P, BAT, RES, facteurQualite, echelleDe, emploisRequis,
+         PANIER, POIDS_PANIER } from './params.js';
 
 // Qui produit quoi.
 const PRODUCTEUR = {
   bois: 'coupe', argile: 'carriere', charbon: 'mineCharbon', minerai: 'mineFer',
   cereales: 'ferme', betail: 'ranch',
   planches: 'scierie', briques: 'briqueterie', pain: 'minoterie',
-  viande: 'abattoir', acier: 'acierie', produits: 'manufacture',
+  viande: 'abattoir', acier: 'acierie',
+  meubles: 'manufacture', papier: 'papeterie', outillage: 'forge',
+  vaisselle: 'faiencerie', biere: 'brasserie', savon: 'savonnerie',
+  etoffes: 'filature',
 };
+
+// Quelle boutique tient quel bien. Une ville qui manque d'un article secondaire
+// n'a pas forcément besoin d'une usine de plus : il lui manque peut-être
+// simplement le comptoir qui le vendrait.
+const BOUTIQUE_DE = {};
+for (const t of Object.keys(BAT)) {
+  if (BAT[t].cat !== 'com' || t === 'grandMagasin') continue;
+  for (const r of BAT[t].tient) BOUTIQUE_DE[r] = t;
+}
 
 // PREMIÈRE RÈGLE — on ne bâtit pas ce qui manque, on bâtit ce qui empêche de
 // le faire. La ville prend son besoin le plus criant, puis remonte la filière
@@ -204,7 +217,38 @@ function besoinsClasses(monde, ville, penchant) {
     candidats.push({ score: 2.2 + ville.occupation, res: null, type: 'logement' });
   }
 
-  if (b.produits < P.cibleProduits) candidats.push({ score: 2 - b.produits, res: 'produits' });
+  // LE PANIER SECONDAIRE, ARTICLE PAR ARTICLE.
+  //
+  // Ce n'était qu'une ligne — « il manque des produits » — et la ville bâtissait
+  // une manufacture de plus. Elle regarde maintenant CE QUI manque, et distingue
+  // les deux raisons de manquer : ou bien la ville n'en fabrique pas, ou bien
+  // elle en fabrique et n'a personne pour le vendre. Dans le second cas il faut
+  // une boutique, et un atelier de plus n'y changerait rien.
+  for (const a of PANIER) {
+    const voulu = a.qte * ville.menages;
+    if (voulu <= 0.01) continue;
+    const obtenu = (ville.obtenu && ville.obtenu[a.res]) || 0;
+    const satisfaction = obtenu / voulu;
+    if (satisfaction >= P.cibleProduits) continue;
+
+    // L'étalage suffit-il ? La comparaison porte sur le SOUHAIT — ce que le
+    // budget des ménages supporte — et non sur le désir absolu. Une ville trop
+    // pauvre pour s'acheter des meubles n'a pas besoin d'un magasin de meubles :
+    // c'est de salaire qu'elle manque, pas de comptoir.
+    const souhait = (ville.souhaits && ville.souhaits[a.res]) || 0;
+    if (souhait <= 0.01) continue;
+    const etal = (ville.etalage && ville.etalage[a.res]) || 0;
+    const valeurVoulue = souhait * m.prix[a.res] * (1 + P.margeCommerce);
+    const bride = etal < valeurVoulue * 0.95;
+
+    const poids = POIDS_PANIER[a.res] * PANIER.length;   // ramené autour de 1
+    if (bride && BOUTIQUE_DE[a.res]) {
+      candidats.push({ score: (1.6 - satisfaction) * poids,
+                       res: null, type: BOUTIQUE_DE[a.res] });
+    } else {
+      candidats.push({ score: (1.4 - satisfaction) * poids, res: a.res });
+    }
+  }
 
   // Les bureaux — le seul argent qui vienne du dehors.
   //
@@ -331,7 +375,9 @@ function unChantierDeVille(monde, ville) {
   const essayes = new Set();
   for (const besoin of ordre) {
     let type;
-    if (besoin.type === 'bureaux') {
+    if (besoin.type && BAT[besoin.type] && BAT[besoin.type].cat === 'com') {
+      type = besoin.type;                       // une boutique, pas une usine
+    } else if (besoin.type === 'bureaux') {
       type = 'bureaux';
     } else if (besoin.type === 'logement') {
       // La maison est un petit pas prudent, l'immeuble un pari sur l'avenir.
@@ -463,6 +509,36 @@ const VIVRIER = new Set(['ferme', 'ranch', 'minoterie', 'abattoir']);
 export function rendementAttendu(monde, ville, type, cases) {
   const def = BAT[type];
   const m = ville.marche;
+
+  // LE COMMERCE SE CALCULE, LUI AUSSI. Sa recette est une marge sur ce qu'il
+  // écoulera, et ce qu'il écoulera est borné par deux choses : son propre débit,
+  // et ce que la ville n'arrive pas encore à acheter. Une septième épicerie dans
+  // une ville qui en a six de trop ne vendra rien, et le chiffre doit le dire.
+  if (def.cat === 'com') {
+    const etal = monde.etalage(ville);
+    let place = 0;
+    for (const r of def.tient) {
+      const a = PANIER.find(x => x.res === r);
+      if (!a) continue;
+      // Ce que la ville peut PAYER, moins ce que les comptoirs existants
+      // écoulent déjà : c'est là, et nulle part ailleurs, qu'il reste de la
+      // place pour une boutique de plus.
+      const souhait = (ville.souhaits && ville.souhaits[r] !== undefined)
+        ? ville.souhaits[r] : a.qte * ville.menages;
+      const voulu = souhait * m.prix[r] * (1 + P.margeCommerce);
+      place += Math.max(0, voulu - (etal[r] || 0));
+    }
+    const ecoule = Math.min(def.debit, place);
+    const mensuel = ecoule * P.margeCommerce / (1 + P.margeCommerce)
+                  - P.salaireCase * def.employes;
+    let bati = 0;
+    for (const [r, qte] of Object.entries(def.mat)) bati += qte * m.prix[r];
+    const terrain = cases.reduce((s, c) => s + monde.prixCase(ville, c), 0);
+    const revient = terrain + bati;
+    if (revient <= 0) return 0;
+    return (mensuel * 12 - bati * P.entretienAnnuel) / revient;
+  }
+
   if (!def.sort) return Infinity;   // bureaux, entrepôt : hors de ce calcul
 
   const q = def.qual

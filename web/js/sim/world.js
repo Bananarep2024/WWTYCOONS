@@ -14,7 +14,8 @@
 
 import { P, RES, RESSOURCES, BAT, NOURRITURES, materiaux, coutRef,
          niveauVille, prixTerrain, qualiteMax, devisGare, QUALITES,
-         FILIERES_LOCALES, RATTACHEMENTS } from './params.js';
+         FILIERES_LOCALES, RATTACHEMENTS, PANIER, POIDS_PANIER,
+         BIENS_SECONDAIRES, VAGUES } from './params.js';
 import { genererMonde, estAchetable, rng } from './mapgen.js';
 import { Marche } from './market.js';
 import { Batiment } from './building.js';
@@ -447,6 +448,39 @@ export class Monde {
     return { fait: true, accepte: true, prix };
   }
 
+  // L'ÉTALAGE D'UNE VILLE : pour chaque bien secondaire, la VALEUR que ses
+  // boutiques savent écouler dans le mois.
+  //
+  // Le débit d'un commerce se compte en dollars et non en unités — c'est la
+  // seule mesure juste pour un détaillant, une unité de meubles pesant cinq
+  // unités de savon — et il se répartit entre les articles qu'il tient au
+  // prorata de ce que la ville en demande. Une épicerie dans une ville qui boit
+  // beaucoup et se lave peu vendra surtout de la bière, sans qu'on ait à le lui
+  // dire.
+  etalage(ville) {
+    const cap = {};
+    const m = ville.marche;
+    for (const b of this.tousBatiments(ville)) {
+      if (b.def.cat !== 'com' || b.enSommeil) continue;
+      let total = 0;
+      const part = {};
+      for (const r of b.def.tient) {
+        const a = PANIER.find(x => x.res === r);
+        // Au prorata de ce que la ville souhaite acheter — ce que son budget
+        // supporte — et non de ce qu'elle voudrait dans l'absolu.
+        const voulu = ville.souhaits && ville.souhaits[r] !== undefined
+          ? ville.souhaits[r] : (a ? a.qte : 0) * ville.menages;
+        part[r] = voulu * m.prix[r];
+        total += part[r];
+      }
+      if (total <= 0.0001) continue;
+      for (const r of b.def.tient) {
+        cap[r] = (cap[r] || 0) + b.def.debit * (part[r] / total);
+      }
+    }
+    return cap;
+  }
+
   // ------------------------------------------------------------------------
   //  CE QUE LA VILLE PEUT INVESTIR
   //
@@ -523,7 +557,7 @@ export class Monde {
         // substituables, la ration se répartit au prorata de ce que chaque
         // filière peut livrer — un ménage mange ce qu'il y a.
         v.__ration = v.menages;
-        besoin.produits += v.menages;
+        for (const a of PANIER) besoin[a.res] += a.qte * v.menages;
       }
 
       const rations = m.villes.reduce((s, v) => s + (v.__ration || 0), 0);
@@ -594,7 +628,11 @@ export class Monde {
       // La manufacture ne se surconstruit pas seule : sans planches ni acier en
       // face, ce ne serait pas une crise de surproduction mais une rangée
       // d'ateliers vides, qui immobilisent des bras et ne produisent rien.
-      produits: ['manufacture', 'scierie', 'coupe', 'acierie', 'mineCharbon', 'mineFer'],
+      meubles:  ['manufacture', 'scierie', 'coupe', 'acierie', 'mineCharbon', 'mineFer'],
+      papier:   ['papeterie', 'coupe', 'mineCharbon'],
+      outillage:['forge', 'acierie', 'mineCharbon', 'mineFer'],
+      biere:    ['brasserie', 'ferme'],
+      savon:    ['savonnerie', 'ranch'],
     };
     const chaine = AMONT[filiere];
     if (!chaine) return;
@@ -668,9 +706,42 @@ export class Monde {
     // de postes installés — poser le pain avant les emplois, c'est nourrir une
     // ville qui n'existe pas encore. Mesuré avant correction : Roche-Noire
     // ouvrait avec 40 pains pour 116 ménages.
+    // Les ateliers de biens courants et les boutiques : une ville n'ouvre pas la
+    // partie sans savoir se laver ni où acheter son savon. On les dimensionne
+    // sur la population provisoire, l'amont suivra comme le reste.
+    const nFaie = atelier(M * PANIER.find(a => a.res === 'vaisselle').qte * dArgile, 'faiencerie');
+    const nBras = atelier(M * PANIER.find(a => a.res === 'biere').qte * dTerre, 'brasserie');
+    const nSavo = atelier(M * PANIER.find(a => a.res === 'savon').qte * dTerre, 'savonnerie');
+    const nFila = atelier(M * PANIER.find(a => a.res === 'etoffes').qte * dTerre, 'filature');
+    const nPape = atelier(M * PANIER.find(a => a.res === 'papier').qte * dBois, 'papeterie');
+    const nForg = atelier(M * PANIER.find(a => a.res === 'outillage').qte * dFer, 'forge');
+
     const nb = { scierie: nScie, briqueterie: nBriq,
-                 acierie: nAcier, manufacture: nManu };
+                 acierie: nAcier, manufacture: nManu,
+                 faiencerie: nFaie, brasserie: nBras, savonnerie: nSavo,
+                 filature: nFila, papeterie: nPape, forge: nForg };
     for (const [type, n] of Object.entries(nb)) {
+      for (let k = 0; k < n; k++) {
+        const cases = this.trouverEmplacement(v, type, null, P.dispersionDepart);
+        if (!cases) break;
+        this.poser(type, v, cases, null);
+      }
+    }
+
+    // ET LES BOUTIQUES. Une par tranche de valeur écoulée : on compte ce que la
+    // ville voudra acheter de ce que chaque comptoir tient, et l'on divise par
+    // son débit. Sans elles, la ville produirait des étoffes que personne ne
+    // pourrait lui vendre.
+    // L'ameublement n'est PAS du parc de départ : le meuble est un bien de rang 2
+    // qu'aucun ménage de comptoir ne peut s'offrir, et la boutique ouvrirait pour
+    // ne rien vendre. La ville s'en donnera une le jour où elle en aura les moyens.
+    for (const type of ['epicerie', 'nouveautes', 'quincaillerie']) {
+      let valeur = 0;
+      for (const r of BAT[type].tient) {
+        const a = PANIER.find(x => x.res === r);
+        if (a) valeur += a.qte * M * RES[r].prix * (1 + P.margeCommerce);
+      }
+      const n = Math.round(valeur / BAT[type].debit);
       for (let k = 0; k < n; k++) {
         const cases = this.trouverEmplacement(v, type, null, P.dispersionDepart);
         if (!cases) break;
@@ -700,7 +771,8 @@ export class Monde {
     // ateliers travailleront — ils demandent donc des bras — mais à un prix
     // effondré, donc à perte. C'est la crise de surproduction, et c'est ce qui
     // met sur le marché les affaires que le joueur viendra ramasser.
-    const FILIERES = ['planches', 'briques', 'pain', 'viande', 'acier', 'produits'];
+    const FILIERES = ['planches', 'briques', 'pain', 'viande', 'acier',
+                      'meubles', 'papier', 'outillage', 'biere', 'savon'];
     const combien = t.surcapacite >= 0.30 ? 2 : t.surcapacite >= 0.12 ? 1 : 0;
     const tirees = [];
     for (let k = 0; k < combien; k++) {
@@ -1266,11 +1338,9 @@ export class Monde {
       const prixRation = rationA * m.prix[moinsCher] + (1 - rationA) * m.prix[autre];
 
       const partNourr = Math.min(1, dispo / Math.max(0.01, prixRation));
-      const reste = Math.max(0, dispo - partNourr * prixRation);
-      const partProd = Math.min(1, reste / Math.max(0.01, m.prix.produits));
+      let reste = Math.max(0, dispo - partNourr * prixRation);
 
       v.demandeNourriture = v.menages * partNourr;
-      v.demandeProduits = v.menages * partProd;
       v.prixRation = prixRation;
 
       v.repas = {};
@@ -1278,7 +1348,48 @@ export class Monde {
       v.repas[autre] = v.demandeNourriture * (1 - rationA);
       m.demander(moinsCher, v.repas[moinsCher], v);
       m.demander(autre, v.repas[autre], v);
-      m.demander('produits', v.demandeProduits, v);
+
+      // LE PANIER SECONDAIRE, ET LES BOUTIQUES QUI EN GARDENT LA PORTE.
+      //
+      // Deux verrous, et il faut passer les deux. Le budget dit ce que le ménage
+      // peut payer ; l'étalage dit ce que sa ville sait lui vendre. Une ville
+      // peut fabriquer des meubles et n'en vendre aucun à ses habitants faute
+      // d'un magasin — la marchandise part alors chez la voisine, ou dort.
+      //
+      // L'ordre est celui du RANG, puis du prix. Sans le rang, le ménage
+      // achèterait de la vaisselle avant du savon puisqu'ils coûtent le même
+      // prix, et la hiérarchie de nécessité se perdrait.
+      const etal = this.etalage(v);
+      v.etalage = etal;
+      v.demandes = {};
+      // LE SOUHAIT, distinct de la demande. C'est ce que le ménage achèterait si
+      // sa ville savait le lui vendre — le budget seul, sans le verrou des
+      // boutiques. Il faut le garder : sans lui, on ne peut pas savoir si un
+      // article manque parce que la ville n'en fabrique pas ou parce qu'elle n'a
+      // pas de comptoir pour l'écouler, et la ville bâtit alors des boutiques
+      // qui ne vendront jamais rien. Mesuré avant correction : 123 commerces,
+      // tous déficitaires, à la moitié de leur débit.
+      v.souhaits = {};
+      v.budgetSecondaire = reste;
+      for (const rang of [1, 2]) {
+        const biens = PANIER.filter(a => a.rang === rang)
+          .sort((a, b2) => m.prix[a.res] - m.prix[b2.res]);
+        for (const a of biens) {
+          const prixDetail = m.prix[a.res] * (1 + P.margeCommerce);
+          const abordable = Math.min(a.qte, reste / Math.max(0.01, prixDetail));
+          v.souhaits[a.res] = abordable * v.menages;
+          // Ce que les boutiques savent écouler, ramené au ménage.
+          const plafond = (etal[a.res] || 0)
+            / Math.max(0.01, prixDetail) / Math.max(1, v.menages);
+          const q = Math.max(0, Math.min(abordable, plafond));
+          v.demandes[a.res] = q * v.menages;
+          // Le budget se consomme sur ce qu'on ACHÈTE, pas sur ce qu'on voulait :
+          // un article que la ville ne sait pas vendre laisse son argent au
+          // ménage, qui le reporte sur le suivant.
+          reste = Math.max(0, reste - q * prixDetail);
+          m.demander(a.res, v.demandes[a.res], v);
+        }
+      }
 
       // Les chantiers. Cette commande n'est pas une intention : c'est une
       // demande réelle sur le marché, au même titre que le pain d'un ménage.
@@ -1321,11 +1432,8 @@ export class Monde {
     // Le service se recalcule avant chaque vague : sans quoi une scierie serait
     // rationnée sur un stock de bois qui ne contient pas encore la coupe du
     // mois. À l'intérieur d'une vague, chacun est servi au même prorata.
-    const VAGUES = [
-      ['coupe', 'carriere', 'mineCharbon', 'mineFer', 'ferme', 'ranch'],
-      ['scierie', 'briqueterie', 'minoterie', 'abattoir', 'acierie'],
-      ['manufacture'],
-    ];
+    // Les vagues sont DÉRIVÉES de la filière, plus écrites à la main : voir
+    // params.js. Une usine qu'on ajoute prend sa place toute seule.
 
     for (const v of this.villes) {
       v.__bats = this.tousBatiments(v);
@@ -1387,7 +1495,7 @@ export class Monde {
     // marchandise.
     for (const v of this.villes) {
       for (const b of v.__bats) {
-        if (b.def.sort) continue;
+        if (b.def.sort || b.def.cat === 'com') continue;   // le commerce ferme plus tard
         b.produire(v.marche, v.partBras);
         if (b.societe) b.societe.encaisser(b.resultat);
         else v.epargne += Math.max(0, b.resultat);
@@ -1406,7 +1514,41 @@ export class Monde {
       const m = v.marche;
       v.nourrObtenue = 0;
       for (const r of NOURRITURES) v.nourrObtenue += m.prendre(r, v.repas[r] || 0, v);
-      v.prodObtenue = m.prendre('produits', v.demandeProduits, v);
+      // Le panier secondaire. On garde ce que chaque bien a rapporté : c'est de
+      // là que sort le confort, et c'est de là que les boutiques se paient.
+      v.obtenu = {};
+      v.valeurDetail = 0;
+      for (const r of BIENS_SECONDAIRES) {
+        const q = m.prendre(r, v.demandes[r] || 0, v);
+        v.obtenu[r] = q;
+        v.valeurDetail += q * m.prix[r] * (1 + P.margeCommerce);
+      }
+
+      // ET MAINTENANT LES BOUTIQUES FERMENT. Chacune reçoit sa part de ce qui
+      // est réellement passé au comptoir, au prorata de ce qu'elle savait
+      // écouler. Une boutique de la seule ville où le bien manque n'encaisse
+      // rien : elle a ouvert pour rien ce mois-ci, et elle paie quand même ses
+      // deux commis.
+      const boutiques = this.tousBatiments(v).filter(b => b.def.cat === 'com');
+      if (boutiques.length) {
+        const ecoule = {};
+        for (const r of BIENS_SECONDAIRES) {
+          ecoule[r] = (v.obtenu[r] || 0) * m.prix[r] * (1 + P.margeCommerce);
+        }
+        for (const b of boutiques) b.valeurEcoulee = 0;
+        for (const r of BIENS_SECONDAIRES) {
+          if (ecoule[r] <= 0.0001) continue;
+          const tiennent = boutiques.filter(b => b.def.tient.includes(r));
+          const offre = tiennent.reduce((sm, b) => sm + (v.etalage[r] ? b.def.debit : 0), 0);
+          if (offre <= 0) continue;
+          for (const b of tiennent) b.valeurEcoulee += ecoule[r] * (b.def.debit / offre);
+        }
+        for (const b of boutiques) {
+          b.produire(m, v.partBras);
+          if (b.societe) b.societe.encaisser(b.resultat);
+          else v.epargne += Math.max(0, b.resultat);
+        }
+      }
     }
 
     for (const m of this.marches) {
@@ -1430,9 +1572,22 @@ export class Monde {
     for (const v of this.villes) {
       const m = v.marche;
       v.barometres.nourriture = clamp01(v.nourrObtenue / Math.max(1, v.menages));
-      v.barometres.produits = clamp01(v.prodObtenue / Math.max(1, v.menages));
       v.barometres.emploi = clamp01(
         Math.min(v.postesDemandes, v.bras) / Math.max(1, v.bras));
+
+      // LE CONFORT : la part du panier secondaire réellement obtenue, pondérée
+      // par le poids de chaque article. Il ne peut PAS vider une ville — ce
+      // n'est pas un besoin primaire — mais il pèse sur son attractivité.
+      let confort = 0;
+      for (const a of PANIER) {
+        const voulu = a.qte * v.menages;
+        if (voulu <= 0.0001) continue;
+        confort += POIDS_PANIER[a.res] * clamp01((v.obtenu[a.res] || 0) / voulu);
+      }
+      v.barometres.confort = confort;
+      // Conservé sous son ancien nom pour les panneaux et le banc d'essai : le
+      // baromètre « produits » est désormais celui du panier entier.
+      v.barometres.produits = confort;
 
       // L'épargne des ménages n'est ni perdue ni thésaurisée : elle bâtit la
       // ville. Une fois son panier et son loyer payés, ce qui reste au ménage
@@ -1440,7 +1595,7 @@ export class Monde {
       const revenu = P.employesParMenage * v.salaire * v.barometres.emploi;
       const depense = v.nourrObtenue / Math.max(1, v.menages)
                         * (v.prixRation || Math.min(m.prix.pain, m.prix.viande))
-                    + v.prodObtenue / Math.max(1, v.menages) * m.prix.produits
+                    + v.valeurDetail / Math.max(1, v.menages)
                     + (v.loyer === undefined ? P.loyerBase : v.loyer);
       // L'épargne se partage entre la brique et le titre. Ce qui part en bourse
       // ne bâtit plus la ville — c'est le prix à payer pour avoir un marché, et
@@ -1672,9 +1827,13 @@ export class Monde {
     return v._loyerCache;
   }
 
+  // Ce que coûte un mois de vie complet : la ration, le panier secondaire entier
+  // marge de détail comprise, et le loyer réellement pratiqué.
   panier(v) {
     const m = v.marche;
-    return Math.min(m.prix.pain, m.prix.viande) + m.prix.produits + this.loyerMoyen(v);
+    let secondaire = 0;
+    for (const a of PANIER) secondaire += a.qte * m.prix[a.res] * (1 + P.margeCommerce);
+    return Math.min(m.prix.pain, m.prix.viande) + secondaire + this.loyerMoyen(v);
   }
 
   aisance(v) {
@@ -1684,10 +1843,13 @@ export class Monde {
     return Math.max(P.aisanceMin, Math.min(P.aisanceMax, revenu / panier));
   }
 
+  // Ce que vaut une ville aux yeux de qui cherche où vivre. En crise, elle ne
+  // vaut rien : les besoins primaires ne sont pas satisfaits, et aucun confort
+  // ne rachète cela. Sinon, c'est l'attrait — emploi, épargne, confort — celui-là
+  // même qui règle sa croissance.
   attractivite(v) {
-    const b = v.barometres;
-    const moyenne = (b.nourriture + b.emploi + b.produits) / 3;
-    return moyenne * this.aisance(v);
+    if (v.enCrise) return 0;
+    return v.attrait === undefined ? 0.5 : v.attrait;
   }
 
   // --- Les migrations entre villes reliées ----------------------------------
@@ -1727,20 +1889,41 @@ export class Monde {
     v.moyenne = moyenne;
     v.aisanceMenage = this.aisance(v);
 
-    // DEUX CRITÈRES, ET RIEN D'AUTRE. Le chômage et la faim.
+    // BESOINS PRIMAIRES, PUIS BESOINS SECONDAIRES. Deux étages, et ils ne
+    // jouent pas du tout le même rôle.
     //
-    //   chômage au-dessus de 15 %, OU nourriture sous 85 %  →  la ville se vide
-    //   sinon                                               →  elle se remplit
+    // LES PRIMAIRES — l'emploi et la nourriture — ne se négocient pas. Sous le
+    // seuil, la ville se vide, et rien d'autre ne compte : ni le confort, ni
+    // l'épargne, ni la beauté des boutiques. C'est un interrupteur, pas un
+    // curseur.
     //
-    // La moyenne des trois baromètres pondérée par l'aisance a été abandonnée :
-    // elle plafonnait à 67 % une ville sans manufacture — treize points sous le
-    // pivot — qui perdait donc de la population chaque mois avec une nourriture
-    // à 100 % et un plein emploi. Ce qu'une ville possède en produits décide de
-    // son confort, plus de sa survie.
+    //   chômage au-dessus de 15 %, OU nourriture sous 85 %  →  −5 % par mois
+    //
+    // LES SECONDAIRES — le panier — ne peuvent JAMAIS vider une ville. On ne
+    // quitte pas une ville parce qu'on n'y trouve pas de savon ; on y vit moins
+    // bien, et l'on choisit la ville d'à côté quand on a le choix. Ils règlent
+    // donc la CADENCE de la croissance, jamais son signe.
+    //
+    //   attrait = ( marge d'emploi + capacité d'épargne + confort ) / 3
+    //   croissance = cadence maximale × attrait
+    //
+    // Les trois termes sont bornés à [0, 1] et pèsent pareil. Une ville au plein
+    // emploi, qui épargne et qui a ses sept boutiques croît à 5 % par mois ; une
+    // ville qui tient tout juste ses seuils primaires et n'offre rien d'autre
+    // stagne. C'est ce qui manquait : la croissance était un plateau — on
+    // franchissait les seuils ou non — et deux villes également nourries
+    // grandissaient au même rythme quelle que fût la vie qu'on y menait.
     const critique = b.emploi < P.seuilsCritiques.emploi
                   || b.nourriture < P.seuilsCritiques.nourriture;
     v.enCrise = critique;
-    const taux = critique ? -P.exodeCritique : P.cadenceMax;
+
+    const margeEmploi = clamp01((b.emploi - P.seuilsCritiques.emploi)
+                                / (1 - P.seuilsCritiques.emploi));
+    const epargne = clamp01((v.tauxEpargne || 0) / P.epargneVisee);
+    const confort = clamp01(b.confort || 0);
+    v.attrait = (margeEmploi + epargne + confort) / 3;
+
+    const taux = critique ? -P.exodeCritique : P.cadenceMax * v.attrait;
 
     // LA MIGRATION DE FRONTIÈRE.
     //

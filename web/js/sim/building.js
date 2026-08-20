@@ -227,6 +227,23 @@ export class Batiment {
       return this.cloturer();
     }
 
+    // COMMERCE : il ne transforme rien et ne stocke rien. Il ouvre l'accès, et
+    // il prend une marge sur ce qui passe par son comptoir.
+    //
+    // Sa recette n'est donc pas fixée ici : elle lui est dite par la ville, une
+    // fois les ménages servis, sous la forme de la VALEUR qu'il a écoulée. C'est
+    // pourquoi il se règle après la consommation et non avec les loyers — un
+    // commerce ne sait ce qu'il a gagné qu'une fois la boutique fermée.
+    if (this.def.cat === 'com') {
+      const ecoule = this.valeurEcoulee || 0;
+      this.production = 0;
+      this.tauxReel = Math.max(0, Math.min(1, ecoule / this.def.debit));
+      this.resultat = ecoule * P.margeCommerce / (1 + P.margeCommerce)
+                    - this.masseSalarialePleine - ent;
+      if (this.tauxReel < 0.35) this.alerte = 'invendus';
+      return this.cloturer();
+    }
+
     // Entrepôt : ne rapporte rien, coûte ses salaires et son entretien. C'est
     // cette charge fixe qui rend le stockage massif coûteux, donc risqué.
     if (this.def.cat === 'neg') {

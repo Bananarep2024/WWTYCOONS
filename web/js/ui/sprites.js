@@ -21,6 +21,13 @@ export const COULEURS = {
   ferme: '#c2a340', ranch: '#a8804f',
   scierie: '#a87c46', briqueterie: '#9c4a35', minoterie: '#cfae47',
   abattoir: '#a04040', acierie: '#54798a', manufacture: '#4a8763',
+  // Les biens courants et leurs comptoirs. Chaque atelier porte la teinte de sa
+  // marchandise, et chaque boutique celle du rayon qu'elle tient : on doit lire
+  // la vocation d'un quartier sans ouvrir une seule fiche.
+  faiencerie: '#c98f6a', brasserie: '#c9832b', savonnerie: '#bdb497',
+  filature: '#8a6f9e', papeterie: '#b9b39d', forge: '#7c8ba0',
+  epicerie: '#c47f9a', nouveautes: '#a8709c', quincaillerie: '#8090a8',
+  ameublement: '#5a9a75', grandMagasin: '#d0a05c',
   maison: '#9b8f78', immeuble: '#bcae93', bureaux: '#6f96ba', entrepot: '#6d675a',
 };
 
@@ -260,7 +267,89 @@ const DESSINS = {
     ctx.fillRect(w * 0.06, h * 0.80, w * 0.88, h * 0.12);
     if (w >= 18) cheminee(ctx, w * 0.14, h * 0.86, Math.max(1.2, w * 0.05), '#33302e');
   },
+
+  // La forge : la halle basse et le marteau-pilon. Deux cheminées trapues,
+  // rien de vitré — on n'y fait pas dans la dentelle.
+  forge(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.50); ctx.fillRect(0, 0, w, h);
+    corps(ctx, w * 0.06, h * 0.26, w * 0.62, h * 0.62, c);
+    const r = Math.max(1.4, w * 0.08);
+    cheminee(ctx, w * 0.78, h * 0.34, r, '#2f2c2a');
+    cheminee(ctx, w * 0.90, h * 0.48, r * 0.8, '#2f2c2a');
+    ctx.fillStyle = '#e0993f';
+    ctx.fillRect(w * 0.14, h * 0.56, w * 0.20, h * 0.14);
+  },
+
+  // La papeterie : les rouleaux en bout de halle.
+  papeterie(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.54); ctx.fillRect(0, 0, w, h);
+    corps(ctx, w * 0.04, h * 0.22, w * 0.54, h * 0.60, c);
+    cheminee(ctx, w * 0.30, h * 0.56, Math.max(1.2, w * 0.07), '#3a3a34');
+    const r = Math.max(1.3, h * 0.14);
+    for (let i = 0; i < 2; i++) pastille(ctx, w * (0.70 + i * 0.18), h * 0.5, r, ton(c, 1.25));
+  },
+
+  // La faïencerie : le four rond et les pièces qui sèchent au soleil.
+  faiencerie(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.58); ctx.fillRect(0, 0, w, h);
+    pastille(ctx, w * 0.32, h * 0.50, Math.max(1.6, w * 0.20), ton(c, 1.10));
+    ctx.fillStyle = ton(c, 1.35);
+    for (let i = 0; i < 3; i++) ctx.fillRect(w * 0.62, h * (0.20 + i * 0.24), w * 0.30, h * 0.12);
+  },
+
+  // La brasserie : les cuves, ventrues et alignées.
+  brasserie(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.52); ctx.fillRect(0, 0, w, h);
+    corps(ctx, w * 0.04, h * 0.26, w * 0.36, h * 0.56, c);
+    const r = Math.max(1.4, h * 0.17);
+    for (let i = 0; i < 3; i++) pastille(ctx, w * (0.52 + i * 0.18), h * 0.52, r, ton(c, 1.25));
+  },
+
+  // La savonnerie : la halle et les blocs empilés.
+  savonnerie(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.56); ctx.fillRect(0, 0, w, h);
+    corps(ctx, w * 0.06, h * 0.22, w * 0.48, h * 0.62, c);
+    ctx.fillStyle = ton(c, 1.30);
+    for (let i = 0; i < 2; i++)
+      for (let j = 0; j < 2; j++)
+        ctx.fillRect(w * (0.62 + i * 0.19), h * (0.28 + j * 0.28), w * 0.15, h * 0.20);
+  },
+
+  // La filature : la halle longue et les métiers en enfilade.
+  filature(ctx, w, h, c) {
+    ctx.fillStyle = ton(c, 0.52); ctx.fillRect(0, 0, w, h);
+    dentsDeScie(ctx, w * 0.04, h * 0.20, w * 0.92, h * 0.56, c, Math.max(3, Math.round(w / 9)));
+    ctx.fillStyle = ton(c, 0.74);
+    ctx.fillRect(w * 0.04, h * 0.80, w * 0.92, h * 0.10);
+  },
+
+  // LES COMMERCES : une devanture, un auvent, une enseigne. Ils se distinguent
+  // des ateliers au premier coup d'œil parce qu'ils regardent la rue.
+  epicerie(ctx, w, h, c) { boutique(ctx, w, h, c, 2); },
+  nouveautes(ctx, w, h, c) { boutique(ctx, w, h, c, 3); },
+  quincaillerie(ctx, w, h, c) { boutique(ctx, w, h, c, 2); },
+  ameublement(ctx, w, h, c) { boutique(ctx, w, h, c, 1); },
+  grandMagasin(ctx, w, h, c) {
+    boutique(ctx, w, h, c, 4);
+    ctx.fillStyle = ton(c, 1.45);
+    ctx.fillRect(w * 0.10, h * 0.06, w * 0.80, h * 0.10);
+  },
 };
+
+// La devanture d'un commerce : le corps, l'auvent rayé, et autant de vitrines
+// qu'il tient de rayons.
+function boutique(ctx, w, h, c, vitrines) {
+  ctx.fillStyle = ton(c, 0.48); ctx.fillRect(0, 0, w, h);
+  corps(ctx, w * 0.06, h * 0.20, w * 0.88, h * 0.66, c);
+  ctx.fillStyle = ton(c, 1.40);
+  ctx.fillRect(w * 0.06, h * 0.44, w * 0.88, h * 0.10);      // l'auvent
+  ctx.fillStyle = '#2b2822';
+  const n = Math.max(1, vitrines);
+  const l = (w * 0.80) / (n * 2 - 1);
+  for (let i = 0; i < n; i++) {
+    ctx.fillRect(w * 0.10 + i * l * 2, h * 0.60, l, h * 0.22);
+  }
+}
 
 // Le chevalement d'une mine et son terril : la même silhouette pour le charbon
 // et le fer, seule la couleur du tas change.

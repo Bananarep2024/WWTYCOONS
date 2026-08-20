@@ -71,6 +71,13 @@ export const P = {
 
   // Ville
   cibleProduits: 0.90,         // au-dessus, la ville cesse d'ajouter des manufactures
+
+  // LA MARGE DU DÉTAILLANT. Ce que la boutique ajoute au prix du marché, et qui
+  // fait tout son revenu. Elle se déduit du rendement visé de la transformation
+  // — 20 % l'an — pour un commerce de deux cases écoulant 600 $ de marchandise
+  // par mois : 72 $ de marge, 40 $ de salaires, 9,60 $ d'entretien, 22,40 $ de
+  // résultat sur 1 347 $ de terrain et de murs. Exactement 20 %.
+  margeCommerce: 0.12,
   // Un immeuble de bureaux pour tant de ménages.
   //
   // C'est le cadran de la croissance, et il est brutal. Les bureaux sont le seul
@@ -569,7 +576,24 @@ export const RES = {
   acier:     { nom: 'Acier',     prix: 12.14,   couleur: '#5a7d8c', extractible: false },
   pain:      { nom: 'Pain',      prix: 6.83,   couleur: '#d9a441', extractible: false },
   viande:    { nom: 'Viande',    prix: 6.83,   couleur: '#a83f3f', extractible: false },
-  produits:  { nom: 'Produits',  prix: 32.58,   couleur: '#4f7d5a', extractible: false },
+  // --- LES BIENS DE CONSOMMATION ---
+  //
+  // Le fourre-tout « produits manufacturés » est découpé. Il n'y a plus un bien
+  // indistinct qu'on achète ou non, mais un PANIER dont on prend ce qu'on peut
+  // s'offrir, en commençant par le nécessaire. C'est la même règle d'ordre des
+  // dépenses qu'au § 5.8, appliquée à sept articles au lieu d'un.
+  //
+  // Tous les prix sont dérivés — coût direct ÷ (1 − taux de marge) — jamais
+  // posés. Quatre biens partagent le prix des planches parce qu'ils partagent
+  // exactement sa recette : deux ouvriers, quarante matières premières, vingt
+  // unités en sortie.
+  vaisselle: { nom: 'Vaisselle', prix: 6.83,    couleur: '#c98f6a', extractible: false },
+  biere:     { nom: 'Bière',     prix: 6.83,    couleur: '#c9832b', extractible: false },
+  savon:     { nom: 'Savon',     prix: 6.83,    couleur: '#cfc7a8', extractible: false },
+  etoffes:   { nom: 'Étoffes',   prix: 6.83,    couleur: '#8a6f9e', extractible: false },
+  papier:    { nom: 'Papier',    prix: 10.31,   couleur: '#d8d2be', extractible: false },
+  meubles:   { nom: 'Meubles',   prix: 32.58,   couleur: '#4f7d5a', extractible: false },
+  outillage: { nom: 'Outillage', prix: 37.62,   couleur: '#7c8ba0', extractible: false },
 };
 
 export const RESSOURCES = Object.keys(RES);
@@ -577,6 +601,48 @@ export const RESSOURCES = Object.keys(RES);
 // Les deux nourritures sont substituables 1 pour 1 : le ménage veut une ration
 // par mois, pas une demi-ration de chaque. Il mange ce qu'il y a.
 export const NOURRITURES = ['pain', 'viande'];
+
+// ---------------------------------------------------------------------------
+// LE PANIER DU MÉNAGE — et la distinction qui commande tout le reste.
+//
+// BESOINS PRIMAIRES : l'emploi et la nourriture. Ils ne se négocient pas. En
+// dessous du seuil, la ville se vide, et rien d'autre ne compte — ni le confort,
+// ni l'épargne, ni la beauté des boutiques.
+//
+// BESOINS SECONDAIRES : tout le reste. On n'en meurt pas, on n'en part pas non
+// plus ; on vit moins bien. Ils ne peuvent donc PAS vider une ville — mais ils
+// pèsent sur son attractivité, et une ville qui les satisfait grandit plus vite
+// qu'une ville qui se contente de nourrir ses habitants.
+//
+// Le rang passe avant le prix dans l'ordre d'achat, et c'est le point : sans
+// rang, un ménage achèterait de la vaisselle avant du savon puisqu'ils coûtent
+// le même prix, et l'on perdrait la hiérarchie de nécessité qui fait tout
+// l'intérêt d'un panier.
+//
+//   rang 1 — le courant : ce qu'on rachète tous les mois
+//   rang 2 — le durable : ce qu'on achète une fois l'an, et qu'on remarque
+export const PANIER = [
+  { res: 'savon',     qte: 0.50, rang: 1 },
+  { res: 'biere',     qte: 0.50, rang: 1 },
+  { res: 'papier',    qte: 0.50, rang: 1 },
+  { res: 'etoffes',   qte: 0.35, rang: 1 },
+  { res: 'vaisselle', qte: 0.25, rang: 1 },
+  { res: 'outillage', qte: 0.08, rang: 2 },
+  { res: 'meubles',   qte: 0.08, rang: 2 },
+];
+
+// Le poids de chaque bien dans le confort d'une ville : sa part du panier au
+// prix de référence. Un ménage qui n'a que du savon est moins bien loti qu'un
+// ménage qui a des meubles, et le baromètre doit le dire.
+export const POIDS_PANIER = (() => {
+  const p = {};
+  let total = 0;
+  for (const a of PANIER) { p[a.res] = a.qte * RES[a.res].prix; total += p[a.res]; }
+  for (const r of Object.keys(p)) p[r] /= total;
+  return p;
+})();
+
+export const BIENS_SECONDAIRES = PANIER.map(a => a.res);
 
 // --- Bâtiments --------------------------------------------------------------
 // cases : emprise. w × h : forme posée sur la carte.
@@ -601,8 +667,55 @@ export const BAT = {
 
   // L'aciérie : quatre cases, quatre employés, 60 intrants pour 20 aciers.
   acierie:     { nom: 'Aciérie',      cases: 4, w: 2, h: 2, employes: 4, sort: 'acier',    debit: 20, intrants: { charbon: 30, minerai: 30 }, cout: 1685, mat: { planches: 72, briques: 101, acier: 41 }, cat: 'trans' },
-  // La manufacture : quatre cases, quatre employés, 80 intrants pour 30 produits.
-  manufacture: { nom: 'Manufacture',  cases: 4, w: 2, h: 2, employes: 4, sort: 'produits', debit: 30, intrants: { planches: 60, acier: 20 },   cout: 8107, mat: { planches: 426, briques: 383, acier: 213 }, cat: 'manu' },
+  // Les manufactures : quatre cases, quatre employés, 80 intrants pour 30 biens.
+  // `manufacture` est l'ancienne manufacture, renommée : mêmes intrants, même
+  // débit, même prix. Rien n'a été recalibré de ce côté.
+  manufacture: { nom: 'Fabrique de meubles', cases: 4, w: 2, h: 2, employes: 4, sort: 'meubles',   debit: 30, intrants: { planches: 60, acier: 20 },  cout: 8107, mat: { planches: 426, briques: 383, acier: 213 }, cat: 'manu' },
+  papeterie:   { nom: 'Papeterie',           cases: 4, w: 2, h: 2, employes: 4, sort: 'papier',    debit: 30, intrants: { bois: 60, charbon: 20 },    cout: 2369, mat: { planches: 144, briques: 130, acier: 41 },  cat: 'manu' },
+  forge:       { nom: 'Forge',               cases: 4, w: 2, h: 2, employes: 4, sort: 'outillage', debit: 30, intrants: { acier: 60, charbon: 20 },   cout: 9392, mat: { planches: 573, briques: 516, acier: 161 }, cat: 'manu' },
+
+  // Les ateliers de biens courants : la même recette que la scierie — deux
+  // ouvriers, quarante matières, vingt unités — appliquée à quatre débouchés
+  // que le modèle n'avait pas. Le bétail passe ainsi de une à trois issues et
+  // le charbon de même : ce sont les deux matières que le jeu sous-employait.
+  faiencerie:  { nom: 'Faïencerie',   cases: 2, w: 2, h: 1, employes: 2, sort: 'vaisselle', debit: 20, intrants: { argile: 40 },   cout: 683, mat: { planches: 50, briques: 50 }, cat: 'trans' },
+  brasserie:   { nom: 'Brasserie',    cases: 2, w: 2, h: 1, employes: 2, sort: 'biere',     debit: 20, intrants: { cereales: 40 }, cout: 683, mat: { planches: 50, briques: 50 }, cat: 'trans' },
+  savonnerie:  { nom: 'Savonnerie',   cases: 2, w: 2, h: 1, employes: 2, sort: 'savon',     debit: 20, intrants: { betail: 40 },   cout: 683, mat: { planches: 50, briques: 50 }, cat: 'trans' },
+  filature:    { nom: 'Filature',     cases: 2, w: 2, h: 1, employes: 2, sort: 'etoffes',   debit: 20, intrants: { betail: 40 },   cout: 683, mat: { planches: 50, briques: 50 }, cat: 'trans' },
+
+  // LES COMMERCES. Ni une usine ni un entrepôt : un intermédiaire.
+  //
+  // Il ne transforme rien et ne stocke rien. Il OUVRE l'accès — un ménage ne
+  // peut acheter un bien secondaire que si une boutique de sa ville le tient —
+  // et il prend une marge au passage. Une ville pleine d'usines et sans
+  // boutiques ne vend rien à ses propres habitants : c'est le nouveau mode
+  // d'échec, et il est le bon, parce qu'il crée une demande de capital qui ne
+  // produit pas une once de marchandise.
+  //
+  // La nourriture n'y passe PAS. C'est un besoin primaire : le boulanger vend
+  // son pain, et aucune ville ne doit pouvoir mourir de faim faute d'épicerie.
+  //
+  // Le débit se compte EN VALEUR, pas en unités — c'est la seule mesure juste
+  // pour un détaillant, une unité de meubles pesant cinq unités de savon. Douze
+  // cents dollars de marchandise par mois pour deux cases : de quoi servir cent
+  // soixante-quinze ménages sur l'ordinaire.
+  //
+  // ET LA BOUTIQUE EST CALIBRÉE À SON ACTIVITÉ RÉELLE, PAS À SON PLEIN.
+  //
+  // C'est la différence avec un atelier, et elle est structurelle. Une usine
+  // tourne à 90-100 % parce que sa production est poussée par ses intrants ; une
+  // boutique tourne à 60-70 % parce que sa vente est tirée par un budget qui
+  // fluctue. Calibrée au plein, elle ne rentre dans ses frais qu'au-dessus de
+  // 75 % d'activité — et l'on mesurait alors 123 commerces déficitaires sur 123.
+  //
+  // Le capital se déduit donc d'un rendement de 20 % atteint à 70 % D'ACTIVITÉ.
+  // Le seuil de rentabilité tombe à 43 %, ce qui laisse à une boutique de quoi
+  // traverser un mauvais mois sans fermer.
+  epicerie:      { nom: 'Épicerie',      cases: 2, w: 2, h: 1, employes: 2, debit: 1200, tient: ['biere', 'savon'],       cout: 1867, mat: { planches: 137, briques: 137 }, cat: 'com' },
+  nouveautes:    { nom: 'Nouveautés',    cases: 2, w: 2, h: 1, employes: 2, debit: 1200, tient: ['etoffes', 'vaisselle'], cout: 1867, mat: { planches: 137, briques: 137 }, cat: 'com' },
+  quincaillerie: { nom: 'Quincaillerie', cases: 2, w: 2, h: 1, employes: 2, debit: 1200, tient: ['outillage', 'papier'],  cout: 1867, mat: { planches: 137, briques: 137 }, cat: 'com' },
+  ameublement:   { nom: 'Ameublement',   cases: 2, w: 2, h: 1, employes: 2, debit: 1200, tient: ['meubles'],              cout: 1867, mat: { planches: 137, briques: 137 }, cat: 'com' },
+  grandMagasin:  { nom: 'Grand magasin', cases: 4, w: 2, h: 2, employes: 4, debit: 3600, tient: ['savon', 'biere', 'papier', 'etoffes', 'vaisselle', 'outillage', 'meubles'], cout: 7333, mat: { planches: 537, briques: 537 }, cat: 'com' },
 
   maison:    { nom: 'Maison',              cases: 1, w: 1, h: 1, menages: 1,  cout: 180, mat: { planches: 24, briques: 12 }, cat: 'loge' },
   immeuble:  { nom: 'Immeuble',            cases: 4, w: 2, h: 2, menages: 20, cout: 925, mat: { briques: 65, acier: 40 },    cat: 'loge' },
@@ -631,12 +744,17 @@ export const TYPES_BAT = Object.keys(BAT);
 // jamais aux deux.
 export const FILIERES_LOCALES = [
   { cle: 'bois',     nom: 'Forestière',   couleur: '#6f8f5a', types: ['coupe', 'scierie'] },
-  { cle: 'argile',   nom: 'Argilière',    couleur: '#b07a4e', types: ['carriere', 'briqueterie'] },
-  { cle: 'cereales', nom: 'Meunerie',     couleur: '#c9a227', types: ['ferme', 'minoterie'] },
-  { cle: 'elevage',  nom: 'Élevage',      couleur: '#a4614f', types: ['ranch', 'abattoir'] },
+  { cle: 'argile',   nom: 'Argilière',    couleur: '#b07a4e', types: ['carriere', 'briqueterie', 'faiencerie'] },
+  { cle: 'cereales', nom: 'Meunerie',     couleur: '#c9a227', types: ['ferme', 'minoterie', 'brasserie'] },
+  { cle: 'elevage',  nom: 'Élevage',      couleur: '#a4614f', types: ['ranch', 'abattoir', 'savonnerie', 'filature'] },
   { cle: 'charbon',  nom: 'Charbonnages', couleur: '#6b6b76', types: ['mineCharbon'] },
   { cle: 'fer',      nom: 'Minière',      couleur: '#8a7fa8', types: ['mineFer'] },
   { cle: 'negoce',   nom: 'Comptoir',     couleur: '#4f8a97', types: ['bureaux', 'entrepot'] },
+  // Le commerce est un métier, pas un appendice : il a sa société, sa
+  // trésorerie et son cours, et c'est par elle qu'on prend le détail d'une
+  // ville entière.
+  { cle: 'boutique', nom: 'Maison de commerce', couleur: '#c47f9a',
+    types: ['epicerie', 'nouveautes', 'quincaillerie', 'ameublement', 'grandMagasin'] },
 ];
 
 // Où vont l'aciérie et la manufacture : la filière qui détient l'un de leurs
@@ -644,7 +762,15 @@ export const FILIERES_LOCALES = [
 export const RATTACHEMENTS = {
   acierie:     ['charbon', 'fer'],
   manufacture: ['bois', 'acier'],   // 'acier' = la filière qui a hérité de l'aciérie
+  papeterie:   ['bois', 'charbon'],
+  forge:       ['acier', 'charbon'],
 };
+
+// Les ateliers de biens courants suivent la matière qu'ils mangent : la
+// faïencerie est à l'Argilière comme la briqueterie, la brasserie à la Meunerie
+// comme la minoterie, la savonnerie et la filature à l'Élevage comme l'abattoir.
+// Rien à arbitrer : ils n'ont qu'un intrant.
+
 
 // Coût total de construction d'un bâtiment, en quantités de matériaux.
 // L'échelle ne concerne QUE l'exploitation. Une case de sol porte plusieurs
@@ -721,8 +847,46 @@ export function devisGare() {
 // d'utilisation et aux prix de référence, entretien déduit. C'est de lui que le
 // barème déduit les coûts de construction — et c'est la seule référence qui
 // permette de dire si un bâtiment tient sa promesse.
+// ---------------------------------------------------------------------------
+// LES VAGUES DE PRODUCTION, DÉRIVÉES DE LA FILIÈRE.
+//
+// Un atelier ne peut produire qu'après ceux qui le nourrissent : la scierie
+// après la coupe, la manufacture après la scierie. L'ordre était écrit à la
+// main, et c'était un piège — ajouter une usine sans l'inscrire dans la liste la
+// laissait à zéro pour toujours, sans la moindre erreur. C'est arrivé aux sept
+// nouvelles d'un coup.
+//
+// La profondeur se CALCULE : celle d'un bâtiment est un de plus que la plus
+// grande profondeur des producteurs de ses intrants. On ne peut plus l'oublier.
+export const VAGUES = (() => {
+  const produitPar = {};
+  for (const [t, d] of Object.entries(BAT)) if (d.sort) produitPar[d.sort] = t;
+
+  const memo = {};
+  const profondeur = (t, vus = new Set()) => {
+    if (memo[t] !== undefined) return memo[t];
+    if (vus.has(t)) return 0;                    // cycle : on coupe
+    vus.add(t);
+    let p = 0;
+    for (const r of Object.keys(BAT[t].intrants || {})) {
+      const amont = produitPar[r];
+      if (amont && amont !== t) p = Math.max(p, profondeur(amont, vus) + 1);
+    }
+    vus.delete(t);
+    return (memo[t] = p);
+  };
+
+  const parNiveau = [];
+  for (const [t, d] of Object.entries(BAT)) {
+    if (!d.sort) continue;                       // logement, bureaux, commerce
+    const p = profondeur(t);
+    (parNiveau[p] ||= []).push(t);
+  }
+  return parNiveau.map(x => x || []);
+})();
+
 export const RENDEMENT_VISE = {
-  expl: 0.15, trans: 0.20, manu: 0.25, bur: 0.12, neg: 0,
+  expl: 0.15, trans: 0.20, manu: 0.25, bur: 0.12, neg: 0, com: 0.20,
 };
 
 export function rendementVise(type) {

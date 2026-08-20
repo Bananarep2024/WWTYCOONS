@@ -572,6 +572,33 @@ Trois choses s'y lisent :
   qu'une compagnie rentable reverse des dividendes qui rebâtissent les villes, et plus qu'à 4 %
   parce que le port ne pèse pas encore sur les cours. Vérifié sur quatre graines.
 
+### 5.12 bis — Besoins primaires, besoins secondaires
+
+**Deux étages, et ils ne jouent pas le même rôle.**
+
+**Les primaires — l'emploi et la nourriture — ne se négocient pas.** Sous 85 % d'emploi ou 85 % de
+nourriture, la ville perd 5 % de sa population par mois, et rien d'autre ne compte : ni le confort,
+ni l'épargne, ni la beauté des boutiques. C'est un interrupteur, pas un curseur.
+
+**Les secondaires — le panier — ne peuvent JAMAIS vider une ville.** On ne quitte pas une ville
+parce qu'on n'y trouve pas de savon ; on y vit moins bien, et l'on choisit la ville d'à côté quand
+on a le choix. Ils règlent donc la **cadence** de la croissance, jamais son signe :
+
+```
+attrait    = ( marge d'emploi + capacité d'épargne + confort ) ÷ 3
+croissance = cadence maximale × attrait
+```
+
+Les trois termes sont bornés à [0, 1] et pèsent pareil. La marge d'emploi est la distance au seuil
+critique, ramenée à 1 au plein emploi ; la capacité d'épargne est le taux d'épargne rapporté à
+l'épargne visée ; le confort est la part du panier secondaire obtenue, pondérée par le poids de
+chaque article.
+
+C'est ce qui manquait : la croissance était un **plateau** — on franchissait les seuils ou non — et
+deux villes également nourries grandissaient au même rythme quelle que fût la vie qu'on y menait.
+
+Le détail des sept biens, des sept usines et des cinq commerces est dans `03-INDUSTRIES.md`.
+
 ### 5.13 — La borne d'arbitrage : importer doit rester moins cher que produire mal
 
 **Règle.** Il doit toujours revenir moins cher d'importer une marchandise tirée d'une case de

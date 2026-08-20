@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 
 import { P, RES, RESSOURCES, BAT, TYPES_BAT, niveauVille, materiaux, coutRef,
-         rendementVise, devisGare, emploisRequis } from '../sim/params.js';
+         rendementVise, devisGare, emploisRequis, PANIER } from '../sim/params.js';
 import { COULEURS, FILTRES_CASE, FILTRES_VILLE, echelle } from './render.js';
 import { EVENEMENTS } from '../sim/evenements.js';
 
@@ -175,11 +175,19 @@ export function voletVilles(monde) {
   return `<h3>Attractivité — les cinq villes</h3>
     <div class="listeCartesVilles">${classees.map(v => carteVille(monde, v)).join('')}</div>
     <div class="note">
-      <b>attractivité = moyenne des trois baromètres × pouvoir d'achat</b>, où le pouvoir
-      d'achat vaut le revenu du ménage divisé par son panier — 100 % quand il boucle tout
-      juste. Au-dessus du pivot de ${pct(P.pivot)} la ville attire des habitants
-      <b>du dehors</b> ; en dessous elle en perd. Une part très faible de la population
-      circule en plus entre les villes qu'un rail relie, au prorata de leur attrait.<br><br>
+      <b>Deux étages, et ils ne jouent pas le même rôle.</b><br><br>
+      Les <b>besoins primaires</b> — l'emploi et la nourriture — ne se négocient pas. Sous
+      ${pct(P.seuilsCritiques.emploi)} d'emploi ou ${pct(P.seuilsCritiques.nourriture)} de
+      nourriture, la ville perd ${pct(P.exodeCritique)} de sa population par mois, et rien
+      d'autre ne compte. C'est un interrupteur, pas un curseur.<br><br>
+      Les <b>besoins secondaires</b> — le panier : savon, bière, papier, étoffes, vaisselle,
+      outillage, meubles — ne peuvent <b>jamais</b> vider une ville. On ne part pas d'une ville
+      parce qu'on n'y trouve pas de savon ; on y vit moins bien. Ils règlent donc la
+      <b>cadence</b> de la croissance, jamais son signe :<br><br>
+      <b>attrait = (marge d'emploi + capacité d'épargne + confort) ÷ 3</b>, et la ville croît
+      de ${pct(P.cadenceMax)} par mois multiplié par cet attrait. Une ville au plein emploi,
+      qui épargne et qui a toutes ses boutiques, grandit dix fois plus vite qu'une ville qui
+      se contente de nourrir ses habitants.<br><br>
       Bâtir des logements <b>ne fait venir personne</b> : cela ouvre des portes que
       l'attractivité remplira, ou pas.
     </div>
@@ -200,6 +208,67 @@ export function voletVilles(monde) {
 // marges. Une ville peut avoir des ménages à l'aise et une industrie qui saigne,
 // ou l'inverse, et la somme seule ne le dirait pas.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// LE PANIER SECONDAIRE, ARTICLE PAR ARTICLE.
+//
+// Deux verrous, et il faut passer les deux : le budget dit ce que le ménage peut
+// payer, l'étalage dit ce que sa ville sait lui vendre. Le tableau montre les
+// deux côte à côte, parce qu'un manque n'a pas le même remède selon sa cause —
+// il faut une usine dans un cas, une boutique dans l'autre.
+// ---------------------------------------------------------------------------
+
+function panierVille(monde, v) {
+  const m = v.marche;
+  const etal = v.etalage || {};
+  const lignes = PANIER.map(a => {
+    const voulu = a.qte * v.menages;
+    const obtenu = (v.obtenu && v.obtenu[a.res]) || 0;
+    const part = voulu > 0.01 ? obtenu / voulu : 0;
+    const prixDetail = m.prix[a.res] * (1 + P.margeCommerce);
+    const capaciteQte = (etal[a.res] || 0) / Math.max(0.01, prixDetail);
+    const bride = capaciteQte < voulu * 0.95;
+    return `<tr>
+      <td><span class="puce" style="background:${RES[a.res].couleur}"></span>
+        ${RES[a.res].nom}<span class="faible"> · rang ${a.rang}</span></td>
+      <td class="n">${eur(prixDetail)}</td>
+      <td class="n">${Math.round(obtenu)} / ${Math.round(voulu)}</td>
+      <td class="n" style="color:${rgb(echelle(part))}">${pct(part)}</td>
+      <td class="n ${bride ? 'rouge' : 'faible'}">${bride ? 'comptoir saturé' : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  const cout = PANIER.reduce((s2, a) =>
+    s2 + a.qte * m.prix[a.res] * (1 + P.margeCommerce), 0);
+  const boutiques = monde.tousBatiments(v).filter(b => b.def.cat === 'com').length;
+
+  return `
+    <h3>Le panier — les besoins secondaires</h3>
+    <div class="grille">
+      <div class="fiche"><div class="etiq">Confort</div>
+        <div class="v" style="color:${rgb(echelle(v.barometres.confort || 0))}">${
+          pct(v.barometres.confort || 0)}</div>
+        <div class="etiq" style="margin-top:2px">panier obtenu</div></div>
+      <div class="fiche"><div class="etiq">Panier complet</div>
+        <div class="v">${eur(cout)}</div>
+        <div class="etiq" style="margin-top:2px">marge de détail comprise</div></div>
+      <div class="fiche"><div class="etiq">Budget après la ration</div>
+        <div class="v">${eur(v.budgetSecondaire || 0)}</div>
+        <div class="etiq" style="margin-top:2px">par ménage et par mois</div></div>
+      <div class="fiche"><div class="etiq">Boutiques</div>
+        <div class="v">${boutiques}</div>
+        <div class="etiq" style="margin-top:2px">elles ouvrent l'accès</div></div>
+    </div>
+    <table style="margin-top:8px">
+      <tr><td class="etiq">Article</td><td class="etiq n">Prix détail</td>
+        <td class="etiq n">Obtenu</td><td class="etiq n">Part</td><td class="etiq n">Étalage</td></tr>
+      ${lignes}
+    </table>
+    <div class="note">Le ménage achète par <b>rang</b> d'abord, par prix ensuite : tout le
+      rang 1 avant le premier meuble. Un article peut manquer pour deux raisons — la ville
+      n'en fabrique pas, ou elle en fabrique et n'a personne pour le vendre. « Comptoir
+      saturé » dit que c'est la seconde, et qu'une usine de plus n'y changerait rien.</div>`;
+}
 
 function capaciteVille(monde, v) {
   const c = monde.capaciteInvestissement(v);
@@ -288,6 +357,7 @@ export function detailVille(monde, v) {
         <div class="v">${Math.round(Math.max(0, (v.bras || 0) - (v.postesDemandes || 0)))}</div></div>
     </div>
 
+    ${panierVille(monde, v)}
     ${capaciteVille(monde, v)}
 
     <h3>Les trois baromètres</h3>
@@ -813,8 +883,10 @@ export function voletRail(monde) {
 const MENU_BATIR = [
   ['Logement', ['maison', 'immeuble']],
   ['Exploitation', ['coupe', 'carriere', 'mineCharbon', 'mineFer', 'ferme', 'ranch']],
-  ['Transformation', ['scierie', 'briqueterie', 'minoterie', 'abattoir', 'acierie']],
-  ['Manufacture', ['manufacture']],
+  ['Matériaux et vivres', ['scierie', 'briqueterie', 'minoterie', 'abattoir', 'acierie']],
+  ['Biens courants', ['faiencerie', 'brasserie', 'savonnerie', 'filature', 'papeterie']],
+  ['Biens durables', ['manufacture', 'forge']],
+  ['Commerce', ['epicerie', 'nouveautes', 'quincaillerie', 'ameublement', 'grandMagasin']],
   ['Rapport et négoce', ['bureaux', 'entrepot']],
 ];
 
