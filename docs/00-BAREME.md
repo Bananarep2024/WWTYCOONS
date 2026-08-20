@@ -392,17 +392,69 @@ manufacture suit, et le produit arrive sur l'étal à un prix qui, rapporté à 
 partout, en fait un luxe. Le ménage mange quand même — il mange d'abord — mais il n'achète plus,
 et la manufacture ne vend pas.
 
+**La ressource qui commande, c'est le BOIS, pas le minerai.** La manufacture consomme 60 planches
+pour 20 aciers : au prix de référence les planches pèsent 63 % de sa facture d'intrants, et le
+minerai — un tiers du coût de l'acier, lui-même un quart de la facture — n'en pèse que 8 %. Une
+ville peut avoir le minerai le plus cher des cinq et les produits les moins chers.
+
 Mesuré à 60 mois sur cinq marchés isolés (graine 12345) :
 
-| Ville | Minerai | Produits | Ménages qui en achètent |
+| Ville | Planches | Produits | Ménages qui en achètent |
 |---|---|---|---|
-| Bois-Perdu | 1,34 $ | 29,44 $ | **69 %** |
-| Sainte-Agathe | 2,67 $ | 37,30 $ | 52 % |
-| Fort-Union | 3,04 $ | 39,68 $ | 45 % |
-| Plaine-Dorée | 2,67 $ | 67,89 $ | **15 %** |
+| Sainte-Agathe | 6,51 $ (×0,95) | 30,29 $ | **68 %** |
+| Fort-Union | 7,76 $ (×1,14) | 39,36 $ | 54 % |
+| Bois-Perdu | 6,39 $ (×0,94) | 36,16 $ | 49 % |
+| Roche-Noire | 14,28 $ (×2,09) | 48,44 $ | **32 %** |
 
 La nourriture, elle, reste servie en priorité : là où la ville en a les moyens, le baromètre
 alimentaire est à 100 % quel que soit le prix des produits.
+
+### 5.9 — On ne bâtit pas un atelier que l'amont ne peut pas nourrir
+
+Deux règles, l'une au premier jour, l'autre tous les mois ensuite.
+
+**Le parc de départ se compte de l'aval vers l'amont.** On arrête d'abord un nombre entier
+d'ateliers — c'est là que vit la dotation, donc le sol, donc ce qui distingue les villes — puis on
+pose exactement les exploitations qu'ils réclament. L'ordre inverse, qui dimensionnait chaque étage
+séparément sur la consommation théorique, se perdait dans l'arrondi : un atelier pèse 20 unités
+d'un coup quand une exploitation en pose 10, 20 ou 50 selon la case, si bien que l'atelier dépassait
+sa cible pendant que l'exploitation tombait juste dessus.
+
+| Filière | Avant | Après |
+|---|---|---|
+| bois | 0,75 – 0,94 | **1,00** |
+| argile | 0,75 – 1,00 | **1,00** |
+| céréales | 0,75 – 0,92 | **1,00** |
+| bétail | 0,50 partout | **1,00** |
+| planches | 0,22 – 2,33 | **1,00** et plus |
+| acier | 0,33 – 2,00 | **1,00** et plus |
+
+*(capacité amont ÷ ce que l'aval réclame à plein régime, cinq villes, graine 12345. Au-dessus de
+1,00 : la surconstruction délibérée du § sur la crise de surproduction.)*
+
+La filière alimentaire fait exception à l'ordre : elle se pose **en dernier**, après le recensement
+des postes, parce que la population se déduit du nombre d'emplois installés. Poser le pain avant
+les emplois, c'est nourrir une ville qui n'existe pas encore — Roche-Noire ouvrait avec 40 pains
+pour 116 ménages. Et elle s'arrondit **au-dessus** : un surplus de pain se vend ou se perd, une
+ration manquante vide la ville.
+
+**Ensuite, la couverture.** Avant de poser un atelier, on compare ce que la filière SAIT produire à
+ce que le parc s'est déjà engagé à consommer, chantiers compris. Sous 100 %, on ne pose pas
+l'atelier : on remonte à l'intrant qui manque. L'ancienne règle regardait si les ateliers existants
+tournaient au ralenti *depuis trois mois* — ce qui suppose de les avoir bâtis pour s'en apercevoir.
+Plaine-Dorée s'était ainsi couverte de **31 scieries pour 170 bois par mois**, de quoi en nourrir
+quatre ; les 27 autres immobilisaient 54 bras sur 208 et ne produisaient pas une planche.
+
+**Et sa contrepartie, sans laquelle elle ne vaut rien :** une exploitation dont l'aval réclame plus
+de matière que la filière n'en sort échappe au seuil de rendement, exactement comme la ferme qui
+nourrit une ville affamée. Sur une case 1 une mine rend −5 % au prix de référence et aucun
+investisseur ne l'ouvrirait — mais elle est la condition d'existence de tout ce qui la suit, et
+**c'est un cran plus haut que la marge se retrouve**, chez la scierie et l'aciérie qui ne dégagent
+la leur que si la matière arrive. Sans cette exemption, la règle du rendement fabriquait la
+pathologie qu'elle prétendait éviter.
+
+Mesuré à 240 mois, cinq villes reliées : **1,0 % des bâtiments productifs sous 25 % d'activité**
+(22 sur 2 204), la plupart des filières entre 92 et 100 %.
 
 ---
 

@@ -46,9 +46,14 @@ export const EVENEMENTS = {
   greve: {
     nom: 'Grève', signe: '✊', teinte: 'rouge',
     poids: 13, duree: [4, 16], portee: 'travail',
+    // Salaire figé : la grève ne peut plus obtenir ce qu'elle réclame, et
+    // s'épuise. On ne promet donc au joueur que ce qui va réellement arriver.
     texte: (e) => `Grève ${e.secteur ? NOMS_SECTEUR[e.secteur] : 'générale'} à ${e.ville.nom}`
-      + ` — les ateliers tournent au ralenti tant que le salaire n'aura pas atteint`
-      + ` ${e.exige.toFixed(2)} $`,
+      + (P.salaireFixe
+          ? ` — les ateliers tournent au ralenti ; le patronat ne cédera pas,`
+            + ` et le mouvement s'épuisera de lui-même`
+          : ` — les ateliers tournent au ralenti tant que le salaire n'aura pas`
+            + ` atteint ${e.exige.toFixed(2)} $`),
   },
   krach: {
     nom: 'Krach boursier', signe: '↯', teinte: 'rouge',

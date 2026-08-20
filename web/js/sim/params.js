@@ -223,6 +223,7 @@ export const P = {
   ampleurSurcapacite: 4.0,     // ×4 la surcapacité du tempérament, en excès d'offre
   dispersionVille: 18,         // et ensuite, quand la ville bâtit d'elle-même
   rendementMinimalPourBatir: 0.05,  // sous ce rendement attendu, on ne bâtit pas
+  couvertureMinimale: 1.00,    // pas un atelier de plus si l'amont ne suit pas
 
   // Le sol — échelle 0 à 3
   //

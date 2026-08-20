@@ -972,6 +972,7 @@ const P = {
   ampleurSurcapacite: 4.0,     // ×4 la surcapacité du tempérament, en excès d'offre
   dispersionVille: 18,         // et ensuite, quand la ville bâtit d'elle-même
   rendementMinimalPourBatir: 0.05,  // sous ce rendement attendu, on ne bâtit pas
+  couvertureMinimale: 1.00,    // pas un atelier de plus si l'amont ne suit pas
 
   // Le sol — échelle 0 à 3
   //
@@ -2152,9 +2153,14 @@ const EVENEMENTS = {
   greve: {
     nom: 'Grève', signe: '✊', teinte: 'rouge',
     poids: 13, duree: [4, 16], portee: 'travail',
+    // Salaire figé : la grève ne peut plus obtenir ce qu'elle réclame, et
+    // s'épuise. On ne promet donc au joueur que ce qui va réellement arriver.
     texte: (e) => `Grève ${e.secteur ? NOMS_SECTEUR[e.secteur] : 'générale'} à ${e.ville.nom}`
-      + ` — les ateliers tournent au ralenti tant que le salaire n'aura pas atteint`
-      + ` ${e.exige.toFixed(2)} $`,
+      + (P.salaireFixe
+          ? ` — les ateliers tournent au ralenti ; le patronat ne cédera pas,`
+            + ` et le mouvement s'épuisera de lui-même`
+          : ` — les ateliers tournent au ralenti tant que le salaire n'aura pas`
+            + ` atteint ${e.exige.toFixed(2)} $`),
   },
   krach: {
     nom: 'Krach boursier', signe: '↯', teinte: 'rouge',
@@ -3406,12 +3412,65 @@ function remonter(monde, ville, res, profondeur = 0) {
   if (pireIndice > Math.max(1.05, indiceSortie * 1.10)) {
     return remonter(monde, ville, pire, profondeur + 1);
   }
-  // Les ateliers de ce type tournent déjà au ralenti : un de plus ne produirait
-  // pas un gramme de mieux. On remonte à ce qui leur manque.
-  if (rare && sature(monde, ville, type)) {
-    return remonter(monde, ville, rare, profondeur + 1);
+  // LA FILIÈRE S'EST-ELLE DÉJÀ ENGAGÉE À CONSOMMER PLUS QU'ELLE NE PRODUIT ?
+  //
+  // C'est la question qui manquait, et son absence coûtait des villes entières.
+  // On la posait à l'envers : on regardait si les ateliers existants tournaient
+  // au ralenti DEPUIS TROIS MOIS, ce qui suppose qu'on les ait déjà bâtis pour
+  // s'en apercevoir. Plaine-Dorée s'est ainsi couverte de 31 scieries pour 170
+  // bois par mois — de quoi en nourrir quatre. Les 27 autres immobilisaient 54
+  // bras dans une ville qui en comptait 208, ne produisaient pas une planche, et
+  // les manufactures en aval n'ont jamais reçu un gramme de matière.
+  //
+  // On la pose désormais à l'endroit et par avance : ce que la filière SAIT
+  // produire, rapporté à ce que le parc s'est déjà engagé à consommer, chantiers
+  // compris. Sous 100 %, un atelier de plus ne produira pas un gramme de mieux —
+  // il prendra des bras et du capital pour tourner à vide. On remonte.
+  const cv = couverture(monde, ville, type);
+  if (cv.rare && cv.taux < P.couvertureMinimale) {
+    return remonter(monde, ville, cv.rare, profondeur + 1);
   }
+  void rare;
   return type;
+}
+
+// Ce que le parc debout RÉCLAME de cette ressource chaque mois, à plein régime —
+// ateliers en service et chantiers en cours, sur tout le marché : une ville
+// reliée puise dans le même panier que ses voisines.
+function reclame(monde, marche, res) {
+  let q = 0;
+  for (const v of marche.villes) {
+    for (const b of monde.tousBatiments(v)) q += (b.def.intrants || {})[res] || 0;
+    for (const c of monde.tousChantiers(v)) q += (BAT[c.type].intrants || {})[res] || 0;
+  }
+  return q;
+}
+
+// Ce que ce même parc en PRODUIT, à plein régime. Un chantier compte pour le
+// débit nominal de ce qu'il deviendra : on ne connaît pas encore la qualité de
+// sa terre, mais on sait qu'il arrive.
+function fournit(monde, marche, res) {
+  let q = 0;
+  for (const v of marche.villes) {
+    for (const b of monde.tousBatiments(v)) if (b.def.sort === res) q += b.capacite;
+    for (const c of monde.tousChantiers(v)) if (BAT[c.type].sort === res) q += BAT[c.type].debit;
+  }
+  return q;
+}
+
+// La couverture d'un atelier : pour chacun de ses intrants, ce que la filière
+// produit rapporté à ce qu'elle s'est engagée à consommer. Le plus petit décide
+// — c'est la loi du minimum, la même qui régit la production tous les mois.
+function couverture(monde, ville, type) {
+  const m = ville.marche;
+  let taux = Infinity, rare = null;
+  for (const r of Object.keys(BAT[type].intrants || {})) {
+    const d = reclame(monde, m, r);
+    if (d <= 0.001) continue;
+    const c = fournit(monde, m, r) / d;
+    if (c < taux) { taux = c; rare = r; }
+  }
+  return { taux, rare };
 }
 
 // TROISIÈME RÈGLE — le plafond de bras. On ne décide pas de bâtir ce qu'on ne
@@ -3428,21 +3487,6 @@ function brasDisponibles(monde, ville) {
   for (const b of monde.tousBatiments(ville)) occupes += b.postesDemandes;
   for (const c of monde.tousChantiers(ville)) occupes += c.postesDemandes;
   return bras - occupes;
-}
-
-// Une filière est saturée quand ses ateliers existants tournent déjà au ralenti
-// faute d'intrants : en bâtir un de plus n'ajoute pas un gramme de production.
-function sature(monde, ville, type) {
-  const intrants = Object.keys(BAT[type].intrants || {});
-  if (!intrants.length) return false;
-  const miens = monde.tousBatiments(ville).filter(b => b.type === type && b.age > 3);
-  if (miens.length < 2) return false;
-  const taux = miens.reduce((s, b) => s + b.tauxReel, 0) / miens.length;
-  if (taux >= 0.55) return false;
-  // Ils tournent au ralenti — mais est-ce faute d'intrants, ou faute de
-  // débouchés ? Dans le second cas, en bâtir un de plus serait absurde ; dans
-  // le premier, c'est en amont qu'il faut aller, ce dont `remonter` s'occupe.
-  return true;
 }
 
 // Le taux d'emploi au-dessous duquel on cesse de loger.
@@ -3675,6 +3719,14 @@ function unChantierDeVille(monde, ville) {
     essayes.add(type);
 
     const def = BAT[type];
+
+    // Dernier garde-fou, celui qu'aucun chemin ne contourne : on ne pose pas un
+    // atelier dont les intrants sont déjà retenus par d'autres. `remonter` s'en
+    // charge d'ordinaire, mais il abandonne au bout de quatre étages de filière
+    // et rend alors le type demandé sans l'avoir vérifié.
+    if (Object.keys(def.intrants || {}).length
+        && couverture(monde, ville, type).taux < P.couvertureMinimale) continue;
+
     // Un immeuble de bureaux réclame vingt bras, pas quatre : c'est le nombre de
     // POSTES qu'il faut pouvoir pourvoir, pas la surface qu'il couvre.
     const brasRequis = def.cat === 'bur' ? def.postes : def.cases;
@@ -3716,7 +3768,25 @@ function unChantierDeVille(monde, ville) {
     // produire à prix coûtant, qu'on exerce parce qu'on n'a pas le choix.
     const vital = VIVRIER.has(type)
       && ville.barometres.nourriture < P.seuilsCritiques.nourriture;
-    if (def.cat !== 'loge' && !vital
+
+    // ET L'EXPLOITATION NÉCESSAIRE SÈME AUSSI, MÊME À PERTE.
+    //
+    // Une mine, une coupe, une carrière posée sur une case 1 rend −5 % au prix
+    // de référence : aucun investisseur ne l'ouvrirait. Mais tant que les
+    // ateliers en aval réclament plus de matière que la filière n'en sort, cette
+    // mine n'est pas un placement, elle est la condition d'existence de tout ce
+    // qui la suit. La marge, elle, se retrouve un cran plus haut — chez la
+    // scierie, la minoterie, l'aciérie — qui ne dégagent la leur que si la
+    // matière arrive.
+    //
+    // Sans cette exemption, la règle du rendement fabriquait exactement la
+    // pathologie qu'elle prétendait éviter : les ateliers se bâtissaient parce
+    // qu'ils affichent une belle marge sur le papier, et les exploitations qui
+    // devaient les nourrir n'étaient jamais ouvertes parce qu'elles rendent −5 %.
+    const necessaire = def.sort && !Object.keys(def.intrants || {}).length
+      && fournit(monde, ville.marche, def.sort) < reclame(monde, ville.marche, def.sort);
+
+    if (def.cat !== 'loge' && !vital && !necessaire
         && rendementAttendu(monde, ville, type, cases) < P.rendementMinimalPourBatir) continue;
 
     ville.epargne -= cout;
@@ -3739,8 +3809,12 @@ function rendementAttendu(monde, ville, type, cases) {
   const q = def.qual
     ? cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length
     : 1;
-  const production = def.debit * def.cases * echelleDe(type)
-    * (def.qual ? facteurQualite(q) : 1);
+  // LE DÉBIT EST PAR BÂTIMENT, PAS PAR CASE — depuis la base propre. Ce calcul
+  // multipliait encore par le nombre de cases : il prêtait 40 planches à une
+  // scierie qui en fait 20, et 120 produits à une manufacture qui en fait 30.
+  // Le rendement affiché n'avait plus aucun rapport avec ce que le bâtiment
+  // ferait une fois debout, et c'est sur ce chiffre que la ville décidait.
+  const production = def.debit * echelleDe(type) * (def.qual ? facteurQualite(q) : 1);
 
   // On ne calcule pas au prix d'aujourd'hui, mais à celui qu'aura fait la
   // production déjà en chantier.
@@ -3755,20 +3829,21 @@ function rendementAttendu(monde, ville, type, cases) {
   for (const v of m.villes) {
     for (const b of monde.tousBatiments(v)) if (b.def.sort === def.sort) installe += b.capacite;
     for (const c of monde.tousChantiers(v)) {
-      if (BAT[c.type].sort === def.sort) enChantier += BAT[c.type].debit * BAT[c.type].cases;
+      if (BAT[c.type].sort === def.sort) enChantier += BAT[c.type].debit;
     }
   }
   enChantier += production;   // le nôtre en fait partie
   const dilution = installe > 0
     ? Math.pow(installe / (installe + enChantier), P.exposantPrix) : 1;
 
-  let mensuel = production * m.prix[def.sort] * dilution - P.salaireCase * def.cases;
+  let mensuel = production * m.prix[def.sort] * dilution
+              - P.salaireCase * emploisRequis(type);
   for (const [r, qte] of Object.entries(def.intrants || {})) {
-    mensuel -= qte * def.cases * m.prix[r];
+    mensuel -= qte * m.prix[r];
   }
 
   let bati = 0;
-  for (const [r, qte] of Object.entries(def.mat)) bati += qte * def.cases * m.prix[r];
+  for (const [r, qte] of Object.entries(def.mat)) bati += qte * m.prix[r];
   const terrain = cases.reduce((s, c) => s + monde.prixCase(ville, c), 0);
   const revient = terrain + bati;
   if (revient <= 0) return 0;
@@ -3849,9 +3924,10 @@ function piloterSociete(monde, s) {
     if (!type) continue;
     const def = BAT[type];
     if (def.cat !== 'loge' && brasDisponibles(monde, v) < def.cases) continue;
-    // On n'ajoute pas un atelier de plus à une filière déjà à l'arrêt : ce
-    // serait payer un bâtiment pour le mettre aussitôt en sommeil.
-    if (sature(monde, v, type)) continue;
+    // On n'ajoute pas un atelier de plus à une filière dont l'amont ne suit
+    // pas : ce serait payer un bâtiment pour le mettre aussitôt en sommeil.
+    if (Object.keys(def.intrants || {}).length
+        && couverture(monde, v, type).taux < P.couvertureMinimale) continue;
     const score = besoin.score;
     if (!meilleur || score > meilleur.score) meilleur = { ville: v, type, score };
   }
@@ -4258,7 +4334,10 @@ class Monde {
       pain:     ['minoterie', 'ferme'],
       viande:   ['abattoir', 'ranch'],
       acier:    ['acierie', 'mineCharbon', 'mineFer'],
-      produits: ['manufacture'],
+      // La manufacture ne se surconstruit pas seule : sans planches ni acier en
+      // face, ce ne serait pas une crise de surproduction mais une rangée
+      // d'ateliers vides, qui immobilisent des bras et ne produisent rien.
+      produits: ['manufacture', 'scierie', 'coupe', 'acierie', 'mineCharbon', 'mineFer'],
     };
     const chaine = AMONT[filiere];
     if (!chaine) return;
@@ -4298,33 +4377,49 @@ class Monde {
     const dFer = this.dotation(v, 'minerai');
     const dTerre = this.dotation(v, 'fertilite', 0.90);   // on ne laisse pas une ville affamée
 
-    // Filière alimentaire : 1 ration par ménage et par mois — pondérée par le
-    // tempérament. Un comptoir affamé ouvre à 70 % de couverture, et devra
-    // acheter son pain au dehors ou bâtir vite.
-    this.poserJusqua(v, 'minoterie', M * dTerre * t.vivres, b => b.capacite);
-    this.poserJusqua(v, 'ferme', M * 2 * dTerre * t.vivres, b => b.capacite);
+    // ON POSE L'AMONT D'ABORD, ET L'AVAL SE MESURE SUR L'AMONT.
+    //
+    // C'est l'ordre qui compte, et l'ancien était l'inverse. Chaque étage était
+    // dimensionné séparément sur la consommation théorique de la ville, et les
+    // deux étages ne se parlaient pas. Or un atelier est un GROS morceau — une
+    // minoterie, c'est 20 unités d'un coup — tandis qu'une exploitation en pose
+    // 10, ou 20, ou 50 selon la case. L'atelier dépassait donc largement sa
+    // cible pendant que l'exploitation tombait juste dessus, et le rapport
+    // voulu se perdait dans l'arrondi. Mesuré sur les cinq villes de la graine
+    // 12345 : bois 0,75 à 0,94, argile 0,75, céréales 0,75 à 0,92, bétail 0,50
+    // partout, planches 0,22 à Plaine-Dorée. Toutes les villes s'ouvraient avec
+    // plus d'ateliers que leurs mines et leurs champs ne pouvaient en nourrir.
+    //
+    // Désormais l'exploitation se pose sur la consommation — c'est là que vit
+    // la dotation, c'est-à-dire le sol, c'est-à-dire ce qui distingue les villes
+    // entre elles — et l'atelier se compte sur ce que l'exploitation produit
+    // VRAIMENT, une fois posée. La filière est équilibrée par construction, dans
+    // chaque ville, au premier jour.
 
-    // Filière manufacturée, remontée jusqu'aux mines.
-    const manu = M * 1.08 * t.produits;
-    this.poserJusqua(v, 'manufacture', manu, b => b.capacite);
-    const planchesManu = manu;                                  // 6 planches pour 6 produits
-    const acierManu = manu / 3;                                 // 2 aciers pour 6 produits
-    this.poserJusqua(v, 'acierie', acierManu * Math.min(dCharbon, dFer), b => b.capacite);
-    this.poserJusqua(v, 'mineCharbon', acierManu * 4 * dCharbon, b => b.capacite);
-    this.poserJusqua(v, 'mineFer', acierManu * 4 * dFer, b => b.capacite);
+    // Combien d'ateliers, en nombre entier. C'est ici que vit la dotation,
+    // c'est-à-dire le sol : une ville sans forêt ouvre avec deux scieries
+    // quand sa voisine en a treize, et devra acheter ses planches au dehors.
+    const atelier = (cible, def) => Math.max(0, Math.round(cible / BAT[def].debit));
+    const nManu   = atelier(M * 1.08 * t.produits * Math.min(dBois, dFer), 'manufacture');
+    const nScie   = atelier(nManu * BAT.manufacture.intrants.planches + M * 0.45 * dBois * t.emploi,
+                            'scierie');
+    const nBriq   = atelier(M * 0.40 * dArgile * t.emploi, 'briqueterie');
+    const nAcier  = atelier(nManu * BAT.manufacture.intrants.acier, 'acierie');
 
-    // Matériaux : ce que réclament les manufactures, plus l'entretien du parc
-    // et les chantiers à venir — c'est le facteur 1,45.
-    const planches = planchesManu + M * 0.45;
-    this.poserJusqua(v, 'scierie', planches * dBois * t.emploi, b => b.capacite);
-    this.poserJusqua(v, 'coupe', planches * 2 * dBois * t.emploi, b => b.capacite);
-    this.poserJusqua(v, 'briqueterie', M * 0.40 * dArgile * t.emploi, b => b.capacite);
-    this.poserJusqua(v, 'carriere', M * 0.80 * dArgile * t.emploi, b => b.capacite);
-
-    // Filière élevage : pour l'instant un doublon de la filière céréalière,
-    // pain et viande étant substituables 1 pour 1. Modeste au départ.
-    this.poserJusqua(v, 'abattoir', M * 0.12 * dTerre, b => b.capacite);
-    this.poserJusqua(v, 'ranch', M * 0.24 * dTerre, b => b.capacite);
+    // La filière alimentaire n'est PAS ici : elle vient tout à la fin, une fois
+    // la population connue. La population, dans ce modèle, se déduit du nombre
+    // de postes installés — poser le pain avant les emplois, c'est nourrir une
+    // ville qui n'existe pas encore. Mesuré avant correction : Roche-Noire
+    // ouvrait avec 40 pains pour 116 ménages.
+    const nb = { scierie: nScie, briqueterie: nBriq,
+                 acierie: nAcier, manufacture: nManu };
+    for (const [type, n] of Object.entries(nb)) {
+      for (let k = 0; k < n; k++) {
+        const cases = this.trouverEmplacement(v, type, null, P.dispersionDepart);
+        if (!cases) break;
+        this.poser(type, v, cases, null);
+      }
+    }
 
     // Les bureaux sont le seul argent qui vienne du dehors : le nombre de
     // départ décide de la trajectoire d'une ville plus sûrement que la qualité
@@ -4359,6 +4454,13 @@ class Monde {
     }
     v.filieresEngorgees = tirees;
 
+    // Et l'amont exactement dessous, surconstruction comprise : ce que les
+    // ateliers réclament, ni plus ni moins. Sur une mauvaise terre il en faut
+    // simplement DAVANTAGE pour le même atelier — quatre coupes par scierie sur
+    // des cases 1, deux sur des cases 2. C'est là que la pauvreté du sol se
+    // paie : en bras, et en bras seulement.
+    this.completerAmont(v);
+
     // LE CHÔMAGE, en dernier — et par la population, jamais par la démolition.
     //
     // La première version ajustait les POSTES à la cible : elle rasait des
@@ -4374,6 +4476,49 @@ class Monde {
     // c'est exactement l'Amérique de 1900.
     const postes = this.tousBatiments(v).reduce((s, b) => s + b.postesDemandes, 0);
     v.menages = Math.max(12, Math.round(postes / (P.employesParMenage * t.emploi)));
+
+    // ET MAINTENANT SEULEMENT, LE PAIN.
+    //
+    // La ration se partage entre le blé et la viande — un ménage mange une
+    // ration par mois, peu importe laquelle. On vise un peu au-dessus du compte
+    // pour que la ville ne s'ouvre pas à la limite de la disette, et l'amont
+    // suit, comme partout ailleurs.
+    // Et il faut y revenir deux ou trois fois, parce que nourrir crée des
+    // emplois, et que les emplois créent des ménages, qu'il faut nourrir. Le
+    // point fixe s'atteint en trois passes — la filière alimentaire ne pèse
+    // qu'une fraction des postes, la boucle converge vite.
+    for (let passe = 0; passe < 3; passe++) {
+      let pain = 0;
+      for (const b of this.tousBatiments(v)) {
+        if (b.def.sort === 'pain' || b.def.sort === 'viande') pain += b.capacite;
+      }
+      const manque = v.menages * 1.05 - pain;
+      if (manque <= 0) break;
+
+      // ARRONDI AU-DESSUS, ici et nulle part ailleurs. Un surplus de pain se
+      // vend, se stocke ou se perd ; une ration manquante vide la ville. Le
+      // demi-atelier qu'on tolère partout ailleurs, on ne le tolère pas sur le
+      // pain — Bois-Perdu ouvrait avec 20 pains pour 30 ménages.
+      const nMino = Math.ceil(manque * 0.75 * t.vivres / BAT.minoterie.debit);
+      const nAbat = Math.ceil(manque * 0.35 / BAT.abattoir.debit);
+      let pose = 0;
+      for (const [type, n] of Object.entries({ minoterie: nMino, abattoir: nAbat })) {
+        for (let k = 0; k < n; k++) {
+          const cases = this.trouverEmplacement(v, type, null, P.dispersionDepart);
+          if (!cases) break;
+          this.poser(type, v, cases, null);
+          pose++;
+        }
+      }
+      this.completerAmont(v);
+      if (!pose) break;
+
+      // Les bras que la filière alimentaire vient d'ajouter comptent eux aussi :
+      // sans ce recensement, la ville s'ouvrirait avec un taux d'emploi au-dessus
+      // de sa cible et des champs que personne n'habite.
+      const postesNourris = this.tousBatiments(v).reduce((s, b) => s + b.postesDemandes, 0);
+      v.menages = Math.max(12, Math.round(postesNourris / (P.employesParMenage * t.emploi)));
+    }
 
     // Le logement vient donc en dernier, une fois la population connue. Un peu
     // plus que la population : l'occupation démarre sous 100 % et la ville a la
@@ -4397,6 +4542,40 @@ class Monde {
       total += mesure(b);
     }
     return total;
+  }
+
+  // Pose les exploitations qui manquent pour nourrir les ateliers debout.
+  //
+  // On compare, ressource par ressource, ce que le parc PRODUIT à ce qu'il
+  // RÉCLAME, et l'on comble l'écart. Appelée après les ateliers et après la
+  // surconstruction délibérée, elle garantit qu'aucune ville ne s'ouvre avec un
+  // atelier qui n'aura jamais rien à traiter — un atelier vide n'est pas une
+  // affaire déficitaire, c'est un bâtiment qui immobilise des bras pour rien.
+  //
+  // La surproduction volontaire, elle, survit : elle se lit alors où elle doit
+  // se lire, dans un cours effondré et un stock qui enfle, et non dans des
+  // chaînes de montage à l'arrêt.
+  completerAmont(v) {
+    // L'ordre est celui de la filière, de l'aval vers l'amont : combler les
+    // planches crée des scieries, qui réclament du bois ; combler l'acier crée
+    // des aciéries, qui réclament du charbon et du minerai. Les intermédiaires
+    // passent donc avant les matières premières, sans quoi le bois serait compté
+    // avant que les scieries manquantes n'existent.
+    const AMONT = {
+      planches: 'scierie', acier: 'acierie',
+      bois: 'coupe', charbon: 'mineCharbon', minerai: 'mineFer',
+      cereales: 'ferme', betail: 'ranch', argile: 'carriere',
+    };
+    for (const [res, type] of Object.entries(AMONT)) {
+      let sort = 0, mange = 0;
+      for (const b of this.tousBatiments(v)) {
+        if (b.def.sort === res) sort += b.capacite;
+        mange += (b.def.intrants || {})[res] || 0;
+      }
+      if (mange > sort) {
+        this.poserJusqua(v, type, mange - sort, b => b.capacite);
+      }
+    }
   }
 
   // --- Foncier --------------------------------------------------------------

@@ -7,7 +7,7 @@
 // pour un joueur — un joueur a simplement le droit de se tromper.
 // ---------------------------------------------------------------------------
 
-import { P, BAT, RES, facteurQualite, echelleDe } from './params.js';
+import { P, BAT, RES, facteurQualite, echelleDe, emploisRequis } from './params.js';
 
 // Qui produit quoi.
 const PRODUCTEUR = {
@@ -64,12 +64,65 @@ function remonter(monde, ville, res, profondeur = 0) {
   if (pireIndice > Math.max(1.05, indiceSortie * 1.10)) {
     return remonter(monde, ville, pire, profondeur + 1);
   }
-  // Les ateliers de ce type tournent déjà au ralenti : un de plus ne produirait
-  // pas un gramme de mieux. On remonte à ce qui leur manque.
-  if (rare && sature(monde, ville, type)) {
-    return remonter(monde, ville, rare, profondeur + 1);
+  // LA FILIÈRE S'EST-ELLE DÉJÀ ENGAGÉE À CONSOMMER PLUS QU'ELLE NE PRODUIT ?
+  //
+  // C'est la question qui manquait, et son absence coûtait des villes entières.
+  // On la posait à l'envers : on regardait si les ateliers existants tournaient
+  // au ralenti DEPUIS TROIS MOIS, ce qui suppose qu'on les ait déjà bâtis pour
+  // s'en apercevoir. Plaine-Dorée s'est ainsi couverte de 31 scieries pour 170
+  // bois par mois — de quoi en nourrir quatre. Les 27 autres immobilisaient 54
+  // bras dans une ville qui en comptait 208, ne produisaient pas une planche, et
+  // les manufactures en aval n'ont jamais reçu un gramme de matière.
+  //
+  // On la pose désormais à l'endroit et par avance : ce que la filière SAIT
+  // produire, rapporté à ce que le parc s'est déjà engagé à consommer, chantiers
+  // compris. Sous 100 %, un atelier de plus ne produira pas un gramme de mieux —
+  // il prendra des bras et du capital pour tourner à vide. On remonte.
+  const cv = couverture(monde, ville, type);
+  if (cv.rare && cv.taux < P.couvertureMinimale) {
+    return remonter(monde, ville, cv.rare, profondeur + 1);
   }
+  void rare;
   return type;
+}
+
+// Ce que le parc debout RÉCLAME de cette ressource chaque mois, à plein régime —
+// ateliers en service et chantiers en cours, sur tout le marché : une ville
+// reliée puise dans le même panier que ses voisines.
+export function reclame(monde, marche, res) {
+  let q = 0;
+  for (const v of marche.villes) {
+    for (const b of monde.tousBatiments(v)) q += (b.def.intrants || {})[res] || 0;
+    for (const c of monde.tousChantiers(v)) q += (BAT[c.type].intrants || {})[res] || 0;
+  }
+  return q;
+}
+
+// Ce que ce même parc en PRODUIT, à plein régime. Un chantier compte pour le
+// débit nominal de ce qu'il deviendra : on ne connaît pas encore la qualité de
+// sa terre, mais on sait qu'il arrive.
+export function fournit(monde, marche, res) {
+  let q = 0;
+  for (const v of marche.villes) {
+    for (const b of monde.tousBatiments(v)) if (b.def.sort === res) q += b.capacite;
+    for (const c of monde.tousChantiers(v)) if (BAT[c.type].sort === res) q += BAT[c.type].debit;
+  }
+  return q;
+}
+
+// La couverture d'un atelier : pour chacun de ses intrants, ce que la filière
+// produit rapporté à ce qu'elle s'est engagée à consommer. Le plus petit décide
+// — c'est la loi du minimum, la même qui régit la production tous les mois.
+function couverture(monde, ville, type) {
+  const m = ville.marche;
+  let taux = Infinity, rare = null;
+  for (const r of Object.keys(BAT[type].intrants || {})) {
+    const d = reclame(monde, m, r);
+    if (d <= 0.001) continue;
+    const c = fournit(monde, m, r) / d;
+    if (c < taux) { taux = c; rare = r; }
+  }
+  return { taux, rare };
 }
 
 // TROISIÈME RÈGLE — le plafond de bras. On ne décide pas de bâtir ce qu'on ne
@@ -86,21 +139,6 @@ function brasDisponibles(monde, ville) {
   for (const b of monde.tousBatiments(ville)) occupes += b.postesDemandes;
   for (const c of monde.tousChantiers(ville)) occupes += c.postesDemandes;
   return bras - occupes;
-}
-
-// Une filière est saturée quand ses ateliers existants tournent déjà au ralenti
-// faute d'intrants : en bâtir un de plus n'ajoute pas un gramme de production.
-function sature(monde, ville, type) {
-  const intrants = Object.keys(BAT[type].intrants || {});
-  if (!intrants.length) return false;
-  const miens = monde.tousBatiments(ville).filter(b => b.type === type && b.age > 3);
-  if (miens.length < 2) return false;
-  const taux = miens.reduce((s, b) => s + b.tauxReel, 0) / miens.length;
-  if (taux >= 0.55) return false;
-  // Ils tournent au ralenti — mais est-ce faute d'intrants, ou faute de
-  // débouchés ? Dans le second cas, en bâtir un de plus serait absurde ; dans
-  // le premier, c'est en amont qu'il faut aller, ce dont `remonter` s'occupe.
-  return true;
 }
 
 // Le taux d'emploi au-dessous duquel on cesse de loger.
@@ -333,6 +371,14 @@ function unChantierDeVille(monde, ville) {
     essayes.add(type);
 
     const def = BAT[type];
+
+    // Dernier garde-fou, celui qu'aucun chemin ne contourne : on ne pose pas un
+    // atelier dont les intrants sont déjà retenus par d'autres. `remonter` s'en
+    // charge d'ordinaire, mais il abandonne au bout de quatre étages de filière
+    // et rend alors le type demandé sans l'avoir vérifié.
+    if (Object.keys(def.intrants || {}).length
+        && couverture(monde, ville, type).taux < P.couvertureMinimale) continue;
+
     // Un immeuble de bureaux réclame vingt bras, pas quatre : c'est le nombre de
     // POSTES qu'il faut pouvoir pourvoir, pas la surface qu'il couvre.
     const brasRequis = def.cat === 'bur' ? def.postes : def.cases;
@@ -374,7 +420,25 @@ function unChantierDeVille(monde, ville) {
     // produire à prix coûtant, qu'on exerce parce qu'on n'a pas le choix.
     const vital = VIVRIER.has(type)
       && ville.barometres.nourriture < P.seuilsCritiques.nourriture;
-    if (def.cat !== 'loge' && !vital
+
+    // ET L'EXPLOITATION NÉCESSAIRE SÈME AUSSI, MÊME À PERTE.
+    //
+    // Une mine, une coupe, une carrière posée sur une case 1 rend −5 % au prix
+    // de référence : aucun investisseur ne l'ouvrirait. Mais tant que les
+    // ateliers en aval réclament plus de matière que la filière n'en sort, cette
+    // mine n'est pas un placement, elle est la condition d'existence de tout ce
+    // qui la suit. La marge, elle, se retrouve un cran plus haut — chez la
+    // scierie, la minoterie, l'aciérie — qui ne dégagent la leur que si la
+    // matière arrive.
+    //
+    // Sans cette exemption, la règle du rendement fabriquait exactement la
+    // pathologie qu'elle prétendait éviter : les ateliers se bâtissaient parce
+    // qu'ils affichent une belle marge sur le papier, et les exploitations qui
+    // devaient les nourrir n'étaient jamais ouvertes parce qu'elles rendent −5 %.
+    const necessaire = def.sort && !Object.keys(def.intrants || {}).length
+      && fournit(monde, ville.marche, def.sort) < reclame(monde, ville.marche, def.sort);
+
+    if (def.cat !== 'loge' && !vital && !necessaire
         && rendementAttendu(monde, ville, type, cases) < P.rendementMinimalPourBatir) continue;
 
     ville.epargne -= cout;
@@ -397,8 +461,12 @@ export function rendementAttendu(monde, ville, type, cases) {
   const q = def.qual
     ? cases.reduce((s, c) => s + c.q[def.qual], 0) / cases.length
     : 1;
-  const production = def.debit * def.cases * echelleDe(type)
-    * (def.qual ? facteurQualite(q) : 1);
+  // LE DÉBIT EST PAR BÂTIMENT, PAS PAR CASE — depuis la base propre. Ce calcul
+  // multipliait encore par le nombre de cases : il prêtait 40 planches à une
+  // scierie qui en fait 20, et 120 produits à une manufacture qui en fait 30.
+  // Le rendement affiché n'avait plus aucun rapport avec ce que le bâtiment
+  // ferait une fois debout, et c'est sur ce chiffre que la ville décidait.
+  const production = def.debit * echelleDe(type) * (def.qual ? facteurQualite(q) : 1);
 
   // On ne calcule pas au prix d'aujourd'hui, mais à celui qu'aura fait la
   // production déjà en chantier.
@@ -413,20 +481,21 @@ export function rendementAttendu(monde, ville, type, cases) {
   for (const v of m.villes) {
     for (const b of monde.tousBatiments(v)) if (b.def.sort === def.sort) installe += b.capacite;
     for (const c of monde.tousChantiers(v)) {
-      if (BAT[c.type].sort === def.sort) enChantier += BAT[c.type].debit * BAT[c.type].cases;
+      if (BAT[c.type].sort === def.sort) enChantier += BAT[c.type].debit;
     }
   }
   enChantier += production;   // le nôtre en fait partie
   const dilution = installe > 0
     ? Math.pow(installe / (installe + enChantier), P.exposantPrix) : 1;
 
-  let mensuel = production * m.prix[def.sort] * dilution - P.salaireCase * def.cases;
+  let mensuel = production * m.prix[def.sort] * dilution
+              - P.salaireCase * emploisRequis(type);
   for (const [r, qte] of Object.entries(def.intrants || {})) {
-    mensuel -= qte * def.cases * m.prix[r];
+    mensuel -= qte * m.prix[r];
   }
 
   let bati = 0;
-  for (const [r, qte] of Object.entries(def.mat)) bati += qte * def.cases * m.prix[r];
+  for (const [r, qte] of Object.entries(def.mat)) bati += qte * m.prix[r];
   const terrain = cases.reduce((s, c) => s + monde.prixCase(ville, c), 0);
   const revient = terrain + bati;
   if (revient <= 0) return 0;
@@ -507,9 +576,10 @@ export function piloterSociete(monde, s) {
     if (!type) continue;
     const def = BAT[type];
     if (def.cat !== 'loge' && brasDisponibles(monde, v) < def.cases) continue;
-    // On n'ajoute pas un atelier de plus à une filière déjà à l'arrêt : ce
-    // serait payer un bâtiment pour le mettre aussitôt en sommeil.
-    if (sature(monde, v, type)) continue;
+    // On n'ajoute pas un atelier de plus à une filière dont l'amont ne suit
+    // pas : ce serait payer un bâtiment pour le mettre aussitôt en sommeil.
+    if (Object.keys(def.intrants || {}).length
+        && couverture(monde, v, type).taux < P.couvertureMinimale) continue;
     const score = besoin.score;
     if (!meilleur || score > meilleur.score) meilleur = { ville: v, type, score };
   }
