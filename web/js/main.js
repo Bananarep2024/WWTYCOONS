@@ -259,7 +259,7 @@ function demanderNom(c) {
   const dg = devisGare(monde, c.x, c.y);
   $('#baptemeLieu').textContent = `${Math.round(dg.cout).toLocaleString('fr-FR')} $`
     + ` · quai ${Math.round(dg.quai)} $ · ${dg.cases} cases de terrain`
-    + ` ${Math.round(dg.fonciere)} $ (remise ${Math.round(P.remiseFonciereGare * 100)} %)`
+    + ` ${Math.round(dg.fonciere)} $`
     + ` · ${P.moisDePain} mois de pain`;
   boite.classList.remove('cachee');
   champ.focus(); champ.select();

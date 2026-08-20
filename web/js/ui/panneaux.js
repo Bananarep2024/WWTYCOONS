@@ -952,7 +952,7 @@ export function voletBatir(monde, rendu) {
         <span class="matBat">
           <span class="lotMat"><i style="background:#8a7f6a"></i>quai ${eur(dg.quai)}</span>
           <span class="lotMat"><i style="background:#6f8f5a"></i>${dg.cases} cases
-            ${eur(dg.fonciere)} <b>−${Math.round(P.remiseFonciereGare * 100)} %</b></span>
+            ${eur(dg.fonciere)}</span>
           ${Object.entries(dg.vivres).map(([r, q]) =>
             `<span class="lotMat"><i style="background:${RES[r].couleur}"></i>${
               Math.round(q)} ${RES[r].nom.toLowerCase()}</span>`).join('')}
@@ -964,9 +964,9 @@ export function voletBatir(monde, rendu) {
       et <b>ce carré est à vous</b> : toutes ses cases libres passent à votre société le jour de la
       fondation. Vous n'avez plus rien à acheter pour bâtir chez vous, et ce sol vaudra davantage à
       chaque palier que la ville franchira.<br><br>
-      Vous le payez, mais <b>remisé de ${Math.round(P.remiseFonciereGare * 100)} %</b> : vous
-      achetez en gros, d'un seul tenant, une terre que personne ne convoitait et qui ne vaudra
-      quelque chose que si vous la faites vivre. C'est le prix du risque.<br><br>
+      Vous la payez <b>plein tarif</b> — une terre vaut ce qu'elle vaut — et l'affaire tient toute
+      seule : mille quatre-vingt-neuf cases qui prendront de la valeur à chaque palier que la ville
+      franchira.<br><br>
       La gare n'apporte rien d'autre que du pain, de quoi tenir le temps que les premières fermes
       sortent de terre. Ni maisons, ni ateliers : tout se bâtit, et les matériaux viennent de la
       ville la plus proche, ce qui prend des mois.<br><br>

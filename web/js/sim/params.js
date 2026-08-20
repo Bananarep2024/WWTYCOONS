@@ -544,14 +544,19 @@ export const P = {
   immigrationFrontiere: 0.8,
   moisDeVivres: 24,            // deux ans de nourriture et de produits, à 100 %
   exploitationsFournies: 3,    // ce que le stock de matériaux permet d'ouvrir
-  // Ce que le fondateur paie sur la terre qu'il acquiert d'un seul tenant. Il
-  // achète en gros une terre que personne ne convoitait : la remise est le prix
-  // du risque, et ce qui reste — un tiers de la valeur — est un vrai
-  // engagement. Mesuré : le carré d'un Comptoir vaut de 41 500 à 57 800 $ selon
-  // le site, soit 12 500 à 17 300 $ après remise. Une gare complète revient donc
-  // autour de 17 000 $ pour une trésorerie de départ de 15 000 : on ne fonde pas
-  // le premier mois, on économise pour fonder.
-  remiseFonciereGare: 0.70,
+  // LA REMISE VA À LA TERRE DU DEHORS, PAS AU FONDATEUR.
+  //
+  // Le fondateur paie son carré PLEIN TARIF : il achète une terre qui vaut ce
+  // qu'elle vaut, et l'affaire tient toute seule — mille quatre-vingt-neuf cases
+  // qui prendront de la valeur à chaque palier de sa ville.
+  //
+  // La remise porte ailleurs, et c'est plus juste : sur les cases situées
+  // AU-DELÀ DU CARRÉ MAXIMAL de toute ville. Aucune ville ne pourra jamais y
+  // bâtir — c'est ce que garantit la règle d'écartement — et une terre sur
+  // laquelle on ne peut rien poser ne vaut pas le prix d'une terre à bâtir. Elle
+  // garde une valeur : le rail y passe, une gare peut s'y fonder un jour. Mais
+  // pas celle-là.
+  remiseHorsPerimetre: 0.70,
   coutGareNu: 2000,            // le bâtiment de gare seul, hors cargaison
   rayonGare: 16,               // le territoire qu'ouvre une gare, en cases
   // Une gare ne se pose pas contre une ville ni contre une autre gare : sans
@@ -945,11 +950,10 @@ export function devisGare(monde = null, x = 0, y = 0) {
       terrain += prixTerrain(1, Math.max(Math.abs(dx), Math.abs(dy)), 1);
     }
   }
-  const fonciere = terrain * (1 - P.remiseFonciereGare);
   return {
     mat: {}, vivres, cases,
-    quai: P.coutGareNu, vivresCout, terrainNu: terrain, fonciere,
-    cout: P.coutGareNu + vivresCout + fonciere,
+    quai: P.coutGareNu, vivresCout, terrainNu: terrain, fonciere: terrain,
+    cout: P.coutGareNu + vivresCout + terrain,
     estimation: !monde,
   };
 }
@@ -1109,6 +1113,13 @@ export function prixTerrain(niveau, distanceGare, richesse = 1) {
   const fn = P.facteurNiveau[niveau - 1];
   const part = distanceGare / P.rayonPalier[niveau - 1];
   const fd = 1 / (1 + P.gradientFoncier[niveau - 1] * part);
+
+  // HORS DU CARRÉ MAXIMAL, la terre est remisée. Aucune ville ne pourra jamais
+  // y bâtir — la règle d'écartement des gares le garantit — et une terre sur
+  // laquelle on ne peut rien poser ne vaut pas le prix d'une terre à bâtir.
+  // Elle garde une valeur : le rail y passe, une gare peut s'y fonder un jour.
+  const dehors = distanceGare > P.rayonPalier[P.rayonPalier.length - 1]
+    ? (1 - P.remiseHorsPerimetre) : 1;
   // Le sol se paie EXACTEMENT ce qu'il rend : le facteur de richesse est la loi
   // de rendement elle-même, et non un barème séparé.
   //
@@ -1124,7 +1135,7 @@ export function prixTerrain(niveau, distanceGare, richesse = 1) {
   // filon coûtait plus cher qu'une case du centre sur une terre pauvre. La carte
   // du prix du sol montrait alors des villes au centre bon marché.
   const fq = valeurSol(richesse);
-  return P.terrainRef * fn * fd * fq;
+  return P.terrainRef * fn * fd * fq * dehors;
 }
 
 // Ce que cette case vaudra si la ville va au bout, rapporté à ce qu'elle vaut
