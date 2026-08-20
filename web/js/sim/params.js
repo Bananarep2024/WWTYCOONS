@@ -279,14 +279,68 @@ export const P = {
   // que vient tout le reste : une résidence encaisse la hausse du sol par son
   // loyer, un atelier ne fait que la subir dans son prix de revient. L'économie
   // range la ville toute seule.
-  attenuationDistance: [0.0280, 0.0364, 0.0504, 0.0728, 0.1120],
+  //
+  // ELLE SE COMPTE MAINTENANT EN FRACTION DU RAYON, PLUS EN CASES.
+  //
+  // Le réglage ci-dessus était absolu, calibré sur un territoire de rayon 44.
+  // Depuis que le rayon constructible suit le palier — 11 au Comptoir, 34 à la
+  // Métropole — un chiffre absolu n'a plus de sens : dans un carré de 11 le
+  // gradient serait plat, et le centre d'un comptoir vaudrait sa lisière.
+  //
+  // Le gradient porte donc sur d ÷ rayon du palier, et les coefficients sont
+  // l'ancienne atténuation multipliée par 44 : à la LISIÈRE, le prix vaut
+  // exactement la même fraction du centre qu'avant — 45 % au Comptoir, 17 % à
+  // la Métropole. Le calibrage est conservé là où il avait été mesuré ; seul
+  // l'intérieur se redistribue.
+  gradientFoncier: [1.232, 1.602, 2.218, 3.203, 4.928],
   partIndependants: 0.30,
   surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
   anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
   // — le plancher est le terrain lui-même : voir prixRachatIndependant
 
   chantiersVilleParMois: 6,       // ce qu'une ville peut lancer en un mois
-  dispersionDepart: 12,        // points d'écart tolérés à la pose initiale
+  // LE RAYON CONSTRUCTIBLE, PAR PALIER.
+  //
+  // Le territoire d'une ville n'est plus un disque figé où la contiguïté décide
+  // de tout : c'est un CARRÉ centré sur la gare, dont le rayon suit le palier.
+  // On bâtit où l'on veut dedans, nulle part dehors.
+  //
+  // LES BANDES SONT CELLES DE `seuilsNiveau`, ET ELLES SONT LARGES. Un Comptoir
+  // va jusqu'à 250 ménages, pas 100 : le seuil est l'ENTRÉE dans le palier
+  // suivant. Une première version de cette échelle l'avait lu à l'envers et
+  // donnait au Comptoir un carré de rayon 11 — 529 cases pour 500 bâties au
+  // plafond. Mesuré : quatre villes sur cinq bloquées à 215 ménages, incapables
+  // de poser une case de plus, et le monde à l'arrêt.
+  //
+  //   Comptoir    <250       r=16  côté 33  1 089 cases    500 bâties   46 %
+  //   Bourg        250-499   r=21  côté 43  1 849 cases    950          51 %
+  //   Ville        500-999   r=26  côté 53  2 809 cases  1 700          61 %
+  //   Grandeville 1000-1999  r=30  côté 61  3 721 cases  3 100          83 %
+  //   Métropole   ⩾2000      r=34  côté 69  4 761 cases       —          —
+  //
+  // Les rayons sortent d'une mesure : une ville occupe 2,20 case par ménage à
+  // cent ménages et 1,55 à deux mille, le ratio baissant à mesure qu'elle
+  // densifie par immeubles.
+  //
+  // Le haut de l'échelle est SERRÉ, et c'est délibéré. Le rayon maximal est
+  // borné par la règle d'écartement — deux carrés maximaux ne se recoupent
+  // jamais — et l'élargir coûterait des sites de fondation : à 34 il en reste
+  // douze sur la carte, à 42 il n'en resterait que six. Une Métropole sature
+  // donc autour de trois mille ménages, et la croissance doit repartir
+  // ailleurs. C'est la raison d'être des gares qu'on fonde.
+  //
+  // La distance se mesure en CHEBYSHEV — le plus grand des deux écarts — parce
+  // que c'est la distance d'un carré. En euclidien, les coins seraient hors du
+  // territoire tout en paraissant dedans.
+  rayonPalier: [16, 21, 26, 30, 34],
+  // Deux carrés maximaux ne se recoupent jamais : c'est la seule condition pour
+  // fonder une gare. 2 × 34 + 1.
+  ecartMinimalGares: 69,
+  // Ce que le générateur garantit à chaque ville DANS SON CARRÉ DE DÉPART.
+  // Vingt cases suffisent en théorie — cent pains, cinq minoteries, deux cents
+  // céréales, vingt fermes de qualité 1 — on en met vingt-quatre pour la marge.
+  minCasesParRessourceDepart: 24,
+  dispersionDepart: 0,         // le parc de départ ne se disperse plus (§ 5.2)
   casesParMenage: 3.0,         // logement + postes : ce qu'un ménage occupe
   aisanceUrbaine: 1.20,        // marge sur le rayon utile — d'où les trous
   porteeExploitations: 2.2,    // une ferme a le droit de s'éloigner
@@ -1009,7 +1063,8 @@ export function valeurSol(q) {
 // qui donne son sel à l'achat précoce — la terre est chère AVANT qu'on ait bâti.
 export function prixTerrain(niveau, distanceGare, richesse = 1) {
   const fn = P.facteurNiveau[niveau - 1];
-  const fd = 1 / (1 + P.attenuationDistance[niveau - 1] * distanceGare);
+  const part = distanceGare / P.rayonPalier[niveau - 1];
+  const fd = 1 / (1 + P.gradientFoncier[niveau - 1] * part);
   // Le sol se paie EXACTEMENT ce qu'il rend : le facteur de richesse est la loi
   // de rendement elle-même, et non un barème séparé.
   //

@@ -13,7 +13,8 @@
 
 import { P, RES, RELIEFS, BAT, prixTerrain, qualiteMax, potentielTerrain }
   from '../sim/params.js';
-import { estAchetable } from '../sim/mapgen.js';
+import { estAchetable, dansLeCarre } from '../sim/mapgen.js';
+void estAchetable;   // la frontière achetable est désormais le carré de la ville
 import { sprite, videCache, COULEURS } from './sprites.js';
 
 export { COULEURS };
@@ -355,20 +356,35 @@ export class Rendu {
     this.dessinerAlertes(ctx, p, ox, oy, vu);
     this.dessinerEtiquettes(ctx, p, ox, oy);
 
-    // La frontière achetable : étroite et disputée, c'est là que se joue le
-    // foncier. On ne la montre que quand elle sert — sous un filtre foncier, ou
-    // dès qu'on a la fiche d'un terrain ouverte. Sans cela le joueur ne voit pas
-    // où sa ville peut s'étendre, et croit la règle plus dure qu'elle n'est :
-    // il suffit de toucher du sol VENDU, un bâtiment n'est pas nécessaire.
+    // LES CARRÉS DES VILLES, EN MODE CONSTRUCTION.
+    //
+    // C'est la seule frontière du jeu, et elle doit se voir avant qu'on essaie
+    // de bâtir dehors — pas après. On dessine le carré du palier courant en
+    // trait plein, et celui de la Métropole en pointillé : le joueur voit d'un
+    // coup ce qu'il peut bâtir aujourd'hui, et ce que la ville lui donnera si
+    // elle grandit. Le pointillé est aussi ce qui rend lisible la règle de
+    // fondation — deux carrés maximaux ne se recoupent jamais.
     const inspecteUnTerrain = this.selection && !this.selection.bat
                            && !this.selection.chantier && this.selection.ville;
-    if (p >= 4 && !this.pose
-        && (this.filtre === 'terrain' || this.filtre === 'proprio' || inspecteUnTerrain)) {
-      ctx.strokeStyle = 'rgba(224,177,85,.75)'; ctx.lineWidth = 1;
-      for (const v of m.villes) for (const c of v.cases) {
-        if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
-        if (!estAchetable(m, c)) continue;
-        ctx.strokeRect(ox + c.x * p + .5, oy + c.y * p + .5, p - 1, p - 1);
+    if (this.pose || this.filtre === 'terrain' || this.filtre === 'proprio' || inspecteUnTerrain) {
+      const rMax = P.rayonPalier[P.rayonPalier.length - 1];
+      for (const v of m.villes) {
+        const r = P.rayonPalier[Math.max(0, Math.min(4, v.niveau - 1))];
+        const cadre = (rayon, style, tirets, epaisseur) => {
+          const gx = ox + (v.gare.x - rayon) * p;
+          const gy = oy + (v.gare.y - rayon) * p;
+          const cote = (2 * rayon + 1) * p;
+          if (gx > this.w || gy > this.h || gx + cote < 0 || gy + cote < 0) return;
+          ctx.strokeStyle = style;
+          ctx.lineWidth = epaisseur;
+          ctx.setLineDash(tirets);
+          ctx.strokeRect(gx + .5, gy + .5, cote - 1, cote - 1);
+          ctx.setLineDash([]);
+        };
+        // Le carré maximal, en pointillé : ce que la ville pourra devenir.
+        if (r < rMax) cadre(rMax, 'rgba(224,177,85,.30)', [Math.max(2, p), Math.max(2, p)], 1);
+        // Le carré du palier, en plein : ce qu'on peut bâtir aujourd'hui.
+        cadre(r, 'rgba(224,177,85,.85)', [], 2);
       }
     }
 

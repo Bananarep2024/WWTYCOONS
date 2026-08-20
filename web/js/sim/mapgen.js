@@ -198,8 +198,20 @@ export function genererMonde(nbVilles, graine) {
       const y = P.margeMonde + Math.floor(rnd() * (H - 2 * P.margeMonde));
       const c = cases[y * L + x];
       if (c.alt > 0.66) continue;                       // on ne fonde pas sur un sommet
+      // DEUX CONTRAINTES, ET IL FAUT LES DEUX.
+      //
+      // L'écart de Chebyshev garantit que les carrés MAXIMAUX ne se recoupent
+      // jamais — c'est la même règle que pour les gares qu'on fonde, et elle
+      // doit valoir d'abord pour les villes que la carte pose elle-même.
+      //
+      // L'écart euclidien, lui, n'a rien à voir avec les carrés : il garantit
+      // que les lignes de chemin de fer restent LONGUES, donc chères, donc un
+      // vrai investissement. Deux villes à soixante-neuf cases se relieraient
+      // pour trois fois rien, et le rail cesserait d'être un pari.
       let tropPres = false;
       for (const s of sites) {
+        const ch = Math.max(Math.abs(s.x - x), Math.abs(s.y - y));
+        if (ch < P.ecartMinimalGares) { tropPres = true; break; }
         if (Math.hypot(s.x - x, s.y - y) < P.distanceMinVilles) { tropPres = true; break; }
       }
       if (tropPres) continue;
@@ -323,7 +335,11 @@ export function genererMonde(nbVilles, graine) {
         if (d > 0.55 + fLisiere(x, y) * 0.62) continue;
 
         c.ville = v;
-        c.distanceGare = Math.round(Math.hypot(dx, dy));
+        // LA DISTANCE D'UN CARRÉ EST CELLE DE CHEBYSHEV — le plus grand des deux
+        // écarts. En euclidien, les coins du carré constructible seraient hors
+        // du territoire tout en paraissant dedans, et le foncier y serait
+        // anormalement bon marché.
+        c.distanceGare = Math.max(Math.abs(dx), Math.abs(dy));
         // Le quartier le plus proche donne sa vocation à la case.
         let meilleur = germes[0], best = Infinity;
         for (const g of germes) {
@@ -426,6 +442,30 @@ export function genererMonde(nbVilles, graine) {
   // Ce n'est pas une faveur, c'est ce qui rend le rail désirable au lieu d'être
   // vital : la ville survit sans lui, elle ne prospère qu'avec.
   for (const v of villes) {
+    // D'ABORD LE CARRÉ DE DÉPART, ET C'EST LÀ QUE TOUT SE JOUE.
+    //
+    // Le relief est posé par grandes régions ; un carré de rayon 11 tombe donc
+    // à l'intérieur d'une seule. Mesuré avant cette règle : trois villes sur
+    // cinq n'avaient pas UN GRAIN DE BLÉ dans leur carré de départ, et
+    // mouraient de faim au premier mois. La garantie existait déjà, mais elle
+    // s'appliquait au territoire entier — quatre mille cases — et promouvait
+    // les cases là où le relief les désignait, donc loin de la gare.
+    //
+    // Vingt cases suffisent en théorie pour nourrir un Comptoir plein : cent
+    // pains, cinq minoteries, deux cents céréales, vingt fermes de qualité 1.
+    // On en garantit vingt-quatre, pour la marge.
+    const r0 = P.rayonPalier[0];
+    const carre = v.cases.filter(c => c.distanceGare <= r0 && !c.voie);
+    for (const nom of QUALITES) {
+      const manquantes = carre.filter(c => c.q[nom] < 1);
+      const aPromouvoir = P.minCasesParRessourceDepart - (carre.length - manquantes.length);
+      if (aPromouvoir <= 0) continue;
+      manquantes.sort((a, b) => b.qBrut[nom] - a.qBrut[nom]);
+      for (let i = 0; i < aPromouvoir && i < manquantes.length; i++) manquantes[i].q[nom] = 1;
+    }
+
+    // Puis le territoire entier, comme avant : une ville doit toujours avoir de
+    // quoi produire, au rendement nul, ce que son sol ne lui donne pas.
     for (const nom of QUALITES) {
       const manquantes = v.cases.filter(c => c.q[nom] < 1);
       const deja = v.cases.length - manquantes.length;
@@ -561,11 +601,27 @@ function melanger(a, rnd) {
 // Règle de contiguïté : on ne peut acheter une terre vierge que si elle touche
 // une terre déjà vendue ou bâtie. La ville s'étend en anneaux depuis sa gare, et
 // il existe à chaque instant une frontière étroite et disputée.
+// ON BÂTIT OÙ L'ON VEUT DANS LE CARRÉ, NULLE PART DEHORS.
+//
+// La règle de contiguïté — une parcelle devait toucher du sol déjà loti — est
+// supprimée. Elle était invisible sur les villes de départ, dont le parc était
+// semé partout, et étouffante sur une gare fondée, qui n'offrait que QUATRE
+// cases constructibles : les quatre voisines du quai. Le joueur ne pouvait
+// bâtir qu'à côté de la gare, et devait y bâtir pour pouvoir bâtir ailleurs.
+//
+// Une seule règle la remplace : la case est-elle dans le carré de sa ville ?
 export function estAchetable(monde, c) {
   if (!c || c.voie || c.vendue || !c.ville) return false;
-  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    const v = monde.caseAt(c.x + dx, c.y + dy);
-    if (v && (v.vendue || v.voie)) return true;
-  }
-  return false;
+  return dansLeCarre(c.ville, c);
+}
+
+// Le carré constructible d'une ville : rayon du palier, distance de Chebyshev.
+export function rayonConstructible(ville) {
+  return P.rayonPalier[Math.max(0, Math.min(P.rayonPalier.length - 1, ville.niveau - 1))];
+}
+
+export function dansLeCarre(ville, c) {
+  if (!ville || !c) return false;
+  const r = rayonConstructible(ville);
+  return Math.abs(c.x - ville.gare.x) <= r && Math.abs(c.y - ville.gare.y) <= r;
 }

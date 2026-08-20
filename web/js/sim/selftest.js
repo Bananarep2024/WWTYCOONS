@@ -142,8 +142,18 @@ console.log('\n=== Le marché sert le local d\'abord ===');
 console.log('\n=== Foncier ===');
 ok('case contre la gare, comptoir', prixTerrain(1, 0), 100, 0.01);
 ok('case contre la gare, métropole', prixTerrain(5, 0), 400, 0.01);
-ok('case à 32 cases, métropole', prixTerrain(5, 32), 88.0, 0.02);
-ok('case à 32 cases, comptoir', prixTerrain(1, 32), 52.72, 0.02);
+// LE GRADIENT SE LIT MAINTENANT À LA LISIÈRE, PAS À UNE DISTANCE ABSOLUE.
+//
+// Il portait sur un nombre de cases, calibré pour un territoire de rayon 44.
+// Depuis que le rayon suit le palier — 16 au Comptoir, 34 à la Métropole — la
+// seule question qui garde un sens est : que vaut le bord du carré, rapporté à
+// son centre ? Le calibrage d'origine est conservé là exactement : 45 % au
+// Comptoir, 17 % à la Métropole.
+for (const [n, part] of [[1, 0.448], [5, 0.169]]) {
+  const r = P.rayonPalier[n - 1];
+  ok(`lisière ÷ centre, ${P.nomsNiveau[n - 1].toLowerCase()} (r=${r})`,
+     prixTerrain(n, r) / prixTerrain(n, 0), part, 0.01);
+}
 
 // LE SOL SE PAIE CE QU'IL REND. La prime foncière d'une bonne terre doit valoir
 // exactement la prime de rendement qu'elle capitalise — sinon la terre riche est
@@ -161,8 +171,8 @@ ok('… et elle vaut la prime de rendement',
 // La distance doit peser plus que la richesse, sans quoi la carte du prix du sol
 // ne se lit plus comme un gradient urbain.
 ok('la distance pèse autant que le sol',
-   prixTerrain(3, 0, 3) / prixTerrain(3, 60, 3),
-   4.02, 0.02);
+   prixTerrain(3, 0, 3) / prixTerrain(3, P.rayonPalier[2], 3),
+   1 + P.gradientFoncier[2], 0.001);
 
 // UNE CASE DE NIVEAU 5 VAUT CINQ CASES DE NIVEAU 1 — en production, en emploi et
 // en prix du sol à la fois. C'est la même loi qui commande les trois, et c'est
@@ -179,19 +189,34 @@ ok('… et la case stérile garde son plancher',
 
 // Le gradient se durcit avec le niveau : c'est là tout le mécanisme.
 ok('potentiel du centre, comptoir', potentielTerrain(1, 0), 4.00, 0.01);
-ok('potentiel à 30 cases, comptoir', potentielTerrain(1, 30), 1.677, 0.02);
+// ET AUCUNE CASE DU CARRÉ MAXIMAL N'A UN POTENTIEL SOUS 1 : où qu'elle soit,
+// une case vaut plus dans une métropole que dans un comptoir. C'est l'invariant
+// qui rend l'achat de terre lisible.
+{
+  let bas = Infinity, ou = 0;
+  for (let d = 0; d <= P.rayonPalier[P.rayonPalier.length - 1]; d++) {
+    const p = potentielTerrain(1, d);
+    if (p < bas) { bas = p; ou = d; }
+  }
+  sous(`potentiel minimal du carré (à ${ou} cases, ×${bas.toFixed(2)})`, 1 / bas, 1.0);
+}
 
 // ET AUCUNE CASE NE PERD JAMAIS DE VALEUR quand la ville monte d'un palier.
 // C'est ce que garantit une atténuation proportionnelle au facteur de niveau,
 // et c'est la seule chose qui rende le mécanisme lisible pour un joueur.
 {
   let pire = Infinity, ou = '';
-  for (let n = 1; n <= 4; n++) for (let d = 0; d <= 60; d++) {
+  const dMax = P.rayonPalier[P.rayonPalier.length - 1];
+  for (let n = 1; n <= 4; n++) for (let d = 0; d <= dMax; d++) {
     const r = prixTerrain(n + 1, d) / prixTerrain(n, d);
     if (r < pire) { pire = r; ou = `niveau ${n}→${n + 1} à ${d} cases`; }
   }
-  ok(`plus faible gain d'un palier (${ou})`, pire, 1.10, 0.10);
-  if (pire < 1) console.log('FAIL  une case PERD de la valeur en montant de palier');
+  // Ce qui est vérifié ici est un INVARIANT, pas un réglage : aucune case ne
+  // doit perdre de valeur quand sa ville monte d'un palier. La valeur du plus
+  // faible gain est imprimée pour information ; c'est le franchissement de 1
+  // qui compte.
+  sous(`toute case gagne au passage de palier (pire : ${ou}, ×${pire.toFixed(2)})`,
+       1 / pire, 1.0);
 }
 
 console.log('\n=== Vingt ans de simulation, sans joueur ===');

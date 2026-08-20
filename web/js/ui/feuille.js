@@ -9,7 +9,7 @@
 import { P, BAT, RES, RELIEFS, QUALITES, materiaux, coutRef, prixTerrain,
          rendementVise, facteurQualite, qualiteMax, potentielTerrain }
   from '../sim/params.js';
-import { estAchetable } from '../sim/mapgen.js';
+import { estAchetable, dansLeCarre, rayonConstructible } from '../sim/mapgen.js';
 import { COULEURS, echelle } from './render.js';
 import { eur, pct, rgb } from './panneaux.js';
 
@@ -107,7 +107,8 @@ function ficheTerrain(monde, v, c) {
         <div class="fiche"><div class="etiq">Prix du sol</div><div class="v">${eur(prix)}</div></div>
         <div class="fiche"><div class="etiq">Facteur ville</div><div class="v">×${P.facteurNiveau[v.niveau - 1].toFixed(1)}</div></div>
         <div class="fiche"><div class="etiq">Facteur distance</div>
-          <div class="v">×${(1 / (1 + P.attenuationDistance[v.niveau - 1] * c.distanceGare)).toFixed(2)}</div></div>
+          <div class="v">×${(1 / (1 + P.gradientFoncier[v.niveau - 1]
+              * c.distanceGare / P.rayonPalier[v.niveau - 1])).toFixed(2)}</div></div>
       </div>`
     + jaugePotentiel(v, c)
     + actions;
@@ -219,6 +220,10 @@ export function empriseConstructible(monde, c, type) {
     for (let j = 0; j < def.h && ok; j++) for (let i = 0; i < def.w && ok; i++) {
       const k = monde.caseAt(c.x - dx + i, c.y - dy + j);
       if (!k || !k.ville || k.voie || k.bat || k.chantier) { ok = false; break; }
+      // Le carré de la ville est la seule frontière : dedans on bâtit, dehors
+      // jamais. Toutes les cases de l'emprise doivent y être — un bâtiment ne
+      // déborde pas d'un demi-pas hors du territoire.
+      if (!dansLeCarre(k.ville, k)) { ok = false; break; }
       if (k.proprio !== joueur.id) {
         // Le reste appartient à un rival : on ne prend pas.
         if (k.proprio && k.proprio !== 'ind') { ok = false; break; }
@@ -229,36 +234,14 @@ export function empriseConstructible(monde, c, type) {
     }
     if (!ok || cases.length !== def.cases) continue;
 
-    // La contiguïté s'apprécie sur la PARCELLE, pas sur chaque case.
-    //
-    // On l'exigeait case par case, et c'était intenable : sur un carré de deux
-    // par deux posé au bord de la frontière, le coin opposé ne touche rien, si
-    // bien que tout le placement était refusé alors que la parcelle, elle,
-    // touchait la ville. Une parcelle est contiguë dès qu'UNE de ses cases
-    // jouxte du sol déjà vendu — le reste vient avec, comme quand on achète un
-    // terrain d'un seul tenant.
-    if (aVendre > 0 && !toucheLaVille(monde, cases, joueur)) continue;
+    // LA CONTIGUÏTÉ A DISPARU. On bâtit où l'on veut dans le carré de la ville,
+    // nulle part dehors — et `empriseConstructible` a déjà vérifié que chaque
+    // case y était. Il n'y a plus rien à demander ici.
 
     // À forme égale, on prend l'emprise la moins chère en foncier.
     if (!meilleur || terrain < meilleur.terrain) meilleur = { cases, terrain };
   }
   return meilleur;
-}
-
-// La parcelle touche-t-elle la ville déjà lotie ? On regarde autour du bloc
-// entier : du sol vendu — le sien, celui d'un indépendant, celui d'un rival —
-// ou une emprise de voie ferrée. Les cases du bloc lui-même ne comptent pas.
-function toucheLaVille(monde, cases, joueur) {
-  const dedans = new Set(cases.map(k => k.x + ',' + k.y));
-  for (const k of cases) {
-    if (k.vendue || k.proprio) return true;        // une case déjà lotie suffit
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const z = monde.caseAt(k.x + dx, k.y + dy);
-      if (!z || dedans.has(z.x + ',' + z.y)) continue;
-      if (z.vendue || z.voie) return true;
-    }
-  }
-  return false;
 }
 
 // Le devis complet d'un bâtiment posé ici : le foncier manquant plus les

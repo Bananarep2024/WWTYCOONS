@@ -1017,14 +1017,68 @@ const P = {
   // que vient tout le reste : une résidence encaisse la hausse du sol par son
   // loyer, un atelier ne fait que la subir dans son prix de revient. L'économie
   // range la ville toute seule.
-  attenuationDistance: [0.0280, 0.0364, 0.0504, 0.0728, 0.1120],
+  //
+  // ELLE SE COMPTE MAINTENANT EN FRACTION DU RAYON, PLUS EN CASES.
+  //
+  // Le réglage ci-dessus était absolu, calibré sur un territoire de rayon 44.
+  // Depuis que le rayon constructible suit le palier — 11 au Comptoir, 34 à la
+  // Métropole — un chiffre absolu n'a plus de sens : dans un carré de 11 le
+  // gradient serait plat, et le centre d'un comptoir vaudrait sa lisière.
+  //
+  // Le gradient porte donc sur d ÷ rayon du palier, et les coefficients sont
+  // l'ancienne atténuation multipliée par 44 : à la LISIÈRE, le prix vaut
+  // exactement la même fraction du centre qu'avant — 45 % au Comptoir, 17 % à
+  // la Métropole. Le calibrage est conservé là où il avait été mesuré ; seul
+  // l'intérieur se redistribue.
+  gradientFoncier: [1.232, 1.602, 2.218, 3.203, 4.928],
   partIndependants: 0.30,
   surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
   anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
   // — le plancher est le terrain lui-même : voir prixRachatIndependant
 
   chantiersVilleParMois: 6,       // ce qu'une ville peut lancer en un mois
-  dispersionDepart: 12,        // points d'écart tolérés à la pose initiale
+  // LE RAYON CONSTRUCTIBLE, PAR PALIER.
+  //
+  // Le territoire d'une ville n'est plus un disque figé où la contiguïté décide
+  // de tout : c'est un CARRÉ centré sur la gare, dont le rayon suit le palier.
+  // On bâtit où l'on veut dedans, nulle part dehors.
+  //
+  // LES BANDES SONT CELLES DE `seuilsNiveau`, ET ELLES SONT LARGES. Un Comptoir
+  // va jusqu'à 250 ménages, pas 100 : le seuil est l'ENTRÉE dans le palier
+  // suivant. Une première version de cette échelle l'avait lu à l'envers et
+  // donnait au Comptoir un carré de rayon 11 — 529 cases pour 500 bâties au
+  // plafond. Mesuré : quatre villes sur cinq bloquées à 215 ménages, incapables
+  // de poser une case de plus, et le monde à l'arrêt.
+  //
+  //   Comptoir    <250       r=16  côté 33  1 089 cases    500 bâties   46 %
+  //   Bourg        250-499   r=21  côté 43  1 849 cases    950          51 %
+  //   Ville        500-999   r=26  côté 53  2 809 cases  1 700          61 %
+  //   Grandeville 1000-1999  r=30  côté 61  3 721 cases  3 100          83 %
+  //   Métropole   ⩾2000      r=34  côté 69  4 761 cases       —          —
+  //
+  // Les rayons sortent d'une mesure : une ville occupe 2,20 case par ménage à
+  // cent ménages et 1,55 à deux mille, le ratio baissant à mesure qu'elle
+  // densifie par immeubles.
+  //
+  // Le haut de l'échelle est SERRÉ, et c'est délibéré. Le rayon maximal est
+  // borné par la règle d'écartement — deux carrés maximaux ne se recoupent
+  // jamais — et l'élargir coûterait des sites de fondation : à 34 il en reste
+  // douze sur la carte, à 42 il n'en resterait que six. Une Métropole sature
+  // donc autour de trois mille ménages, et la croissance doit repartir
+  // ailleurs. C'est la raison d'être des gares qu'on fonde.
+  //
+  // La distance se mesure en CHEBYSHEV — le plus grand des deux écarts — parce
+  // que c'est la distance d'un carré. En euclidien, les coins seraient hors du
+  // territoire tout en paraissant dedans.
+  rayonPalier: [16, 21, 26, 30, 34],
+  // Deux carrés maximaux ne se recoupent jamais : c'est la seule condition pour
+  // fonder une gare. 2 × 34 + 1.
+  ecartMinimalGares: 69,
+  // Ce que le générateur garantit à chaque ville DANS SON CARRÉ DE DÉPART.
+  // Vingt cases suffisent en théorie — cent pains, cinq minoteries, deux cents
+  // céréales, vingt fermes de qualité 1 — on en met vingt-quatre pour la marge.
+  minCasesParRessourceDepart: 24,
+  dispersionDepart: 0,         // le parc de départ ne se disperse plus (§ 5.2)
   casesParMenage: 3.0,         // logement + postes : ce qu'un ménage occupe
   aisanceUrbaine: 1.20,        // marge sur le rayon utile — d'où les trous
   porteeExploitations: 2.2,    // une ferme a le droit de s'éloigner
@@ -1747,7 +1801,8 @@ function valeurSol(q) {
 // qui donne son sel à l'achat précoce — la terre est chère AVANT qu'on ait bâti.
 function prixTerrain(niveau, distanceGare, richesse = 1) {
   const fn = P.facteurNiveau[niveau - 1];
-  const fd = 1 / (1 + P.attenuationDistance[niveau - 1] * distanceGare);
+  const part = distanceGare / P.rayonPalier[niveau - 1];
+  const fd = 1 / (1 + P.gradientFoncier[niveau - 1] * part);
   // Le sol se paie EXACTEMENT ce qu'il rend : le facteur de richesse est la loi
   // de rendement elle-même, et non un barème séparé.
   //
@@ -1998,8 +2053,20 @@ function genererMonde(nbVilles, graine) {
       const y = P.margeMonde + Math.floor(rnd() * (H - 2 * P.margeMonde));
       const c = cases[y * L + x];
       if (c.alt > 0.66) continue;                       // on ne fonde pas sur un sommet
+      // DEUX CONTRAINTES, ET IL FAUT LES DEUX.
+      //
+      // L'écart de Chebyshev garantit que les carrés MAXIMAUX ne se recoupent
+      // jamais — c'est la même règle que pour les gares qu'on fonde, et elle
+      // doit valoir d'abord pour les villes que la carte pose elle-même.
+      //
+      // L'écart euclidien, lui, n'a rien à voir avec les carrés : il garantit
+      // que les lignes de chemin de fer restent LONGUES, donc chères, donc un
+      // vrai investissement. Deux villes à soixante-neuf cases se relieraient
+      // pour trois fois rien, et le rail cesserait d'être un pari.
       let tropPres = false;
       for (const s of sites) {
+        const ch = Math.max(Math.abs(s.x - x), Math.abs(s.y - y));
+        if (ch < P.ecartMinimalGares) { tropPres = true; break; }
         if (Math.hypot(s.x - x, s.y - y) < P.distanceMinVilles) { tropPres = true; break; }
       }
       if (tropPres) continue;
@@ -2123,7 +2190,11 @@ function genererMonde(nbVilles, graine) {
         if (d > 0.55 + fLisiere(x, y) * 0.62) continue;
 
         c.ville = v;
-        c.distanceGare = Math.round(Math.hypot(dx, dy));
+        // LA DISTANCE D'UN CARRÉ EST CELLE DE CHEBYSHEV — le plus grand des deux
+        // écarts. En euclidien, les coins du carré constructible seraient hors
+        // du territoire tout en paraissant dedans, et le foncier y serait
+        // anormalement bon marché.
+        c.distanceGare = Math.max(Math.abs(dx), Math.abs(dy));
         // Le quartier le plus proche donne sa vocation à la case.
         let meilleur = germes[0], best = Infinity;
         for (const g of germes) {
@@ -2226,6 +2297,30 @@ function genererMonde(nbVilles, graine) {
   // Ce n'est pas une faveur, c'est ce qui rend le rail désirable au lieu d'être
   // vital : la ville survit sans lui, elle ne prospère qu'avec.
   for (const v of villes) {
+    // D'ABORD LE CARRÉ DE DÉPART, ET C'EST LÀ QUE TOUT SE JOUE.
+    //
+    // Le relief est posé par grandes régions ; un carré de rayon 11 tombe donc
+    // à l'intérieur d'une seule. Mesuré avant cette règle : trois villes sur
+    // cinq n'avaient pas UN GRAIN DE BLÉ dans leur carré de départ, et
+    // mouraient de faim au premier mois. La garantie existait déjà, mais elle
+    // s'appliquait au territoire entier — quatre mille cases — et promouvait
+    // les cases là où le relief les désignait, donc loin de la gare.
+    //
+    // Vingt cases suffisent en théorie pour nourrir un Comptoir plein : cent
+    // pains, cinq minoteries, deux cents céréales, vingt fermes de qualité 1.
+    // On en garantit vingt-quatre, pour la marge.
+    const r0 = P.rayonPalier[0];
+    const carre = v.cases.filter(c => c.distanceGare <= r0 && !c.voie);
+    for (const nom of QUALITES) {
+      const manquantes = carre.filter(c => c.q[nom] < 1);
+      const aPromouvoir = P.minCasesParRessourceDepart - (carre.length - manquantes.length);
+      if (aPromouvoir <= 0) continue;
+      manquantes.sort((a, b) => b.qBrut[nom] - a.qBrut[nom]);
+      for (let i = 0; i < aPromouvoir && i < manquantes.length; i++) manquantes[i].q[nom] = 1;
+    }
+
+    // Puis le territoire entier, comme avant : une ville doit toujours avoir de
+    // quoi produire, au rendement nul, ce que son sol ne lui donne pas.
     for (const nom of QUALITES) {
       const manquantes = v.cases.filter(c => c.q[nom] < 1);
       const deja = v.cases.length - manquantes.length;
@@ -2361,13 +2456,29 @@ function melanger(a, rnd) {
 // Règle de contiguïté : on ne peut acheter une terre vierge que si elle touche
 // une terre déjà vendue ou bâtie. La ville s'étend en anneaux depuis sa gare, et
 // il existe à chaque instant une frontière étroite et disputée.
+// ON BÂTIT OÙ L'ON VEUT DANS LE CARRÉ, NULLE PART DEHORS.
+//
+// La règle de contiguïté — une parcelle devait toucher du sol déjà loti — est
+// supprimée. Elle était invisible sur les villes de départ, dont le parc était
+// semé partout, et étouffante sur une gare fondée, qui n'offrait que QUATRE
+// cases constructibles : les quatre voisines du quai. Le joueur ne pouvait
+// bâtir qu'à côté de la gare, et devait y bâtir pour pouvoir bâtir ailleurs.
+//
+// Une seule règle la remplace : la case est-elle dans le carré de sa ville ?
 function estAchetable(monde, c) {
   if (!c || c.voie || c.vendue || !c.ville) return false;
-  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    const v = monde.caseAt(c.x + dx, c.y + dy);
-    if (v && (v.vendue || v.voie)) return true;
-  }
-  return false;
+  return dansLeCarre(c.ville, c);
+}
+
+// Le carré constructible d'une ville : rayon du palier, distance de Chebyshev.
+function rayonConstructible(ville) {
+  return P.rayonPalier[Math.max(0, Math.min(P.rayonPalier.length - 1, ville.niveau - 1))];
+}
+
+function dansLeCarre(ville, c) {
+  if (!ville || !c) return false;
+  const r = rayonConstructible(ville);
+  return Math.abs(c.x - ville.gare.x) <= r && Math.abs(c.y - ville.gare.y) <= r;
 }
 
 // ===== js/sim/evenements.js ==========================================
@@ -4495,9 +4606,20 @@ class Monde {
     if (!c) return 'hors carte';
     if (c.ville) return 'déjà dans un territoire';
     if (c.relief === 'montagne') return 'on ne bâtit pas de gare en montagne';
+    // DEUX CARRÉS MAXIMAUX NE SE RECOUPENT JAMAIS.
+    //
+    // C'est la seule condition, et elle est géométrique : une ville qui atteint
+    // la Métropole occupe un carré de 69 cases de côté, et il ne doit pas
+    // empiéter sur celui de sa voisine — même si ni l'une ni l'autre n'y
+    // parviendra jamais. On fonde en pensant à ce que la ville pourra devenir,
+    // pas à ce qu'elle est le premier jour.
+    //
+    // La distance est celle de Chebyshev, comme les carrés qu'elle sépare.
     for (const v of this.villes) {
-      const d = Math.hypot(v.gare.x - x, v.gare.y - y);
-      if (d < P.distanceMinGare) return `trop près de ${v.nom} (${Math.round(d)} cases)`;
+      const d = Math.max(Math.abs(v.gare.x - x), Math.abs(v.gare.y - y));
+      if (d < P.ecartMinimalGares) {
+        return `trop près de ${v.nom} — ${d} cases, il en faut ${P.ecartMinimalGares}`;
+      }
     }
     return null;
   }
@@ -4511,7 +4633,11 @@ class Monde {
     const v = {
       id: this.villes.length, nom: (nom || '').trim() || this.nomDeGare(), profil: null,
       temperament: { taille: 1, nom: 'colonie' },
-      gare: { x, y }, rayon: P.rayonGare, cases: [],
+      // Le territoire s'ouvre d'emblée jusqu'au carré MAXIMAL : c'est le sol que
+      // la ville pourra un jour bâtir, et il lui est réservé dès la fondation —
+      // c'est très exactement ce que la règle d'écartement garantit. Ce qu'elle
+      // peut bâtir AUJOURD'HUI reste le carré de son palier.
+      gare: { x, y }, rayon: P.rayonPalier[P.rayonPalier.length - 1], cases: [],
       menages: 0,
       occupation: 0.85, salaire: P.salaireCase, niveau: 1,
       barometres: { nourriture: 1, emploi: 0.78, produits: 1 },
@@ -4525,14 +4651,14 @@ class Monde {
     };
 
     // Le territoire. Premier arrivé, premier servi, comme à la génération.
-    for (let dy = -P.rayonGare; dy <= P.rayonGare; dy++) {
-      for (let dx = -P.rayonGare; dx <= P.rayonGare; dx++) {
+    const rMax = P.rayonPalier[P.rayonPalier.length - 1];
+    for (let dy = -rMax; dy <= rMax; dy++) {
+      for (let dx = -rMax; dx <= rMax; dx++) {
         const c = this.caseAt(x + dx, y + dy);
         if (!c || c.ville) continue;
-        const d = Math.hypot(dx, dy);
-        if (d > P.rayonGare) continue;
+        const d = Math.max(Math.abs(dx), Math.abs(dy));
         c.ville = v;
-        c.distanceGare = Math.round(d);
+        c.distanceGare = d;
         // Un hameau n'a pas de plan d'urbanisme : le centre se loge, la
         // couronne travaille, et la terre qui donne quelque chose est agricole.
         c.quartier = d <= 4 ? 'residentiel'
@@ -5017,9 +5143,11 @@ class Monde {
     // bâti dans le rayon d'un hameau : la surcapacité voulue ne trouvait pas un
     // pouce de terre libre et ne se posait tout simplement pas. On amorce donc
     // le rayon sur ce que la ville va peser, surcapacité comprise.
-    v.rayonAtteint = Math.max(6, Math.min(v.rayon * 1.15,
-      Math.sqrt(Math.max(40, M * P.casesParMenage * P.margeFondation) / Math.PI)
-        * P.aisanceUrbaine));
+    // Le rayon constructible ne s'amorce plus : c'est celui du palier, et une
+    // ville neuve est au Comptoir. Le parc de départ tient donc serré autour de
+    // la gare, ce qui est justement ce qu'on cherchait — une agglomération
+    // naissante est dense et petite, elle s'étale en grandissant.
+    v.rayonAtteint = rayonConstructible(v);
     const dBois = this.dotation(v, 'bois');
     const dArgile = this.dotation(v, 'argile');
     const dCharbon = this.dotation(v, 'charbon');
@@ -5305,11 +5433,18 @@ class Monde {
   // s'enfoncerait — mesuré : une ville passait de 58 à 34 ménages avec son
   // rayon utile rempli à 97 %, incapable d'ouvrir le moindre atelier. Une ville
   // qui décline garde ses rues ; elle les laisse se vider.
+  // LE RAYON CONSTRUCTIBLE EST CELUI DU PALIER, ET RIEN D'AUTRE.
+  //
+  // Il se déduisait de la population — un disque dimensionné sur trois cases par
+  // ménage, qui ne rétrécissait jamais. C'était une bonne idée pour éviter la
+  // confiture au départ, mais elle rendait le territoire illisible : le joueur
+  // ne pouvait pas savoir où il avait le droit de bâtir avant d'essayer.
+  //
+  // Le carré du palier remplace tout cela. Il est visible, il est prévisible, et
+  // il ne rétrécit jamais non plus — une ville qui décline garde ses rues.
   rayonUtile(ville) {
-    const besoin = Math.max(40, ville.menages * P.casesParMenage);
-    const r = Math.sqrt(besoin / Math.PI) * P.aisanceUrbaine;
-    const borne = Math.max(6, Math.min(ville.rayon * 1.15, r));
-    ville.rayonAtteint = Math.max(ville.rayonAtteint || 0, borne);
+    const r = rayonConstructible(ville);
+    ville.rayonAtteint = Math.max(ville.rayonAtteint || 0, r);
     return ville.rayonAtteint;
   }
 
@@ -5319,17 +5454,21 @@ class Monde {
     let meilleur = null, meilleurScore = -Infinity;
     const proches = [];        // les emplacements à `dispersion` points du meilleur
 
-    // Une exploitation suit la ressource et a donc le droit de s'éloigner ;
-    // le reste tient dans l'agglomération.
-    const portee = this.rayonUtile(ville) * (def.cat === 'expl' ? P.porteeExploitations : 1);
-    let secours = null, secoursScore = -Infinity;
+    // Le carré du palier est une BORNE DURE : rien ne se pose dehors, pas même
+    // une exploitation qui suivrait un filon. C'est ce qui donne son prix au
+    // passage de palier — et sa raison d'être à la gare qu'on va fonder plus
+    // loin pour aller chercher ce filon.
+    const portee = this.rayonUtile(ville);
+    void 0;   // plus de secours hors carré : la borne est dure
 
     for (const depart of ville.cases) {
+      if (depart.distanceGare > portee) continue;
       const cases = [];
       let ok = true;
       for (let dy = 0; dy < def.h && ok; dy++) for (let dx = 0; dx < def.w && ok; dx++) {
         const c = this.caseAt(depart.x + dx, depart.y + dy);
         if (!c || c.ville !== ville || c.voie || c.bat || c.chantier) { ok = false; break; }
+        if (c.distanceGare > portee) { ok = false; break; }
         // Une société doit posséder toutes les cases de l'emprise ; le parc de
         // l'ordinateur s'installe sur les terres restées aux indépendants.
         if (societe && c.proprio !== societe.id) { ok = false; break; }
@@ -5363,13 +5502,6 @@ class Monde {
         score += -cases[0].distanceGare * 1.4;
       }
 
-      // Hors de portée : on le garde en secours, au cas où rien ne tiendrait
-      // dedans — une ville ne doit jamais se retrouver incapable de bâtir.
-      if (cases[0].distanceGare > portee) {
-        if (score > secoursScore) { secoursScore = score; secours = cases; }
-        continue;
-      }
-
       if (score > meilleurScore) { meilleurScore = score; meilleur = cases; }
       if (dispersion > 0) {
         proches.push({ cases, score });
@@ -5385,7 +5517,7 @@ class Monde {
       const bons = proches.filter(x => x.score >= meilleurScore - dispersion);
       if (bons.length) return bons[Math.floor(this.hasard() * bons.length)].cases;
     }
-    return meilleur || secours;
+    return meilleur;
   }
 
   // Pose immédiate (parc de départ et constructions des indépendants).
@@ -6932,6 +7064,7 @@ function mine(ctx, w, h, c, tas) {
 
 
 
+void estAchetable;   // la frontière achetable est désormais le carré de la ville
 
 
 const ALERTES = { matieres: '#e0993f', bras: '#6f9fc9', invendus: '#a97fc0', perte: '#e05a4e' };
@@ -7271,20 +7404,35 @@ class Rendu {
     this.dessinerAlertes(ctx, p, ox, oy, vu);
     this.dessinerEtiquettes(ctx, p, ox, oy);
 
-    // La frontière achetable : étroite et disputée, c'est là que se joue le
-    // foncier. On ne la montre que quand elle sert — sous un filtre foncier, ou
-    // dès qu'on a la fiche d'un terrain ouverte. Sans cela le joueur ne voit pas
-    // où sa ville peut s'étendre, et croit la règle plus dure qu'elle n'est :
-    // il suffit de toucher du sol VENDU, un bâtiment n'est pas nécessaire.
+    // LES CARRÉS DES VILLES, EN MODE CONSTRUCTION.
+    //
+    // C'est la seule frontière du jeu, et elle doit se voir avant qu'on essaie
+    // de bâtir dehors — pas après. On dessine le carré du palier courant en
+    // trait plein, et celui de la Métropole en pointillé : le joueur voit d'un
+    // coup ce qu'il peut bâtir aujourd'hui, et ce que la ville lui donnera si
+    // elle grandit. Le pointillé est aussi ce qui rend lisible la règle de
+    // fondation — deux carrés maximaux ne se recoupent jamais.
     const inspecteUnTerrain = this.selection && !this.selection.bat
                            && !this.selection.chantier && this.selection.ville;
-    if (p >= 4 && !this.pose
-        && (this.filtre === 'terrain' || this.filtre === 'proprio' || inspecteUnTerrain)) {
-      ctx.strokeStyle = 'rgba(224,177,85,.75)'; ctx.lineWidth = 1;
-      for (const v of m.villes) for (const c of v.cases) {
-        if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
-        if (!estAchetable(m, c)) continue;
-        ctx.strokeRect(ox + c.x * p + .5, oy + c.y * p + .5, p - 1, p - 1);
+    if (this.pose || this.filtre === 'terrain' || this.filtre === 'proprio' || inspecteUnTerrain) {
+      const rMax = P.rayonPalier[P.rayonPalier.length - 1];
+      for (const v of m.villes) {
+        const r = P.rayonPalier[Math.max(0, Math.min(4, v.niveau - 1))];
+        const cadre = (rayon, style, tirets, epaisseur) => {
+          const gx = ox + (v.gare.x - rayon) * p;
+          const gy = oy + (v.gare.y - rayon) * p;
+          const cote = (2 * rayon + 1) * p;
+          if (gx > this.w || gy > this.h || gx + cote < 0 || gy + cote < 0) return;
+          ctx.strokeStyle = style;
+          ctx.lineWidth = epaisseur;
+          ctx.setLineDash(tirets);
+          ctx.strokeRect(gx + .5, gy + .5, cote - 1, cote - 1);
+          ctx.setLineDash([]);
+        };
+        // Le carré maximal, en pointillé : ce que la ville pourra devenir.
+        if (r < rMax) cadre(rMax, 'rgba(224,177,85,.30)', [Math.max(2, p), Math.max(2, p)], 1);
+        // Le carré du palier, en plein : ce qu'on peut bâtir aujourd'hui.
+        cadre(r, 'rgba(224,177,85,.85)', [], 2);
       }
     }
 
@@ -8667,7 +8815,8 @@ function ficheTerrain(monde, v, c) {
         <div class="fiche"><div class="etiq">Prix du sol</div><div class="v">${eur(prix)}</div></div>
         <div class="fiche"><div class="etiq">Facteur ville</div><div class="v">×${P.facteurNiveau[v.niveau - 1].toFixed(1)}</div></div>
         <div class="fiche"><div class="etiq">Facteur distance</div>
-          <div class="v">×${(1 / (1 + P.attenuationDistance[v.niveau - 1] * c.distanceGare)).toFixed(2)}</div></div>
+          <div class="v">×${(1 / (1 + P.gradientFoncier[v.niveau - 1]
+              * c.distanceGare / P.rayonPalier[v.niveau - 1])).toFixed(2)}</div></div>
       </div>`
     + jaugePotentiel(v, c)
     + actions;
@@ -8779,6 +8928,10 @@ function empriseConstructible(monde, c, type) {
     for (let j = 0; j < def.h && ok; j++) for (let i = 0; i < def.w && ok; i++) {
       const k = monde.caseAt(c.x - dx + i, c.y - dy + j);
       if (!k || !k.ville || k.voie || k.bat || k.chantier) { ok = false; break; }
+      // Le carré de la ville est la seule frontière : dedans on bâtit, dehors
+      // jamais. Toutes les cases de l'emprise doivent y être — un bâtiment ne
+      // déborde pas d'un demi-pas hors du territoire.
+      if (!dansLeCarre(k.ville, k)) { ok = false; break; }
       if (k.proprio !== joueur.id) {
         // Le reste appartient à un rival : on ne prend pas.
         if (k.proprio && k.proprio !== 'ind') { ok = false; break; }
@@ -8789,36 +8942,14 @@ function empriseConstructible(monde, c, type) {
     }
     if (!ok || cases.length !== def.cases) continue;
 
-    // La contiguïté s'apprécie sur la PARCELLE, pas sur chaque case.
-    //
-    // On l'exigeait case par case, et c'était intenable : sur un carré de deux
-    // par deux posé au bord de la frontière, le coin opposé ne touche rien, si
-    // bien que tout le placement était refusé alors que la parcelle, elle,
-    // touchait la ville. Une parcelle est contiguë dès qu'UNE de ses cases
-    // jouxte du sol déjà vendu — le reste vient avec, comme quand on achète un
-    // terrain d'un seul tenant.
-    if (aVendre > 0 && !toucheLaVille(monde, cases, joueur)) continue;
+    // LA CONTIGUÏTÉ A DISPARU. On bâtit où l'on veut dans le carré de la ville,
+    // nulle part dehors — et `empriseConstructible` a déjà vérifié que chaque
+    // case y était. Il n'y a plus rien à demander ici.
 
     // À forme égale, on prend l'emprise la moins chère en foncier.
     if (!meilleur || terrain < meilleur.terrain) meilleur = { cases, terrain };
   }
   return meilleur;
-}
-
-// La parcelle touche-t-elle la ville déjà lotie ? On regarde autour du bloc
-// entier : du sol vendu — le sien, celui d'un indépendant, celui d'un rival —
-// ou une emprise de voie ferrée. Les cases du bloc lui-même ne comptent pas.
-function toucheLaVille(monde, cases, joueur) {
-  const dedans = new Set(cases.map(k => k.x + ',' + k.y));
-  for (const k of cases) {
-    if (k.vendue || k.proprio) return true;        // une case déjà lotie suffit
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const z = monde.caseAt(k.x + dx, k.y + dy);
-      if (!z || dedans.has(z.x + ',' + z.y)) continue;
-      if (z.vendue || z.voie) return true;
-    }
-  }
-  return false;
 }
 
 // Le devis complet d'un bâtiment posé ici : le foncier manquant plus les

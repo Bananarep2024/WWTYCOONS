@@ -16,7 +16,8 @@ import { P, RES, RESSOURCES, BAT, NOURRITURES, materiaux, coutRef,
          niveauVille, prixTerrain, qualiteMax, devisGare, QUALITES,
          FILIERES_LOCALES, RATTACHEMENTS, PANIER, POIDS_PANIER,
          BIENS_SECONDAIRES, VAGUES } from './params.js';
-import { genererMonde, estAchetable, rng } from './mapgen.js';
+import { genererMonde, estAchetable, rng,
+         rayonConstructible, dansLeCarre } from './mapgen.js';
 import { Marche } from './market.js';
 import { Batiment } from './building.js';
 import { Societe, Chantier } from './company.js';
@@ -141,9 +142,20 @@ export class Monde {
     if (!c) return 'hors carte';
     if (c.ville) return 'déjà dans un territoire';
     if (c.relief === 'montagne') return 'on ne bâtit pas de gare en montagne';
+    // DEUX CARRÉS MAXIMAUX NE SE RECOUPENT JAMAIS.
+    //
+    // C'est la seule condition, et elle est géométrique : une ville qui atteint
+    // la Métropole occupe un carré de 69 cases de côté, et il ne doit pas
+    // empiéter sur celui de sa voisine — même si ni l'une ni l'autre n'y
+    // parviendra jamais. On fonde en pensant à ce que la ville pourra devenir,
+    // pas à ce qu'elle est le premier jour.
+    //
+    // La distance est celle de Chebyshev, comme les carrés qu'elle sépare.
     for (const v of this.villes) {
-      const d = Math.hypot(v.gare.x - x, v.gare.y - y);
-      if (d < P.distanceMinGare) return `trop près de ${v.nom} (${Math.round(d)} cases)`;
+      const d = Math.max(Math.abs(v.gare.x - x), Math.abs(v.gare.y - y));
+      if (d < P.ecartMinimalGares) {
+        return `trop près de ${v.nom} — ${d} cases, il en faut ${P.ecartMinimalGares}`;
+      }
     }
     return null;
   }
@@ -157,7 +169,11 @@ export class Monde {
     const v = {
       id: this.villes.length, nom: (nom || '').trim() || this.nomDeGare(), profil: null,
       temperament: { taille: 1, nom: 'colonie' },
-      gare: { x, y }, rayon: P.rayonGare, cases: [],
+      // Le territoire s'ouvre d'emblée jusqu'au carré MAXIMAL : c'est le sol que
+      // la ville pourra un jour bâtir, et il lui est réservé dès la fondation —
+      // c'est très exactement ce que la règle d'écartement garantit. Ce qu'elle
+      // peut bâtir AUJOURD'HUI reste le carré de son palier.
+      gare: { x, y }, rayon: P.rayonPalier[P.rayonPalier.length - 1], cases: [],
       menages: 0,
       occupation: 0.85, salaire: P.salaireCase, niveau: 1,
       barometres: { nourriture: 1, emploi: 0.78, produits: 1 },
@@ -171,14 +187,14 @@ export class Monde {
     };
 
     // Le territoire. Premier arrivé, premier servi, comme à la génération.
-    for (let dy = -P.rayonGare; dy <= P.rayonGare; dy++) {
-      for (let dx = -P.rayonGare; dx <= P.rayonGare; dx++) {
+    const rMax = P.rayonPalier[P.rayonPalier.length - 1];
+    for (let dy = -rMax; dy <= rMax; dy++) {
+      for (let dx = -rMax; dx <= rMax; dx++) {
         const c = this.caseAt(x + dx, y + dy);
         if (!c || c.ville) continue;
-        const d = Math.hypot(dx, dy);
-        if (d > P.rayonGare) continue;
+        const d = Math.max(Math.abs(dx), Math.abs(dy));
         c.ville = v;
-        c.distanceGare = Math.round(d);
+        c.distanceGare = d;
         // Un hameau n'a pas de plan d'urbanisme : le centre se loge, la
         // couronne travaille, et la terre qui donne quelque chose est agricole.
         c.quartier = d <= 4 ? 'residentiel'
@@ -663,9 +679,11 @@ export class Monde {
     // bâti dans le rayon d'un hameau : la surcapacité voulue ne trouvait pas un
     // pouce de terre libre et ne se posait tout simplement pas. On amorce donc
     // le rayon sur ce que la ville va peser, surcapacité comprise.
-    v.rayonAtteint = Math.max(6, Math.min(v.rayon * 1.15,
-      Math.sqrt(Math.max(40, M * P.casesParMenage * P.margeFondation) / Math.PI)
-        * P.aisanceUrbaine));
+    // Le rayon constructible ne s'amorce plus : c'est celui du palier, et une
+    // ville neuve est au Comptoir. Le parc de départ tient donc serré autour de
+    // la gare, ce qui est justement ce qu'on cherchait — une agglomération
+    // naissante est dense et petite, elle s'étale en grandissant.
+    v.rayonAtteint = rayonConstructible(v);
     const dBois = this.dotation(v, 'bois');
     const dArgile = this.dotation(v, 'argile');
     const dCharbon = this.dotation(v, 'charbon');
@@ -951,11 +969,18 @@ export class Monde {
   // s'enfoncerait — mesuré : une ville passait de 58 à 34 ménages avec son
   // rayon utile rempli à 97 %, incapable d'ouvrir le moindre atelier. Une ville
   // qui décline garde ses rues ; elle les laisse se vider.
+  // LE RAYON CONSTRUCTIBLE EST CELUI DU PALIER, ET RIEN D'AUTRE.
+  //
+  // Il se déduisait de la population — un disque dimensionné sur trois cases par
+  // ménage, qui ne rétrécissait jamais. C'était une bonne idée pour éviter la
+  // confiture au départ, mais elle rendait le territoire illisible : le joueur
+  // ne pouvait pas savoir où il avait le droit de bâtir avant d'essayer.
+  //
+  // Le carré du palier remplace tout cela. Il est visible, il est prévisible, et
+  // il ne rétrécit jamais non plus — une ville qui décline garde ses rues.
   rayonUtile(ville) {
-    const besoin = Math.max(40, ville.menages * P.casesParMenage);
-    const r = Math.sqrt(besoin / Math.PI) * P.aisanceUrbaine;
-    const borne = Math.max(6, Math.min(ville.rayon * 1.15, r));
-    ville.rayonAtteint = Math.max(ville.rayonAtteint || 0, borne);
+    const r = rayonConstructible(ville);
+    ville.rayonAtteint = Math.max(ville.rayonAtteint || 0, r);
     return ville.rayonAtteint;
   }
 
@@ -965,17 +990,21 @@ export class Monde {
     let meilleur = null, meilleurScore = -Infinity;
     const proches = [];        // les emplacements à `dispersion` points du meilleur
 
-    // Une exploitation suit la ressource et a donc le droit de s'éloigner ;
-    // le reste tient dans l'agglomération.
-    const portee = this.rayonUtile(ville) * (def.cat === 'expl' ? P.porteeExploitations : 1);
-    let secours = null, secoursScore = -Infinity;
+    // Le carré du palier est une BORNE DURE : rien ne se pose dehors, pas même
+    // une exploitation qui suivrait un filon. C'est ce qui donne son prix au
+    // passage de palier — et sa raison d'être à la gare qu'on va fonder plus
+    // loin pour aller chercher ce filon.
+    const portee = this.rayonUtile(ville);
+    void 0;   // plus de secours hors carré : la borne est dure
 
     for (const depart of ville.cases) {
+      if (depart.distanceGare > portee) continue;
       const cases = [];
       let ok = true;
       for (let dy = 0; dy < def.h && ok; dy++) for (let dx = 0; dx < def.w && ok; dx++) {
         const c = this.caseAt(depart.x + dx, depart.y + dy);
         if (!c || c.ville !== ville || c.voie || c.bat || c.chantier) { ok = false; break; }
+        if (c.distanceGare > portee) { ok = false; break; }
         // Une société doit posséder toutes les cases de l'emprise ; le parc de
         // l'ordinateur s'installe sur les terres restées aux indépendants.
         if (societe && c.proprio !== societe.id) { ok = false; break; }
@@ -1009,13 +1038,6 @@ export class Monde {
         score += -cases[0].distanceGare * 1.4;
       }
 
-      // Hors de portée : on le garde en secours, au cas où rien ne tiendrait
-      // dedans — une ville ne doit jamais se retrouver incapable de bâtir.
-      if (cases[0].distanceGare > portee) {
-        if (score > secoursScore) { secoursScore = score; secours = cases; }
-        continue;
-      }
-
       if (score > meilleurScore) { meilleurScore = score; meilleur = cases; }
       if (dispersion > 0) {
         proches.push({ cases, score });
@@ -1031,7 +1053,7 @@ export class Monde {
       const bons = proches.filter(x => x.score >= meilleurScore - dispersion);
       if (bons.length) return bons[Math.floor(this.hasard() * bons.length)].cases;
     }
-    return meilleur || secours;
+    return meilleur;
   }
 
   // Pose immédiate (parc de départ et constructions des indépendants).

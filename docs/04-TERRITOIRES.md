@@ -1,6 +1,6 @@
-# Le territoire d'une ville — proposition
+# Le territoire d'une ville
 
-**Statut : proposition, rien n'est implémenté.**
+**Statut : implémenté.** Un écart avec la proposition est signalé et corrigé au § 3.
 
 Trois changements liés : la règle de contiguïté disparaît, le territoire devient un **carré qui
 grandit avec le palier de la ville**, et une gare ne peut être fondée que si son carré maximal ne
@@ -43,20 +43,25 @@ cases là où le pavillon en loge un sur une.
 Carré de rayon *r* → côté 2*r*+1 cases. Distance de **Chebyshev** (le max des deux écarts), qui est
 la bonne mesure pour un carré.
 
-| Palier | Plafond | Rayon | Côté | Cases | Bâti au plafond | Occupation |
-|---|---:|---:|---:|---:|---:|---:|
-| **Comptoir** | 100 | **11** | 23 | 529 | 220 | 42 % |
-| **Bourg** | 250 | **16** | 33 | 1 089 | 500 | 46 % |
-| **Ville** | 500 | **21** | 43 | 1 849 | 950 | 51 % |
-| **Grandeville** | 1 000 | **27** | 55 | 3 025 | 1 700 | 56 % |
-| **Métropole** | 2 000 | **34** | 69 | 4 761 | 3 100 | 65 % |
+> **Correction : les bandes de population sont plus larges que ce que disait la proposition.**
+> `seuilsNiveau` donne l'**entrée** dans le palier suivant, pas son plafond. Un Comptoir va donc
+> jusqu'à **250** ménages et non 100. La première version de l'échelle avait lu le tableau à
+> l'envers et donnait au Comptoir un carré de rayon 11 — 529 cases pour 500 bâties au plafond.
+> Mesuré : **quatre villes sur cinq bloquées à 215 ménages**, incapables de poser une case de plus,
+> et le monde à l'arrêt. L'échelle est décalée d'un cran.
 
-Écarts : 5, 5, 6, 7. **Chaque palier double à peu près la surface** — 529 → 1 089 → 1 849 → 3 025 →
-4 761 — si bien que monter de palier n'est pas une décoration : c'est un déblocage de terrain qu'on
-sent immédiatement.
+| Palier | Bande | Rayon | Côté | Cases | Bâti au plafond | Occupation |
+|---|---|---:|---:|---:|---:|---:|
+| **Comptoir** | < 250 | **16** | 33 | 1 089 | 500 | 46 % |
+| **Bourg** | 250 – 499 | **21** | 43 | 1 849 | 950 | 51 % |
+| **Ville** | 500 – 999 | **26** | 53 | 2 809 | 1 700 | 61 % |
+| **Grandeville** | 1 000 – 1 999 | **30** | 61 | 3 721 | 3 100 | 83 % |
+| **Métropole** | ⩾ 2 000 | **34** | 69 | 4 761 | — | saturation ~3 000 |
 
-L'occupation monte de 42 à 65 % : une ville est de plus en plus serrée à mesure qu'elle grandit, ce
-qui est exactement ce qu'on veut. Une Métropole doit être dense.
+**Le haut de l'échelle est serré, et c'est délibéré.** Le rayon maximal est borné par la règle
+d'écartement, et l'élargir coûterait des sites de fondation : à 34 il en reste douze sur la carte,
+à 42 il n'en resterait que six. Une Métropole sature donc autour de trois mille ménages, et la
+croissance doit repartir ailleurs. **C'est la raison d'être des gares qu'on fonde.**
 
 ---
 
@@ -89,9 +94,9 @@ régulièrement, il faut donc compter cinq ou six sites réels plutôt que sept.
 
 ## 5. Ce que ça casse, et qu'il faut traiter
 
-### 5.1 — La dotation en ressources : le vrai problème
+### 5.1 — La dotation en ressources : le vrai problème *(réglé)*
 
-C'est le point dur, et il est sérieux. Le générateur pose le relief par **grandes régions** ; un
+C'était le point dur, et il était sérieux. Le générateur pose le relief par **grandes régions** ; un
 petit carré autour d'une gare tombe donc à l'intérieur d'une seule d'entre elles. Mesuré — cases
 exploitables (qualité ⩾ 1) dans le carré du Comptoir, rayon 11 :
 
@@ -111,10 +116,22 @@ au moins disposer de quelques cases 1 pour chaque ressource » — mais elle s'a
 **territoire entier** (4 000 à 6 000 cases) et promeut les cases là où le relief les désigne, donc
 souvent loin de la gare.
 
-**Il faut la déplacer dans le carré du Comptoir.** Combien ? Un Comptoir de 100 ménages consomme 100
-pains, soit 5 minoteries, soit 200 céréales, soit 20 fermes de qualité 1. On propose donc
-**24 cases exploitables par ressource à l'intérieur du carré de rayon 11** — 120 cases sur 529, soit
-23 % du carré, toutes de qualité 1 : le droit de produire à prix coûtant, pas une faveur.
+**Elle est déplacée dans le carré du Comptoir**, à **24 cases exploitables par ressource** — vingt
+suffisent en théorie pour nourrir un Comptoir plein : cent pains, cinq minoteries, deux cents
+céréales, vingt fermes de qualité 1. Après correction, plus un seul zéro :
+
+| Ville | Fertilité | Argile | Bois | Charbon | Minerai |
+|---|---:|---:|---:|---:|---:|
+| Roche-Noire | 29 | 33 | **24** | 501 | 700 |
+| Plaine-Dorée | 276 | 406 | **24** | **24** | **24** |
+| Sainte-Agathe | 488 | 106 | 92 | **24** | **24** |
+| Bois-Perdu | **24** | **24** | 270 | 646 | 374 |
+| Fort-Union | 25 | 78 | 709 | **24** | **24** |
+
+La garantie du territoire entier (60 cases) reste en place par-dessus, inchangée.
+
+**Une gare que le joueur fonde n'a PAS cette garantie** : elle prend le sol tel qu'il est. On
+choisit où l'on s'installe, et le rail apporte ce qui manque.
 
 ### 5.2 — Le parc de départ doit se resserrer
 
@@ -152,11 +169,38 @@ fonde. C'est justement l'intérêt de fonder : on s'installe plus près.
 
 ---
 
-## 6. Ce qu'il reste à décider
+## 6. Ce que ça donne
 
-1. **Rayon max 34 (sept sites) ou 30 (dix sites, Métropole à l'étroit) ?**
-2. **La garantie de ressources à 24 cases par ressource dans le carré de départ** — ou un autre
-   chiffre, sachant que 20 est le strict nécessaire pour nourrir un Comptoir plein.
-3. **Faut-il un rayon intermédiaire à la fondation ?** Une gare fondée démarre à zéro ménage, donc
-   Comptoir, donc rayon 11 d'emblée. C'est cohérent, et cela règle du même coup le problème des
-   quatre cases constructibles.
+**Le problème d'origine est réglé.** Une gare fondée offre désormais **1 088 cases constructibles**
+au lieu de quatre : elle démarre au Comptoir, donc au rayon 16, d'emblée.
+
+**Le monde va mieux.** Cinq villes à 240 mois : 607 à 881 ménages contre 558 à 736 avant, confort
+de 41 à 75 %, nourriture à 100 %. Le carré resserre le parc de départ autour de la gare — une
+agglomération naissante est dense et petite, elle s'étale en grandissant — et la densité profite à
+tout le reste.
+
+**Le foncier garde son calibrage.** Le gradient porte maintenant sur *d ÷ rayon du palier* et non
+sur un nombre de cases ; les coefficients sont l'ancienne atténuation multipliée par 44, de sorte
+que la lisière vaut exactement la même fraction du centre qu'avant :
+
+| Palier | Centre | Lisière | Rapport |
+|---|---:|---:|---:|
+| Comptoir | 100 $ | 45 $ | 45 % |
+| Bourg | 130 $ | 50 $ | 38 % |
+| Ville | 180 $ | 56 $ | 31 % |
+| Grandeville | 260 $ | 62 $ | 24 % |
+| Métropole | 400 $ | 67 $ | 17 % |
+
+Le prix de lisière **monte** à chaque palier (45 → 50 → 56 → 62 → 67) : aucune case ne perd jamais
+de valeur quand la ville grandit, l'invariant est tenu.
+
+**Les carrés se voient.** En mode construction, chaque ville porte son carré courant en trait plein
+et son carré maximal en pointillé : ce qu'on peut bâtir aujourd'hui, et ce que la ville donnera si
+elle grandit. Le pointillé rend aussi lisible la règle de fondation.
+
+### Reste ouvert
+
+Le contrôle « aucune montagne de marchandise » est rouge à 16 mois de meubles et d'outillage : les
+biens durables ne trouvent pas preneur dans le monde de base, et les usines continuent de produire
+pour un marché qui n'a pas les moyens. C'est le problème signalé au § 6.2 de `03-INDUSTRIES.md`,
+que le changement de territoire n'aggrave ni ne règle.
