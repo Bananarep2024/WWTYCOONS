@@ -756,6 +756,7 @@ svg.cours {
 const P = {
   moisParSeconde: 10,          // 1 mois = 10 s réelles
   salaireCase: 20,             // $ / mois, l'unité de compte de tout le jeu
+  salaireFixe: true,           // le même salaire partout : la variabilité dort
   elasticiteSalaire: 0.50,     // le salaire suit la tension du marché du travail
   salairePlancher: 0.80,       // sans jamais tomber sous 16 $
   salairePlafond: 1.50,        // ni monter au-dessus de 30 $
@@ -4778,21 +4779,22 @@ class Monde {
 
       for (const b of bats) b.declarer(m);
 
-      // Les ménages. Le budget est contraint : la nourriture et le loyer sont
-      // incompressibles, c'est l'achat de produits manufacturés qui encaisse
-      // tout le chômage.
+      // Les ménages. L'ORDRE DES DÉPENSES EST UNE RÈGLE DU JEU, pas un détail
+      // d'implémentation : le loyer d'abord, la nourriture ensuite, et les
+      // produits manufacturés avec ce qui reste — s'il reste quelque chose.
+      //
+      // C'est de cet ordre que sort l'effet de rareté. Une ville dont le sol ne
+      // donne que du minerai de qualité 1 paie son minerai cher ; l'acier suit,
+      // la manufacture suit, et le produit manufacturé arrive sur l'étal à un
+      // prix qui, rapporté à un salaire identique partout, en fait un article de
+      // luxe. Le ménage mange quand même — il mange d'abord — mais il n'achète
+      // plus. La manufacture ne vend pas. Rien n'a besoin d'être codé en dur
+      // pour cela : il suffit que la nourriture passe devant.
       const revenu = P.employesParMenage * v.salaire * v.barometres.emploi;
-      const prixNourr = Math.min(m.prix.pain, m.prix.viande);
       // Le loyer se prélève avant tout le reste, et c'est celui qu'on paie
       // vraiment — pas un forfait.
       v.loyer = this.loyerMoyen(v);
       const dispo = Math.max(0, revenu - v.loyer);
-      const partNourr = Math.min(1, dispo / Math.max(0.01, prixNourr));
-      const reste = Math.max(0, dispo - partNourr * prixNourr);
-      const partProd = Math.min(1, reste / Math.max(0.01, m.prix.produits));
-
-      v.demandeNourriture = v.menages * partNourr;
-      v.demandeProduits = v.menages * partProd;
 
       // Pain et viande sont substituables 1 pour 1 : le ménage veut une ration
       // par mois, pas une demi-ration de chaque. Il mange ce qu'il y a, en
@@ -4806,10 +4808,26 @@ class Monde {
       // viande, et la ville mourrait de faim avec du pain sur les étals.
       const moinsCher = m.prix.pain <= m.prix.viande ? 'pain' : 'viande';
       const autre = moinsCher === 'pain' ? 'viande' : 'pain';
-      v.repas = {};
       const capaciteA = m.offreAttendue(moinsCher) * (v.menages / totalMenages(m));
-      v.repas[moinsCher] = Math.min(v.demandeNourriture, capaciteA);
-      v.repas[autre] = v.demandeNourriture - v.repas[moinsCher];
+
+      // Le mélange que la ville va manger si elle mange à sa faim, et ce qu'il
+      // coûte réellement. Le budget se mesure sur CE prix-là, et non sur le
+      // moins cher des deux : une ville où le pain manque paie de la viande, et
+      // c'est la viande qui grève son budget.
+      const rationA = Math.min(1, v.menages > 0 ? capaciteA / v.menages : 1);
+      const prixRation = rationA * m.prix[moinsCher] + (1 - rationA) * m.prix[autre];
+
+      const partNourr = Math.min(1, dispo / Math.max(0.01, prixRation));
+      const reste = Math.max(0, dispo - partNourr * prixRation);
+      const partProd = Math.min(1, reste / Math.max(0.01, m.prix.produits));
+
+      v.demandeNourriture = v.menages * partNourr;
+      v.demandeProduits = v.menages * partProd;
+      v.prixRation = prixRation;
+
+      v.repas = {};
+      v.repas[moinsCher] = v.demandeNourriture * rationA;
+      v.repas[autre] = v.demandeNourriture * (1 - rationA);
       m.demander(moinsCher, v.repas[moinsCher], v);
       m.demander(autre, v.repas[autre], v);
       m.demander('produits', v.demandeProduits, v);
@@ -4973,7 +4991,7 @@ class Monde {
       // est investi sur place.
       const revenu = P.employesParMenage * v.salaire * v.barometres.emploi;
       const depense = v.nourrObtenue / Math.max(1, v.menages)
-                        * Math.min(m.prix.pain, m.prix.viande)
+                        * (v.prixRation || Math.min(m.prix.pain, m.prix.viande))
                     + v.prodObtenue / Math.max(1, v.menages) * m.prix.produits
                     + (v.loyer === undefined ? P.loyerBase : v.loyer);
       // L'épargne se partage entre la brique et le titre. Ce qui part en bourse
@@ -5082,6 +5100,20 @@ class Monde {
   // le soin de le faire vivre.
   ajusterSalaire(v) {
     const m = v.marche;
+
+    // SALAIRE FIGÉ. Le même partout, à la case du barème, tant que ce drapeau
+    // est levé. Tout ce qui suit reste écrit et reste juste : c'est la machine
+    // du salaire endogène, mise en sommeil et non démontée, prête à reprendre du
+    // service en abaissant `salaireFixe`.
+    //
+    // Pourquoi la couper : le salaire endogène remboursait la rareté. Une ville
+    // aux mauvaises cases payait ses produits cher, donc son panier cher, donc
+    // son salaire de subsistance montait, donc le ménage rachetait des produits
+    // — et la pauvreté du sol ne se voyait nulle part. À salaire identique
+    // partout, la même ville a le même revenu qu'ailleurs et des prix plus
+    // hauts : le produit manufacturé y devient un luxe, et le sol se lit enfin
+    // dans le budget des ménages.
+    if (P.salaireFixe) { v.salaire = P.salaireCase; return; }
 
     // Tension du marché du travail : postes demandés rapportés aux bras.
     const tension = v.bras > 0 ? v.postesDemandes / v.bras : 1;

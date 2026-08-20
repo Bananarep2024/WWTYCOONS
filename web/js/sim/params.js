@@ -7,6 +7,7 @@
 export const P = {
   moisParSeconde: 10,          // 1 mois = 10 s réelles
   salaireCase: 20,             // $ / mois, l'unité de compte de tout le jeu
+  salaireFixe: true,           // le même salaire partout : la variabilité dort
   elasticiteSalaire: 0.50,     // le salaire suit la tension du marché du travail
   salairePlancher: 0.80,       // sans jamais tomber sous 16 $
   salairePlafond: 1.50,        // ni monter au-dessus de 30 $

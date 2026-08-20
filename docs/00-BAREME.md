@@ -355,6 +355,17 @@ comptoir et conservé, le même immeuble rend 31,7 % sur le prix payé une fois 
 
 ### 5.7 — Le salaire, variable d'ajustement
 
+> **Suspendu.** `salaireFixe` est levé : le salaire vaut **20 $ la case partout**, sans exception
+> et sans dérive. Tout ce qui suit décrit la machine endogène, qui reste écrite dans le code et
+> qui reprendra du service en abaissant ce drapeau.
+>
+> La raison de la mise en sommeil tient en une phrase : **le salaire endogène remboursait la
+> rareté**. Une ville aux mauvaises cases payait ses produits cher, donc son panier cher, donc son
+> salaire de subsistance montait, donc le ménage rachetait ses produits — et la pauvreté du sol ne
+> se lisait nulle part. À salaire identique partout, la même ville a le revenu de toutes les autres
+> et des prix plus hauts que toutes les autres : le produit manufacturé y devient un article de
+> luxe. Voir § 5.8.
+
 Chaque mois le salaire de la ville tend vers **le plus petit** de deux nombres :
 - ce dont le ménage a besoin pour couvrir son panier au prix du jour, divisé par 2 employés ;
 - ce que les employeurs peuvent payer sans passer sous leur seuil d'activité, moyenné sur les
@@ -364,6 +375,34 @@ Le rattrapage prend quelques mois — et c'est dans cette fenêtre que les barom
 joueur ne fixe pas son salaire dans l'absolu mais **par rapport à celui de sa ville**, entre 80 %
 et 150 % : au-dessus pour rafler la main-d'œuvre de ses rivaux, en dessous pour engranger de la
 marge au risque de perdre ses employés. *(formats 30 et 60 min)*
+
+### 5.8 — L'ordre des dépenses du ménage
+
+Le budget se dépense dans un ordre, et **cet ordre est une règle du jeu** :
+
+1. **le loyer**, celui qui se pratique vraiment dans la ville, pas un forfait ;
+2. **la nourriture**, une ration par ménage et par mois, au prix du mélange pain/viande que la
+   ville est capable de servir — et non au moins cher des deux : une ville où le pain manque paie
+   de la viande, et c'est la viande qui grève son budget ;
+3. **les produits manufacturés**, avec ce qui reste. S'il reste quelque chose.
+
+C'est de cet ordre que sort l'effet de rareté, sans qu'il faille l'écrire nulle part. Une ville
+dont le sol ne donne que du minerai de qualité 1 paie son minerai cher ; l'acier suit, la
+manufacture suit, et le produit arrive sur l'étal à un prix qui, rapporté à un salaire identique
+partout, en fait un luxe. Le ménage mange quand même — il mange d'abord — mais il n'achète plus,
+et la manufacture ne vend pas.
+
+Mesuré à 60 mois sur cinq marchés isolés (graine 12345) :
+
+| Ville | Minerai | Produits | Ménages qui en achètent |
+|---|---|---|---|
+| Bois-Perdu | 1,34 $ | 29,44 $ | **69 %** |
+| Sainte-Agathe | 2,67 $ | 37,30 $ | 52 % |
+| Fort-Union | 3,04 $ | 39,68 $ | 45 % |
+| Plaine-Dorée | 2,67 $ | 67,89 $ | **15 %** |
+
+La nourriture, elle, reste servie en priorité : là où la ville en a les moyens, le baromètre
+alimentaire est à 100 % quel que soit le prix des produits.
 
 ---
 
