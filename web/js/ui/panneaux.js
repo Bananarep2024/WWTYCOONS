@@ -918,6 +918,9 @@ export function voletBatir(monde, rendu) {
           : ` · ${emploisRequis(t)} ouvrier${emploisRequis(t) > 1 ? 's' : ''}`
         }${vise ? ' · visé ' + Math.round(vise * 100) + ' %' : ''}</span>
         <span class="prixBat ${cher > 1.25 ? 'rouge' : cher < 0.85 ? 'vert' : 'doux'}">${eur(materiel)}</span>
+        <span class="matBat">${Object.entries(materiaux(t)).map(([r, q]) =>
+          `<span class="lotMat"><i style="background:${RES[r].couleur}"></i>${
+            Math.round(q)} ${RES[r].nom.toLowerCase()}</span>`).join('')}</span>
       </button>`;
     }).join('');
     return `<h3>${titre}</h3><div class="listeBatir">${lignes}</div>`;
@@ -943,17 +946,25 @@ export function voletBatir(monde, rendu) {
               ${joueur.tresorerie >= dg.cout ? '' : 'disabled'}>
         <span class="puce" style="background:#c9a227"></span>
         <span class="nomBat">Gare fondatrice</span>
-        <span class="sousBat">${P.logementsGare} logements · ${P.moisDeVivres} mois de vivres</span>
+        <span class="sousBat">carré de ${2 * P.rayonPalier[0] + 1} cases ·
+          ${P.moisDePain} mois de pain pour ${P.menagesNourris} ménages</span>
         <span class="prixBat ${joueur.tresorerie >= dg.cout ? 'doux' : 'rouge'}">${eur(dg.cout)}</span>
+        <span class="matBat">${Object.entries(dg.vivres).map(([r, q]) =>
+          `<span class="lotMat"><i style="background:${RES[r].couleur}"></i>${
+            Math.round(q)} ${RES[r].nom.toLowerCase()}</span>`).join('')
+          || '<span class="lotMat">le quai seul — aucun matériau</span>'}</span>
       </button>
     </div>
     <div class="note">Une gare s'installe <b>hors de tout territoire</b> et fonde une localité.
-      Elle n'apporte <b>pas d'habitants</b> — elle apporte de quoi en attirer :
-      ${P.logementsGare} maisons vides, ${P.exploitationsFournies} exploitations pour donner du
-      travail, et ${P.moisDeVivres} mois de vivres et de produits pour que les premiers venus y
-      vivent au plein. La population arrive ensuite d'elle-même, tant que les trois baromètres
-      tiennent. Passé ce délai, ou le hameau se nourrit seul, ou une voie le relie, ou il
-      s'éteint.</div>`;
+      Elle ouvre d'emblée le <b>carré du Comptoir</b> — ${2 * P.rayonPalier[0] + 1} cases de côté,
+      où l'on bâtit où l'on veut — et n'apporte rien d'autre que du pain : de quoi tenir le temps
+      que les premières fermes sortent de terre. Ni maisons, ni ateliers : tout se bâtit, et les
+      matériaux viennent de la ville la plus proche, ce qui prend des mois.<br><br>
+      Elle n'apporte <b>pas d'habitants</b> non plus. La population vient d'elle-même dès qu'elle
+      trouve du travail et de quoi manger. Passé les vivres, ou le hameau se nourrit seul, ou une
+      voie le relie, ou il s'éteint.<br><br>
+      <b>Où l'on peut fonder :</b> à ${P.ecartMinimalGares} cases au moins de toute autre gare —
+      c'est ce qu'il faut pour que deux carrés de Métropole ne se recoupent jamais.</div>`;
 
   return `<div class="grille">
       <div class="fiche"><div class="etiq">Trésorerie</div>

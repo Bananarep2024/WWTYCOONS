@@ -443,6 +443,21 @@ input[type=range] { width: 100%; accent-color: var(--or); }
   grid-row: 2; grid-column: 2 / 4; font-size: 9px; color: var(--faible);
   text-transform: uppercase; letter-spacing: .09em; font-weight: 600;
 }
+/* LA FACTURE EN MATIÈRES, sous le prix. Le dollar affiché n'est qu'une lecture
+   du jour, au marché local : ce sont les quantités qui sont la vraie facture, et
+   c'est en les voyant qu'on comprend pourquoi un même bâtiment coûte le double
+   dans la ville d'à côté. */
+.ligneBatir .matBat {
+  grid-row: 3; grid-column: 2 / 4;
+  display: flex; flex-wrap: wrap; gap: 3px 10px; margin-top: 2px;
+}
+.ligneBatir .lotMat {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; color: var(--doux); font-variant-numeric: tabular-nums;
+}
+.ligneBatir .lotMat i {
+  width: 6px; height: 6px; border-radius: 1px; display: inline-block; flex: 0 0 auto;
+}
 
 .avertBatir {
   background: linear-gradient(180deg, #322914, #2a2211);

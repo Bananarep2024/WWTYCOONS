@@ -231,6 +231,38 @@ passe : Plaine-Dorée, 100 % d'emploi, achète ses 0,084 meubles et ses 0,084 ou
 1. **Le grand magasin** est défini et constructible, mais rien ne le fait remplacer les petits
    commerces au-delà d'un seuil de ville. Il s'ajoute.
 2. **Le grand magasin** ne remplace rien : il s'ajoute.
+
+### La priorité de construction est celle du MANQUE, pas du poids dans le panier
+
+Le score de l'IA était pondéré par la part du bien dans le budget des ménages. La règle se
+contredisait alors elle-même : la **cible** est fixée par bien — 90 % chacun — mais la priorité de
+construction était proportionnelle à la valeur. La ville visait l'uniformité en bâtissant en
+proportion du prix, ce qui ne pouvait pas converger et ne convergeait pas.
+
+Mesuré à 240 mois, le nombre d'ateliers suivait exactement le poids du panier — alors que ni le
+budget (102 %) ni les boutiques (95–109 %) ne bornaient quoi que ce soit. **C'était la ville qui
+refusait de bâtir, et rien d'autre :**
+
+| Bien | Poids du panier | Ateliers | Servi *(avant)* | Servi *(après)* |
+|---|---:|---:|---:|---:|
+| Savon | 17,1 % | 67 savonneries | 75 % | 66 % |
+| Bière | 17,1 % | 69 brasseries | 77 % | 62 % |
+| Papier | 17,1 % | 65 papeteries | 74 % | 48 % |
+| Étoffes | 12,0 % | 31 filatures | **49 %** | **65 %** |
+| Vaisselle | 8,6 % | 19 faïenceries | **43 %** | **72 %** |
+
+L'écart entre le mieux et le plus mal servi tombe de **34 points à 24**, et l'ordre s'inverse : ce
+sont désormais les biens les plus rares qui rattrapent, ce qui est le comportement voulu.
+
+**Contrepartie mesurée, et elle est lourde.** Le rang 1 mieux servi consomme davantage de budget, et
+il ne reste plus rien pour le rang 2 : les meubles tombent de 39 % à 9 % et l'outillage de 9 % à
+**0 %**. Le stock d'invendus passe à 102 mois de meubles et 470 mois d'outillage — onze bâtiments
+qui produisent 330 unités par mois pour un marché qui n'achète rien, et perdent 191 $ par mois.
+
+Le remède est celui proposé et non retenu : **réserver au ménage une part fixe du budget secondaire
+pour le rang 2** — 15 % par exemple — au lieu de lui donner le reliquat. Un ouvrier de 1900 met de
+côté pour un meuble, il n'attend pas d'avoir tout le reste. Tant que l'ordre reste strictement
+prioritaire, le dernier bien de la liste ne peut structurellement jamais être servi.
 3. **Les étoffes sortent du bétail**, ce qui met trois ateliers sur le même intrant. L'autre voie
    serait une septième matière première, du coton, au prix de la contrainte « aucune matière
    nouvelle ».

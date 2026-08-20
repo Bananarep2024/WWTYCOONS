@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 
 import { P, BAT, RES, facteurQualite, echelleDe, emploisRequis,
-         PANIER, POIDS_PANIER } from './params.js';
+         PANIER } from './params.js';
 
 // Qui produit quoi.
 const PRODUCTEUR = {
@@ -241,12 +241,29 @@ function besoinsClasses(monde, ville, penchant) {
     const valeurVoulue = souhait * m.prix[a.res] * (1 + P.margeCommerce);
     const bride = etal < valeurVoulue * 0.95;
 
-    const poids = POIDS_PANIER[a.res] * PANIER.length;   // ramené autour de 1
+    // LA PRIORITÉ EST CELLE DU MANQUE, PAS CELLE DU POIDS DANS LE PANIER.
+    //
+    // Le score était pondéré par la part du bien dans le budget des ménages. La
+    // règle se contredisait alors elle-même : la CIBLE est fixée par bien —
+    // quatre-vingt-dix pour cent chacun — mais la priorité de construction était
+    // proportionnelle à la valeur, si bien que la ville visait l'uniformité tout
+    // en bâtissant en proportion du prix. Cela ne pouvait pas converger, et cela
+    // ne convergeait pas : mesuré à 240 mois, le nombre d'ateliers suivait
+    // exactement le poids du panier —
+    //
+    //   savon      17,1 % du panier  →  67 savonneries  →  75 % servi
+    //   étoffes    12,0 %            →  31 filatures    →  49 %
+    //   vaisselle   8,6 %            →  19 faïenceries  →  43 %
+    //
+    // — alors que ni le budget ni les boutiques ne bornaient quoi que ce soit.
+    // C'était la ville qui refusait de bâtir, et rien d'autre.
+    //
+    // Le manque seul décide désormais. Un bien à 40 % de satisfaction passe
+    // devant un bien à 70 %, qu'il pèse deux dollars ou six dans le panier.
     if (bride && BOUTIQUE_DE[a.res]) {
-      candidats.push({ score: (1.6 - satisfaction) * poids,
-                       res: null, type: BOUTIQUE_DE[a.res] });
+      candidats.push({ score: 1.6 - satisfaction, res: null, type: BOUTIQUE_DE[a.res] });
     } else {
-      candidats.push({ score: (1.4 - satisfaction) * poids, res: a.res });
+      candidats.push({ score: 1.4 - satisfaction, res: a.res });
     }
   }
 
