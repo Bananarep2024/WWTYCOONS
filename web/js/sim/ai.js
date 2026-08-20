@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 
 import { P, BAT, RES, facteurQualite, echelleDe, emploisRequis,
-         PANIER } from './params.js';
+         PANIER, VIVRIERS } from './params.js';
 
 // Qui produit quoi.
 const PRODUCTEUR = {
@@ -520,8 +520,10 @@ function unChantierDeVille(monde, ville) {
 
 // Ce que rapporterait ce bâtiment, sur ces cases, aux prix d'aujourd'hui —
 // avant qu'il n'existe. C'est le calcul que ferait n'importe quel investisseur.
-// Ce qui nourrit : les deux exploitations et les deux ateliers de la filière.
-const VIVRIER = new Set(['ferme', 'ranch', 'minoterie', 'abattoir']);
+// Ce qui nourrit. La liste était écrite à la main ici ; elle est désormais
+// DÉRIVÉE de la filière dans params.js, et partagée avec la répartition des bras
+// — les deux règles doivent parler de la même chose.
+const VIVRIER = VIVRIERS;
 
 export function rendementAttendu(monde, ville, type, cases) {
   const def = BAT[type];

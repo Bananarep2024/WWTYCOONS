@@ -140,9 +140,8 @@ console.log('\n=== Le marché sert le local d\'abord ===');
 }
 
 console.log('\n=== Foncier ===');
-ok('case contre la gare, hameau', prixTerrain(0, 0), 70, 0.01);
-ok('case contre la gare, comptoir', prixTerrain(1, 0), 100, 0.01);
-ok('case contre la gare, métropole', prixTerrain(5, 0), 400, 0.01);
+ok('case contre la gare, comptoir', prixTerrain(0, 0), 100, 0.01);
+ok('case contre la gare, métropole', prixTerrain(4, 0), 400, 0.01);
 // LE GRADIENT SE LIT MAINTENANT À LA LISIÈRE, PAS À UNE DISTANCE ABSOLUE.
 //
 // Il portait sur un nombre de cases, calibré pour un territoire de rayon 44.
@@ -150,7 +149,7 @@ ok('case contre la gare, métropole', prixTerrain(5, 0), 400, 0.01);
 // seule question qui garde un sens est : que vaut le bord du carré, rapporté à
 // son centre ? Le calibrage d'origine est conservé là exactement : 45 % au
 // Comptoir, 17 % à la Métropole.
-for (const [n, part] of [[0, 0.537], [1, 0.448], [5, 0.169]]) {
+for (const [n, part] of [[0, 0.448], [4, 0.169]]) {
   const r = P.rayonPalier[n];
   ok(`lisière ÷ centre, ${P.nomsNiveau[n].toLowerCase()} (r=${r})`,
      prixTerrain(n, r) / prixTerrain(n, 0), part, 0.01);
@@ -189,8 +188,7 @@ ok('… et la case stérile garde son plancher',
    prixTerrain(1, 0, 0) / prixTerrain(1, 0, 1), P.solPlancher, 0.001);
 
 // Le gradient se durcit avec le niveau : c'est là tout le mécanisme.
-ok('potentiel du centre, hameau', potentielTerrain(0, 0), 4.00 / 0.70, 0.01);
-ok('potentiel du centre, comptoir', potentielTerrain(1, 0), 4.00, 0.01);
+ok('potentiel du centre, comptoir', potentielTerrain(0, 0), 4.00, 0.01);
 // ET AUCUNE CASE DU CARRÉ MAXIMAL N'A UN POTENTIEL SOUS 1 : où qu'elle soit,
 // une case vaut plus dans une métropole que dans un comptoir. C'est l'invariant
 // qui rend l'achat de terre lisible.

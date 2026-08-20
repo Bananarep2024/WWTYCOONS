@@ -264,9 +264,9 @@ export const P = {
   // Le facteur du hameau est 0,70 : sa terre vaut sept dixièmes de celle d'un
   // Comptoir, et le passage au palier suivant la multiplie par 1,43 — avant même
   // de compter l'effet du rayon, qui double.
-  facteurNiveau: [0.70, 1.0, 1.3, 1.8, 2.6, 4.0],
-  seuilsNiveau: [50, 250, 500, 1000, 2000],   // en ménages, pour ENTRER au palier suivant
-  nomsNiveau: ['Hameau', 'Comptoir', 'Bourg', 'Ville', 'Grandeville', 'Métropole'],
+  facteurNiveau: [1.0, 1.3, 1.8, 2.6, 4.0],
+  seuilsNiveau: [250, 500, 1000, 2000],   // en ménages, pour ENTRER au palier suivant
+  nomsNiveau: ['Comptoir', 'Bourg', 'Ville', 'Grandeville', 'Métropole'],
   // L'atténuation du prix du sol avec la distance à la gare, PAR NIVEAU.
   //
   // C'était une constante, et c'était l'erreur : le rapport centre / périphérie
@@ -302,7 +302,7 @@ export const P = {
   // exactement la même fraction du centre qu'avant — 45 % au Comptoir, 17 % à
   // la Métropole. Le calibrage est conservé là où il avait été mesuré ; seul
   // l'intérieur se redistribue.
-  gradientFoncier: [0.862, 1.232, 1.602, 2.218, 3.203, 4.928],
+  gradientFoncier: [1.232, 1.602, 2.218, 3.203, 4.928],
   partIndependants: 0.30,
   surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
   anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
@@ -343,7 +343,7 @@ export const P = {
   // La distance se mesure en CHEBYSHEV — le plus grand des deux écarts — parce
   // que c'est la distance d'un carré. En euclidien, les coins seraient hors du
   // territoire tout en paraissant dedans.
-  rayonPalier: [8, 16, 21, 26, 30, 34],
+  rayonPalier: [16, 21, 26, 30, 34],
   // Deux carrés maximaux ne se recoupent jamais : c'est la seule condition pour
   // fonder une gare. 2 × 34 + 1.
   ecartMinimalGares: 69,
@@ -940,32 +940,18 @@ export function emploisRequis(type) {
 // la même chose selon ce qu'elle porte. Sans site, il rend une estimation à la
 // qualité de référence — c'est ce qu'affiche le menu, faute de savoir encore où
 // l'on va poser.
-export function devisGare(monde = null, x = 0, y = 0) {
+// LA GARE N'ACHÈTE PLUS LE SOL. Elle ouvre un territoire, elle ne le possède
+// pas : le fondateur y a les mêmes droits que partout ailleurs, et achète case
+// par case ce qu'il veut bâtir. C'est ce qui garde à la fondation son coût
+// d'entrée modeste et laisse au joueur le choix de ce qu'il prend.
+export function devisGare() {
   const vivres = { pain: P.menagesNourris * P.moisDePain };
   let vivresCout = 0;
   for (const [r, q] of Object.entries(vivres)) vivresCout += q * RES[r].prix;
-
-  const r0 = P.rayonPalier[0];
-  let terrain = 0, cases = 0;
-  if (monde) {
-    for (let dy = -r0; dy <= r0; dy++) for (let dx = -r0; dx <= r0; dx++) {
-      const c = monde.caseAt(x + dx, y + dy);
-      if (!c || c.ville || c.voie) continue;
-      cases++;
-      terrain += prixTerrain(0, Math.max(Math.abs(dx), Math.abs(dy)), qualiteMax(c));
-    }
-  } else {
-    // L'estimation du menu : le carré plein, à la qualité de référence.
-    for (let dy = -r0; dy <= r0; dy++) for (let dx = -r0; dx <= r0; dx++) {
-      cases++;
-      terrain += prixTerrain(0, Math.max(Math.abs(dx), Math.abs(dy)), 1);
-    }
-  }
   return {
-    mat: {}, vivres, cases,
-    quai: P.coutGareNu, vivresCout, terrainNu: terrain, fonciere: terrain,
-    cout: P.coutGareNu + vivresCout + terrain,
-    estimation: !monde,
+    mat: {}, vivres,
+    quai: P.coutGareNu, vivresCout,
+    cout: P.coutGareNu + vivresCout,
   };
 }
 
@@ -1009,6 +995,30 @@ export const VAGUES = (() => {
     (parNiveau[p] ||= []).push(t);
   }
   return parNiveau.map(x => x || []);
+})();
+
+// ---------------------------------------------------------------------------
+// LA FILIÈRE VIVRIÈRE, DÉRIVÉE ELLE AUSSI.
+//
+// Est vivrier tout bâtiment qui produit une nourriture, et tout bâtiment qui
+// nourrit un vivrier — de proche en proche. La minoterie fait du pain, donc la
+// ferme qui lui donne son blé est vivrière ; l'abattoir fait de la viande, donc
+// le ranch l'est aussi.
+//
+// Elle se calcule au lieu d'être listée à la main, pour la même raison que les
+// vagues de production : une filière alimentaire qu'on ajouterait sans penser à
+// l'inscrire quelque part perdrait silencieusement sa priorité.
+export const VIVRIERS = (() => {
+  const produitPar = {};
+  for (const [t, d] of Object.entries(BAT)) if (d.sort) produitPar[d.sort] = t;
+  const set = new Set();
+  const marquer = (t) => {
+    if (!t || set.has(t)) return;
+    set.add(t);
+    for (const r of Object.keys(BAT[t].intrants || {})) marquer(produitPar[r]);
+  };
+  for (const [t, d] of Object.entries(BAT)) if (NOURRITURES.includes(d.sort)) marquer(t);
+  return set;
 })();
 
 export const RENDEMENT_VISE = {

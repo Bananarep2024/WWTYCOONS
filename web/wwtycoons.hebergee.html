@@ -1017,9 +1017,9 @@ const P = {
   // Le facteur du hameau est 0,70 : sa terre vaut sept dixièmes de celle d'un
   // Comptoir, et le passage au palier suivant la multiplie par 1,43 — avant même
   // de compter l'effet du rayon, qui double.
-  facteurNiveau: [0.70, 1.0, 1.3, 1.8, 2.6, 4.0],
-  seuilsNiveau: [50, 250, 500, 1000, 2000],   // en ménages, pour ENTRER au palier suivant
-  nomsNiveau: ['Hameau', 'Comptoir', 'Bourg', 'Ville', 'Grandeville', 'Métropole'],
+  facteurNiveau: [1.0, 1.3, 1.8, 2.6, 4.0],
+  seuilsNiveau: [250, 500, 1000, 2000],   // en ménages, pour ENTRER au palier suivant
+  nomsNiveau: ['Comptoir', 'Bourg', 'Ville', 'Grandeville', 'Métropole'],
   // L'atténuation du prix du sol avec la distance à la gare, PAR NIVEAU.
   //
   // C'était une constante, et c'était l'erreur : le rapport centre / périphérie
@@ -1055,7 +1055,7 @@ const P = {
   // exactement la même fraction du centre qu'avant — 45 % au Comptoir, 17 % à
   // la Métropole. Le calibrage est conservé là où il avait été mesuré ; seul
   // l'intérieur se redistribue.
-  gradientFoncier: [0.862, 1.232, 1.602, 2.218, 3.203, 4.928],
+  gradientFoncier: [1.232, 1.602, 2.218, 3.203, 4.928],
   partIndependants: 0.30,
   surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
   anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
@@ -1096,7 +1096,7 @@ const P = {
   // La distance se mesure en CHEBYSHEV — le plus grand des deux écarts — parce
   // que c'est la distance d'un carré. En euclidien, les coins seraient hors du
   // territoire tout en paraissant dedans.
-  rayonPalier: [8, 16, 21, 26, 30, 34],
+  rayonPalier: [16, 21, 26, 30, 34],
   // Deux carrés maximaux ne se recoupent jamais : c'est la seule condition pour
   // fonder une gare. 2 × 34 + 1.
   ecartMinimalGares: 69,
@@ -1693,32 +1693,18 @@ function emploisRequis(type) {
 // la même chose selon ce qu'elle porte. Sans site, il rend une estimation à la
 // qualité de référence — c'est ce qu'affiche le menu, faute de savoir encore où
 // l'on va poser.
-function devisGare(monde = null, x = 0, y = 0) {
+// LA GARE N'ACHÈTE PLUS LE SOL. Elle ouvre un territoire, elle ne le possède
+// pas : le fondateur y a les mêmes droits que partout ailleurs, et achète case
+// par case ce qu'il veut bâtir. C'est ce qui garde à la fondation son coût
+// d'entrée modeste et laisse au joueur le choix de ce qu'il prend.
+function devisGare() {
   const vivres = { pain: P.menagesNourris * P.moisDePain };
   let vivresCout = 0;
   for (const [r, q] of Object.entries(vivres)) vivresCout += q * RES[r].prix;
-
-  const r0 = P.rayonPalier[0];
-  let terrain = 0, cases = 0;
-  if (monde) {
-    for (let dy = -r0; dy <= r0; dy++) for (let dx = -r0; dx <= r0; dx++) {
-      const c = monde.caseAt(x + dx, y + dy);
-      if (!c || c.ville || c.voie) continue;
-      cases++;
-      terrain += prixTerrain(0, Math.max(Math.abs(dx), Math.abs(dy)), qualiteMax(c));
-    }
-  } else {
-    // L'estimation du menu : le carré plein, à la qualité de référence.
-    for (let dy = -r0; dy <= r0; dy++) for (let dx = -r0; dx <= r0; dx++) {
-      cases++;
-      terrain += prixTerrain(0, Math.max(Math.abs(dx), Math.abs(dy)), 1);
-    }
-  }
   return {
-    mat: {}, vivres, cases,
-    quai: P.coutGareNu, vivresCout, terrainNu: terrain, fonciere: terrain,
-    cout: P.coutGareNu + vivresCout + terrain,
-    estimation: !monde,
+    mat: {}, vivres,
+    quai: P.coutGareNu, vivresCout,
+    cout: P.coutGareNu + vivresCout,
   };
 }
 
@@ -1762,6 +1748,30 @@ const VAGUES = (() => {
     (parNiveau[p] ||= []).push(t);
   }
   return parNiveau.map(x => x || []);
+})();
+
+// ---------------------------------------------------------------------------
+// LA FILIÈRE VIVRIÈRE, DÉRIVÉE ELLE AUSSI.
+//
+// Est vivrier tout bâtiment qui produit une nourriture, et tout bâtiment qui
+// nourrit un vivrier — de proche en proche. La minoterie fait du pain, donc la
+// ferme qui lui donne son blé est vivrière ; l'abattoir fait de la viande, donc
+// le ranch l'est aussi.
+//
+// Elle se calcule au lieu d'être listée à la main, pour la même raison que les
+// vagues de production : une filière alimentaire qu'on ajouterait sans penser à
+// l'inscrire quelque part perdrait silencieusement sa priorité.
+const VIVRIERS = (() => {
+  const produitPar = {};
+  for (const [t, d] of Object.entries(BAT)) if (d.sort) produitPar[d.sort] = t;
+  const set = new Set();
+  const marquer = (t) => {
+    if (!t || set.has(t)) return;
+    set.add(t);
+    for (const r of Object.keys(BAT[t].intrants || {})) marquer(produitPar[r]);
+  };
+  for (const [t, d] of Object.entries(BAT)) if (NOURRITURES.includes(d.sort)) marquer(t);
+  return set;
 })();
 
 const RENDEMENT_VISE = {
@@ -4399,8 +4409,10 @@ function unChantierDeVille(monde, ville) {
 
 // Ce que rapporterait ce bâtiment, sur ces cases, aux prix d'aujourd'hui —
 // avant qu'il n'existe. C'est le calcul que ferait n'importe quel investisseur.
-// Ce qui nourrit : les deux exploitations et les deux ateliers de la filière.
-const VIVRIER = new Set(['ferme', 'ranch', 'minoterie', 'abattoir']);
+// Ce qui nourrit. La liste était écrite à la main ici ; elle est désormais
+// DÉRIVÉE de la filière dans params.js, et partagée avec la répartition des bras
+// — les deux règles doivent parler de la même chose.
+const VIVRIER = VIVRIERS;
 
 function rendementAttendu(monde, ville, type, cases) {
   const def = BAT[type];
@@ -4744,7 +4756,7 @@ class Monde {
   fonderGare(x, y, societe, nom = null) {
     const refus = this.peutFonderGare(x, y);
     if (refus) return refus;
-    const devis = devisGare(this, x, y);
+    const devis = devisGare();
     if (!societe.peutPayer(devis.cout)) return 'trésorerie insuffisante';
 
     const v = {
@@ -4793,23 +4805,11 @@ class Monde {
     this.caseAt(x, y).voie = true;
     societe.payer(devis.cout);
 
-    // LE FONDATEUR EST PROPRIÉTAIRE DE SON CARRÉ.
-    //
-    // Il vient de payer la terre — remisée, mais payée — et elle est à lui :
-    // tout le carré du Comptoir, moins le quai. C'est ce qui fait de la
-    // fondation un acte de propriétaire et non un don à la collectivité. Il n'a
-    // plus rien à acheter pour bâtir chez lui, et la valeur de ce sol montera à
-    // chaque palier que sa ville franchira.
-    //
-    // Au-delà du carré du Comptoir, le territoire reste vierge : ce sera à
-    // acheter, palier après palier, comme partout ailleurs.
-    const r0 = P.rayonPalier[0];
-    for (const c of v.cases) {
-      if (c.voie || c.distanceGare > r0) continue;
-      c.proprio = societe.id;
-      c.vendue = true;
-      c.prixPaye = this.prixCase(v, c);
-    }
+    // LA GARE N'OCTROIE AUCUNE CASE. Elle ouvre un territoire, elle ne le donne
+    // pas : le fondateur achète son sol comme partout ailleurs, case par case et
+    // au moment où il bâtit. C'est ce qui garde à la fondation un coût d'entrée
+    // modeste — le quai et les vivres — et laisse au joueur le choix de ce qu'il
+    // prend plutôt que de le lui facturer d'avance.
     this.villes.push(v);
     this.recomposerMarches();
 
@@ -6072,15 +6072,39 @@ class Monde {
     for (const m of this.marches) m.ouvrirGuichet();
 
     // --- 3. Main-d'œuvre ----------------------------------------------------
+    //
+    // ON NOURRIT AVANT DE FABRIQUER. Quand les bras manquent, ils vont d'abord
+    // aux fermes, aux ranchs, aux minoteries et aux abattoirs ; le reste se
+    // partage ce qui subsiste, au prorata.
+    //
+    // Le partage était UNIFORME, et c'était une faute silencieuse : une ville à
+    // 70 % de bras faisait tourner sa filière alimentaire à 70 % comme tout le
+    // reste, si bien qu'un manque de main-d'œuvre devenait un manque de pain,
+    // donc un exode, donc un manque de main-d'œuvre plus grave encore. La
+    // pénurie de bras s'auto-entretenait par la faim.
+    //
+    // Une ville affamée qui manque de bras ferme ses forges, pas ses moulins.
     for (const v of this.villes) {
       const bras = v.menages * P.employesParMenage;
       const bats = this.tousBatiments(v);
-      let postes = 0;
-      for (const b of bats) postes += b.postesDemandes;
-      for (const ch of this.tousChantiers(v)) postes += ch.postesDemandes;
-      v.postesDemandes = postes;
+      let vivres = 0, autres = 0;
+      for (const b of bats) {
+        if (VIVRIERS.has(b.type)) vivres += b.postesDemandes;
+        else autres += b.postesDemandes;
+      }
+      // Un chantier n'est jamais prioritaire : on ne cesse pas de moudre pour
+      // creuser des fondations.
+      for (const ch of this.tousChantiers(v)) autres += ch.postesDemandes;
+
+      v.postesDemandes = vivres + autres;
       v.bras = bras;
-      v.partBras = postes > 0 ? Math.min(1, bras / postes) : 1;
+      v.postesVivriers = vivres;
+      v.partVivres = vivres > 0 ? Math.min(1, bras / vivres) : 1;
+      const reste = Math.max(0, bras - Math.min(bras, vivres));
+      v.partAutres = autres > 0 ? Math.min(1, reste / autres) : 1;
+      // Conservé pour les panneaux et le banc d'essai : le taux moyen de la
+      // ville, tous métiers confondus.
+      v.partBras = v.postesDemandes > 0 ? Math.min(1, bras / v.postesDemandes) : 1;
     }
 
     // --- 4. On produit, dans l'ordre de la filière --------------------------
@@ -6102,7 +6126,7 @@ class Monde {
       for (const v of this.villes) {
         for (const b of v.__bats) {
           if (!VAGUES[i].includes(b.type)) continue;
-          b.produire(v.marche, v.partBras);
+          b.produire(v.marche, VIVRIERS.has(b.type) ? v.partVivres : v.partAutres);
           if (b.societe) b.societe.encaisser(b.resultat);
           else v.epargne += Math.max(0, b.resultat);
         }
@@ -6150,7 +6174,7 @@ class Monde {
     for (const v of this.villes) {
       for (const b of v.__bats) {
         if (b.def.sort || b.def.cat === 'com') continue;   // le commerce ferme plus tard
-        b.produire(v.marche, v.partBras);
+        b.produire(v.marche, VIVRIERS.has(b.type) ? v.partVivres : v.partAutres);
         if (b.societe) b.societe.encaisser(b.resultat);
         else v.epargne += Math.max(0, b.resultat);
       }
@@ -6198,7 +6222,7 @@ class Monde {
           for (const b of tiennent) b.valeurEcoulee += ecoule[r] * (b.def.debit / offre);
         }
         for (const b of boutiques) {
-          b.produire(m, v.partBras);
+          b.produire(m, v.partAutres);   // un commerce n'est pas vivrier
           if (b.societe) b.societe.encaisser(b.resultat);
           else v.epargne += Math.max(0, b.resultat);
         }
@@ -7300,11 +7324,11 @@ const FILTRES_CASE = {
   // foncier, il s'ajuste et le taux ne bouge pas. Ce qui diffère, c'est la
   // PENTE. On normalise sur l'amplitude complète du barème, de ×1 à ×4, pour
   // que la couleur veuille dire la même chose d'une ville à l'autre.
-  potentiel: { nom: 'Potentiel de valorisation', bornes: ['×1 — au bout', `×${(P.facteurNiveau[5] / P.facteurNiveau[0]).toFixed(1)} — tout à gagner`],
+  potentiel: { nom: 'Potentiel de valorisation', bornes: ['×1 — au bout', `×${(P.facteurNiveau[P.facteurNiveau.length - 1] / P.facteurNiveau[0]).toFixed(1)} — tout à gagner`],
                lire: (c) => {
                  if (!c.ville) return 0;
                  const p = potentielTerrain(c.ville.niveau, c.distanceGare, qualiteMax(c));
-                 return Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[5] / P.facteurNiveau[0] - 1)));
+                 return Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[P.facteurNiveau.length - 1] / P.facteurNiveau[0] - 1)));
                } },
 };
 
@@ -8815,13 +8839,11 @@ function voletBatir(monde, rendu) {
               ${joueur.tresorerie >= dg.cout ? '' : 'disabled'}>
         <span class="puce" style="background:#c9a227"></span>
         <span class="nomBat">Gare fondatrice</span>
-        <span class="sousBat">carré de ${2 * P.rayonPalier[0] + 1} cases, à vous ·
+        <span class="sousBat">carré de ${2 * P.rayonPalier[0] + 1} cases ·
           ${P.moisDePain} mois de pain pour ${P.menagesNourris} ménages</span>
-        <span class="prixBat ${joueur.tresorerie >= dg.cout ? 'doux' : 'rouge'}">~${eur(dg.cout)}</span>
+        <span class="prixBat ${joueur.tresorerie >= dg.cout ? 'doux' : 'rouge'}">${eur(dg.cout)}</span>
         <span class="matBat">
           <span class="lotMat"><i style="background:#8a7f6a"></i>quai ${eur(dg.quai)}</span>
-          <span class="lotMat"><i style="background:#6f8f5a"></i>${dg.cases} cases
-            ${eur(dg.fonciere)}</span>
           ${Object.entries(dg.vivres).map(([r, q]) =>
             `<span class="lotMat"><i style="background:${RES[r].couleur}"></i>${
               Math.round(q)} ${RES[r].nom.toLowerCase()}</span>`).join('')}
@@ -8829,19 +8851,15 @@ function voletBatir(monde, rendu) {
       </button>
     </div>
     <div class="note">Une gare s'installe <b>hors de tout territoire</b> et fonde une localité.
-      Elle ouvre d'emblée le <b>carré du Comptoir</b> — ${2 * P.rayonPalier[0] + 1} cases de côté —
-      et <b>ce carré est à vous</b> : toutes ses cases libres passent à votre société le jour de la
-      fondation. Vous n'avez plus rien à acheter pour bâtir chez vous, et ce sol vaudra davantage à
-      chaque palier que la ville franchira.<br><br>
-      Vous la payez <b>plein tarif</b> — une terre vaut ce qu'elle vaut — et l'affaire tient toute
-      seule : mille quatre-vingt-neuf cases qui prendront de la valeur à chaque palier que la ville
-      franchira.<br><br>
-      La gare n'apporte rien d'autre que du pain, de quoi tenir le temps que les premières fermes
+      Elle ouvre d'emblée le <b>carré du Comptoir</b> — ${2 * P.rayonPalier[0] + 1} cases de côté,
+      où l'on bâtit où l'on veut — mais elle ne vous en donne aucune : le sol s'achète case par
+      case, au moment où l'on bâtit, comme partout ailleurs.<br><br>
+      Elle n'apporte rien d'autre que du pain, de quoi tenir le temps que les premières fermes
       sortent de terre. Ni maisons, ni ateliers : tout se bâtit, et les matériaux viennent de la
-      ville la plus proche, ce qui prend des mois.<br><br>
+      ville la plus proche — un dixième de la commande par mois tant qu'aucune voie ne relie le
+      hameau.<br><br>
       Elle n'apporte <b>pas d'habitants</b> non plus. La population vient d'elle-même dès qu'elle
-      trouve du travail et de quoi manger. Passé les vivres, ou le hameau se nourrit seul, ou une
-      voie le relie, ou il s'éteint.<br><br>
+      trouve du travail et de quoi manger.<br><br>
       <b>Où l'on peut fonder :</b> à ${P.ecartMinimalGares} cases au moins de toute autre gare —
       c'est ce qu'il faut pour que deux carrés de Métropole ne se recoupent jamais.</div>`;
 
@@ -9057,7 +9075,7 @@ function jaugePotentiel(v, cases, bat) {
   // Le potentiel est le rapport des deux sommes : il vaut le potentiel d'une
   // case quand l'emprise n'en compte qu'une, et la moyenne pondérée sinon.
   const p = auj > 0 ? bout / auj : 1;
-  const t = Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[5] / P.facteurNiveau[0] - 1)));
+  const t = Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[P.facteurNiveau.length - 1] / P.facteurNiveau[0] - 1)));
 
   // Le même mouvement du sol enrichit une résidence et appauvrit un atelier :
   // le loyer suit le foncier, la recette d'un atelier n'en dépend pas.
@@ -9789,13 +9807,10 @@ function demanderNom(c) {
   const boite = $('#bapteme');
   const champ = $('#baptemeNom');
   champ.value = monde.nomDeGare();
-  // Le devis du SITE, pas une estimation : la terre ne vaut pas la même chose
-  // ici et trente cases plus loin, et c'est ce qu'on va débiter.
-  const dg = devisGare(monde, c.x, c.y);
+  const dg = devisGare();
   $('#baptemeLieu').textContent = `${Math.round(dg.cout).toLocaleString('fr-FR')} $`
-    + ` · quai ${Math.round(dg.quai)} $ · ${dg.cases} cases de terrain`
-    + ` ${Math.round(dg.fonciere)} $`
-    + ` · ${P.moisDePain} mois de pain`;
+    + ` · quai ${Math.round(dg.quai)} $`
+    + ` · ${P.moisDePain} mois de pain pour ${P.menagesNourris} ménages`;
   boite.classList.remove('cachee');
   champ.focus(); champ.select();
 
@@ -9865,7 +9880,7 @@ function majBandeauPose() {
   }
   b.classList.remove('cachee');
   $('#bandeauNom').textContent =
-    (rendu.pose === 'gare' ? `Fonder une gare — environ ${eur(devisGare().cout)}`
+    (rendu.pose === 'gare' ? `Fonder une gare — ${eur(devisGare().cout)}`
                            : `Poser — ${BAT[rendu.pose].nom}`)
     + (posesDeSuite ? ` · ${posesDeSuite} posé${posesDeSuite > 1 ? 's' : ''}, continuez`
                     : ' · touchez la carte');
@@ -9886,7 +9901,7 @@ function poser(c) {
     // dire ensuite qu'elle ne peut pas exister est une perte de temps.
     const refus = monde.peutFonderGare(c.x, c.y);
     if (refus) { $('#bandeauNom').textContent = `Fonder une gare — ${refus}`; return false; }
-    const dg = devisGare(monde, c.x, c.y);
+    const dg = devisGare();
     if (monde.joueur.tresorerie < dg.cout) {
       $('#bandeauNom').textContent = `Fonder une gare — ${eur(dg.cout)}, trésorerie insuffisante`;
       return false;

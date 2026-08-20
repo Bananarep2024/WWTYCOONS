@@ -72,11 +72,11 @@ export const FILTRES_CASE = {
   // foncier, il s'ajuste et le taux ne bouge pas. Ce qui diffère, c'est la
   // PENTE. On normalise sur l'amplitude complète du barème, de ×1 à ×4, pour
   // que la couleur veuille dire la même chose d'une ville à l'autre.
-  potentiel: { nom: 'Potentiel de valorisation', bornes: ['×1 — au bout', `×${(P.facteurNiveau[5] / P.facteurNiveau[0]).toFixed(1)} — tout à gagner`],
+  potentiel: { nom: 'Potentiel de valorisation', bornes: ['×1 — au bout', `×${(P.facteurNiveau[P.facteurNiveau.length - 1] / P.facteurNiveau[0]).toFixed(1)} — tout à gagner`],
                lire: (c) => {
                  if (!c.ville) return 0;
                  const p = potentielTerrain(c.ville.niveau, c.distanceGare, qualiteMax(c));
-                 return Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[5] / P.facteurNiveau[0] - 1)));
+                 return Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[P.facteurNiveau.length - 1] / P.facteurNiveau[0] - 1)));
                } },
 };
 

@@ -136,7 +136,7 @@ function jaugePotentiel(v, cases, bat) {
   // Le potentiel est le rapport des deux sommes : il vaut le potentiel d'une
   // case quand l'emprise n'en compte qu'une, et la moyenne pondérée sinon.
   const p = auj > 0 ? bout / auj : 1;
-  const t = Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[5] / P.facteurNiveau[0] - 1)));
+  const t = Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[P.facteurNiveau.length - 1] / P.facteurNiveau[0] - 1)));
 
   // Le même mouvement du sol enrichit une résidence et appauvrit un atelier :
   // le loyer suit le foncier, la recette d'un atelier n'en dépend pas.

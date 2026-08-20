@@ -15,7 +15,7 @@
 import { P, RES, RESSOURCES, BAT, NOURRITURES, materiaux, coutRef,
          niveauVille, prixTerrain, qualiteMax, devisGare, QUALITES,
          FILIERES_LOCALES, RATTACHEMENTS, PANIER, POIDS_PANIER,
-         BIENS_SECONDAIRES, VAGUES } from './params.js';
+         BIENS_SECONDAIRES, VAGUES, VIVRIERS } from './params.js';
 import { genererMonde, estAchetable, rng, tracerVoie,
          rayonConstructible, dansLeCarre } from './mapgen.js';
 import { Marche } from './market.js';
@@ -163,7 +163,7 @@ export class Monde {
   fonderGare(x, y, societe, nom = null) {
     const refus = this.peutFonderGare(x, y);
     if (refus) return refus;
-    const devis = devisGare(this, x, y);
+    const devis = devisGare();
     if (!societe.peutPayer(devis.cout)) return 'trésorerie insuffisante';
 
     const v = {
@@ -212,23 +212,11 @@ export class Monde {
     this.caseAt(x, y).voie = true;
     societe.payer(devis.cout);
 
-    // LE FONDATEUR EST PROPRIÉTAIRE DE SON CARRÉ.
-    //
-    // Il vient de payer la terre — remisée, mais payée — et elle est à lui :
-    // tout le carré du Comptoir, moins le quai. C'est ce qui fait de la
-    // fondation un acte de propriétaire et non un don à la collectivité. Il n'a
-    // plus rien à acheter pour bâtir chez lui, et la valeur de ce sol montera à
-    // chaque palier que sa ville franchira.
-    //
-    // Au-delà du carré du Comptoir, le territoire reste vierge : ce sera à
-    // acheter, palier après palier, comme partout ailleurs.
-    const r0 = P.rayonPalier[0];
-    for (const c of v.cases) {
-      if (c.voie || c.distanceGare > r0) continue;
-      c.proprio = societe.id;
-      c.vendue = true;
-      c.prixPaye = this.prixCase(v, c);
-    }
+    // LA GARE N'OCTROIE AUCUNE CASE. Elle ouvre un territoire, elle ne le donne
+    // pas : le fondateur achète son sol comme partout ailleurs, case par case et
+    // au moment où il bâtit. C'est ce qui garde à la fondation un coût d'entrée
+    // modeste — le quai et les vivres — et laisse au joueur le choix de ce qu'il
+    // prend plutôt que de le lui facturer d'avance.
     this.villes.push(v);
     this.recomposerMarches();
 
@@ -1491,15 +1479,39 @@ export class Monde {
     for (const m of this.marches) m.ouvrirGuichet();
 
     // --- 3. Main-d'œuvre ----------------------------------------------------
+    //
+    // ON NOURRIT AVANT DE FABRIQUER. Quand les bras manquent, ils vont d'abord
+    // aux fermes, aux ranchs, aux minoteries et aux abattoirs ; le reste se
+    // partage ce qui subsiste, au prorata.
+    //
+    // Le partage était UNIFORME, et c'était une faute silencieuse : une ville à
+    // 70 % de bras faisait tourner sa filière alimentaire à 70 % comme tout le
+    // reste, si bien qu'un manque de main-d'œuvre devenait un manque de pain,
+    // donc un exode, donc un manque de main-d'œuvre plus grave encore. La
+    // pénurie de bras s'auto-entretenait par la faim.
+    //
+    // Une ville affamée qui manque de bras ferme ses forges, pas ses moulins.
     for (const v of this.villes) {
       const bras = v.menages * P.employesParMenage;
       const bats = this.tousBatiments(v);
-      let postes = 0;
-      for (const b of bats) postes += b.postesDemandes;
-      for (const ch of this.tousChantiers(v)) postes += ch.postesDemandes;
-      v.postesDemandes = postes;
+      let vivres = 0, autres = 0;
+      for (const b of bats) {
+        if (VIVRIERS.has(b.type)) vivres += b.postesDemandes;
+        else autres += b.postesDemandes;
+      }
+      // Un chantier n'est jamais prioritaire : on ne cesse pas de moudre pour
+      // creuser des fondations.
+      for (const ch of this.tousChantiers(v)) autres += ch.postesDemandes;
+
+      v.postesDemandes = vivres + autres;
       v.bras = bras;
-      v.partBras = postes > 0 ? Math.min(1, bras / postes) : 1;
+      v.postesVivriers = vivres;
+      v.partVivres = vivres > 0 ? Math.min(1, bras / vivres) : 1;
+      const reste = Math.max(0, bras - Math.min(bras, vivres));
+      v.partAutres = autres > 0 ? Math.min(1, reste / autres) : 1;
+      // Conservé pour les panneaux et le banc d'essai : le taux moyen de la
+      // ville, tous métiers confondus.
+      v.partBras = v.postesDemandes > 0 ? Math.min(1, bras / v.postesDemandes) : 1;
     }
 
     // --- 4. On produit, dans l'ordre de la filière --------------------------
@@ -1521,7 +1533,7 @@ export class Monde {
       for (const v of this.villes) {
         for (const b of v.__bats) {
           if (!VAGUES[i].includes(b.type)) continue;
-          b.produire(v.marche, v.partBras);
+          b.produire(v.marche, VIVRIERS.has(b.type) ? v.partVivres : v.partAutres);
           if (b.societe) b.societe.encaisser(b.resultat);
           else v.epargne += Math.max(0, b.resultat);
         }
@@ -1569,7 +1581,7 @@ export class Monde {
     for (const v of this.villes) {
       for (const b of v.__bats) {
         if (b.def.sort || b.def.cat === 'com') continue;   // le commerce ferme plus tard
-        b.produire(v.marche, v.partBras);
+        b.produire(v.marche, VIVRIERS.has(b.type) ? v.partVivres : v.partAutres);
         if (b.societe) b.societe.encaisser(b.resultat);
         else v.epargne += Math.max(0, b.resultat);
       }
@@ -1617,7 +1629,7 @@ export class Monde {
           for (const b of tiennent) b.valeurEcoulee += ecoule[r] * (b.def.debit / offre);
         }
         for (const b of boutiques) {
-          b.produire(m, v.partBras);
+          b.produire(m, v.partAutres);   // un commerce n'est pas vivrier
           if (b.societe) b.societe.encaisser(b.resultat);
           else v.epargne += Math.max(0, b.resultat);
         }
