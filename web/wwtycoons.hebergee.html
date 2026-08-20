@@ -1075,8 +1075,7 @@ const P = {
   // plafond. Mesuré : quatre villes sur cinq bloquées à 215 ménages, incapables
   // de poser une case de plus, et le monde à l'arrêt.
   //
-  //   Hameau       <50       r= 8  côté 17    289 cases    110 bâties   38 %
-  //   Comptoir    50-249     r=16  côté 33  1 089 cases    500          46 %
+  //   Comptoir      <250     r=16  côté 33  1 089 cases    500 bâties   46 %
   //   Bourg        250-499   r=21  côté 43  1 849 cases    950          51 %
   //   Ville        500-999   r=26  côté 53  2 809 cases  1 700          61 %
   //   Grandeville 1000-1999  r=30  côté 61  3 721 cases  3 100          83 %
@@ -4768,11 +4767,10 @@ class Monde {
       // peut bâtir AUJOURD'HUI reste le carré de son palier.
       gare: { x, y }, rayon: P.rayonPalier[P.rayonPalier.length - 1], cases: [],
       menages: 0,
-      // UNE VILLE QU'ON FONDE EST UN HAMEAU — niveau 0. Quelques baraques
-      // autour d'un quai, un carré de dix-sept cases de côté, et une terre qui
-      // vaut sept dixièmes de celle d'un Comptoir. C'est à CINQUANTE MÉNAGES
-      // qu'elle devient Comptoir, que son carré double et que son sol se
-      // revalorise — le moment où le fondateur réalise sa plus-value.
+      // UNE VILLE QU'ON FONDE OUVRE AU COMPTOIR, comme les autres : un carré de
+      // trente-trois cases de côté, où l'on bâtit où l'on veut. Elle n'a ni
+      // habitants, ni bâtiments, ni un pouce de terre acquise — seulement un
+      // quai, du pain, et la place de faire quelque chose.
       occupation: 0.85, salaire: P.salaireCase, niveau: 0,
       barometres: { nourriture: 1, emploi: 0.78, produits: 1 },
       epargne: 0, marche: null, histo: [], fondee: this.mois,
@@ -4900,11 +4898,7 @@ class Monde {
         v.marche.livre(v).stock[r] += q;
       }
       v.marche.recomposerStock();
-      // Les cinq villes de la carte sont des bourgades établies, pas des
-      // hameaux : elles s'ouvrent au Comptoir même si le tempérament les a
-      // taillées sous cinquante ménages. Le niveau 0 est réservé à ce que le
-      // joueur fonde lui-même.
-      v.niveau = Math.max(1, niveauVille(v.menages));
+      v.niveau = niveauVille(v.menages);
       // Un parc de départ minimal, aux mains des indépendants : sans lui la
       // ville n'a rien à manger le premier mois.
       this.parcDeDepart(v);

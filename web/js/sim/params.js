@@ -322,8 +322,7 @@ export const P = {
   // plafond. Mesuré : quatre villes sur cinq bloquées à 215 ménages, incapables
   // de poser une case de plus, et le monde à l'arrêt.
   //
-  //   Hameau       <50       r= 8  côté 17    289 cases    110 bâties   38 %
-  //   Comptoir    50-249     r=16  côté 33  1 089 cases    500          46 %
+  //   Comptoir      <250     r=16  côté 33  1 089 cases    500 bâties   46 %
   //   Bourg        250-499   r=21  côté 43  1 849 cases    950          51 %
   //   Ville        500-999   r=26  côté 53  2 809 cases  1 700          61 %
   //   Grandeville 1000-1999  r=30  côté 61  3 721 cases  3 100          83 %
