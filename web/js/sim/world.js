@@ -1747,16 +1747,10 @@ export class Monde {
     this.fixerPER();
     for (const s of this.societes) s.enregistrerCours(this.per);
     for (const v of this.villes) {
-      // UNE VILLE NE REDESCEND JAMAIS D'UN PALIER.
-      //
-      // « Une ville qui décline garde ses rues ; elle les laisse se vider. »
-      // C'était déjà la règle du rayon, et il fallait l'étendre au palier
-      // lui-même dès qu'un niveau 0 est apparu : une ville qui repasse sous
-      // cinquante ménages voyait son carré retomber de seize à huit cases,
-      // c'est-à-dire sous l'emprise de ce qu'elle avait DÉJÀ bâti. Elle ne
-      // pouvait plus rien poser, donc plus rien redresser. Mesuré : Fort-Union
-      // à sept ménages, Bois-Perdu bloqué au premier palier.
-      v.niveau = Math.max(v.niveau || 0, niveauVille(v.menages));
+      // Le palier suit la population DANS LES DEUX SENS, et le prix du sol avec
+      // lui : la terre d'une ville qui se vide vaut moins, c'est juste. Ce qui
+      // ne rétrécit jamais, c'est le PÉRIMÈTRE — voir `rayonConstructible`.
+      v.niveau = niveauVille(v.menages);
       v.histo.push({ mois: this.mois, menages: v.menages, salaire: v.salaire,
                      ...v.barometres });
       if (v.histo.length > 400) v.histo.shift();

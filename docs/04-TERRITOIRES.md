@@ -230,15 +230,21 @@ Le devis d'une gare tombe du même coup à **14 336 $** — 289 cases de hameau 
 de comptoir — c'est-à-dire à portée de la trésorerie de départ. On fonde son premier hameau tôt, et
 c'est en le faisant grandir qu'on gagne de l'argent.
 
-> **Une ville ne redescend jamais d'un palier.** « Une ville qui décline garde ses rues ; elle les
-> laisse se vider » était déjà la règle du rayon, et il a fallu l'étendre au palier dès que le
-> niveau 0 est apparu : une ville repassant sous cinquante ménages voyait son carré retomber de
-> seize à huit cases, c'est-à-dire **sous l'emprise de ce qu'elle avait déjà bâti**. Elle ne pouvait
-> plus rien poser, donc plus rien redresser. Mesuré avant correction : Fort-Union à sept ménages.
+> **Le palier descend, le périmètre non.** Ce sont deux choses distinctes, et il a fallu une
+> correction pour les séparer proprement.
 >
-> Les cinq villes de la carte s'ouvrent au Comptoir même si leur tempérament les taille sous
-> cinquante ménages : ce sont des bourgades établies. Le niveau 0 est réservé à ce que le joueur
-> fonde lui-même.
+> Le **palier** suit la population dans les deux sens, et le prix du sol avec lui : la terre d'une
+> ville qui se vide vaut moins, c'est juste. Le **périmètre**, lui, est acquis une fois pour toutes —
+> « une ville qui décline garde ses rues ; elle les laisse se vider ». Sans ce cliquet, une ville
+> repassant sous cinquante ménages voyait son carré retomber de seize à huit cases, c'est-à-dire
+> **sous l'emprise de ce qu'elle avait déjà bâti** : elle ne pouvait plus rien poser, donc plus rien
+> redresser. Mesuré avant correction : Fort-Union à sept ménages, Bois-Perdu bloqué au premier
+> palier.
+>
+> Une première version figeait le palier lui-même. Cela réglait le symptôme mais gelait aussi la
+> valeur du sol, ce qui n'a aucune raison d'être : c'est le carré qui ne doit pas rétrécir, pas le
+> prix. Vérifié après séparation, sur six graines : **aucune ville sous cent ménages sur trente**,
+> contre une avec le palier figé.
 
 ## 7. Fonder, c'est acheter un territoire
 

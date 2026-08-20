@@ -620,8 +620,19 @@ export function estAchetable(monde, c) {
 }
 
 // Le carré constructible d'une ville : rayon du palier, distance de Chebyshev.
+//
+// IL NE RÉTRÉCIT JAMAIS. « Une ville qui décline garde ses rues ; elle les
+// laisse se vider. » Le palier suit la population dans les deux sens — et le
+// prix du sol avec lui, ce qui est juste : la terre d'une ville qui se vide
+// vaut moins. Mais le PÉRIMÈTRE reste acquis. Sans ce cliquet, une ville
+// repassant sous cinquante ménages voyait son carré retomber de seize à huit
+// cases, c'est-à-dire sous l'emprise de ce qu'elle avait déjà bâti : elle ne
+// pouvait plus rien poser, donc plus rien redresser. Mesuré : Fort-Union à sept
+// ménages, Bois-Perdu bloqué au premier palier.
 export function rayonConstructible(ville) {
-  return P.rayonPalier[Math.max(0, Math.min(P.rayonPalier.length - 1, ville.niveau))];
+  const r = P.rayonPalier[Math.max(0, Math.min(P.rayonPalier.length - 1, ville.niveau))];
+  ville.rayonAcquis = Math.max(ville.rayonAcquis || 0, r);
+  return ville.rayonAcquis;
 }
 
 export function dansLeCarre(ville, c) {

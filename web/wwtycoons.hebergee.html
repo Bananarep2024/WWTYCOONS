@@ -2560,8 +2560,19 @@ function estAchetable(monde, c) {
 }
 
 // Le carré constructible d'une ville : rayon du palier, distance de Chebyshev.
+//
+// IL NE RÉTRÉCIT JAMAIS. « Une ville qui décline garde ses rues ; elle les
+// laisse se vider. » Le palier suit la population dans les deux sens — et le
+// prix du sol avec lui, ce qui est juste : la terre d'une ville qui se vide
+// vaut moins. Mais le PÉRIMÈTRE reste acquis. Sans ce cliquet, une ville
+// repassant sous cinquante ménages voyait son carré retomber de seize à huit
+// cases, c'est-à-dire sous l'emprise de ce qu'elle avait déjà bâti : elle ne
+// pouvait plus rien poser, donc plus rien redresser. Mesuré : Fort-Union à sept
+// ménages, Bois-Perdu bloqué au premier palier.
 function rayonConstructible(ville) {
-  return P.rayonPalier[Math.max(0, Math.min(P.rayonPalier.length - 1, ville.niveau))];
+  const r = P.rayonPalier[Math.max(0, Math.min(P.rayonPalier.length - 1, ville.niveau))];
+  ville.rayonAcquis = Math.max(ville.rayonAcquis || 0, r);
+  return ville.rayonAcquis;
 }
 
 function dansLeCarre(ville, c) {
@@ -6317,16 +6328,10 @@ class Monde {
     this.fixerPER();
     for (const s of this.societes) s.enregistrerCours(this.per);
     for (const v of this.villes) {
-      // UNE VILLE NE REDESCEND JAMAIS D'UN PALIER.
-      //
-      // « Une ville qui décline garde ses rues ; elle les laisse se vider. »
-      // C'était déjà la règle du rayon, et il fallait l'étendre au palier
-      // lui-même dès qu'un niveau 0 est apparu : une ville qui repasse sous
-      // cinquante ménages voyait son carré retomber de seize à huit cases,
-      // c'est-à-dire sous l'emprise de ce qu'elle avait DÉJÀ bâti. Elle ne
-      // pouvait plus rien poser, donc plus rien redresser. Mesuré : Fort-Union
-      // à sept ménages, Bois-Perdu bloqué au premier palier.
-      v.niveau = Math.max(v.niveau || 0, niveauVille(v.menages));
+      // Le palier suit la population DANS LES DEUX SENS, et le prix du sol avec
+      // lui : la terre d'une ville qui se vide vaut moins, c'est juste. Ce qui
+      // ne rétrécit jamais, c'est le PÉRIMÈTRE — voir `rayonConstructible`.
+      v.niveau = niveauVille(v.menages);
       v.histo.push({ mois: this.mois, menages: v.menages, salaire: v.salaire,
                      ...v.barometres });
       if (v.histo.length > 400) v.histo.shift();
@@ -8168,7 +8173,10 @@ function detailVille(monde, v) {
     : `${P.nomsNiveau[n + 1]} à ${P.seuilsNiveau[n]} ménages — il en manque
        <b>${Math.max(0, Math.ceil(P.seuilsNiveau[n] - v.menages))}</b>, le foncier
        passerait de ×${P.facteurNiveau[n].toFixed(2)} à ×${P.facteurNiveau[n + 1].toFixed(2)}
-       et le rayon constructible de ${P.rayonPalier[n]} à ${P.rayonPalier[n + 1]} cases.`;
+       ${P.rayonPalier[n + 1] > (v.rayonAcquis || 0)
+         ? `et le rayon constructible de ${v.rayonAcquis || P.rayonPalier[n]} à
+            ${P.rayonPalier[n + 1]} cases`
+         : `— le rayon reste à ${v.rayonAcquis} cases, déjà acquis et jamais rendu`}.`;
 
   return `
     <h3>${v.nom} · ${P.nomsNiveau[v.niveau]}</h3>

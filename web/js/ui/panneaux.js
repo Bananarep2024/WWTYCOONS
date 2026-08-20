@@ -332,7 +332,10 @@ export function detailVille(monde, v) {
     : `${P.nomsNiveau[n + 1]} à ${P.seuilsNiveau[n]} ménages — il en manque
        <b>${Math.max(0, Math.ceil(P.seuilsNiveau[n] - v.menages))}</b>, le foncier
        passerait de ×${P.facteurNiveau[n].toFixed(2)} à ×${P.facteurNiveau[n + 1].toFixed(2)}
-       et le rayon constructible de ${P.rayonPalier[n]} à ${P.rayonPalier[n + 1]} cases.`;
+       ${P.rayonPalier[n + 1] > (v.rayonAcquis || 0)
+         ? `et le rayon constructible de ${v.rayonAcquis || P.rayonPalier[n]} à
+            ${P.rayonPalier[n + 1]} cases`
+         : `— le rayon reste à ${v.rayonAcquis} cases, déjà acquis et jamais rendu`}.`;
 
   return `
     <h3>${v.nom} · ${P.nomsNiveau[v.niveau]}</h3>
