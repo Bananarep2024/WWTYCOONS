@@ -571,6 +571,32 @@ function ficheBatiment(monde, b, c) {
       de racheter, de démolir et de revendre le terrain pour fabriquer de l'argent.</div>
       ${peut ? '' : '<div class="avert">Trésorerie insuffisante.</div>'}`;
 
+  } else if (b.societe.locale) {
+    // LE BIEN D'UNE FILIÈRE LOCALE NE SE RACHÈTE PAS. C'est le point de toute la
+    // règle : une filière tient son métier d'un seul tenant, et l'on ne lui
+    // prend pas une scierie en la payant trois ans de profit. On la prend
+    // entière, en bourse, ou l'on s'en passe.
+    const cap = monde.capitalisationDe(b.societe);
+    actions = `<h3>${b.societe.nom}</h3>
+      <table>
+        <tr><td>Bâtiments de la filière</td><td class="n">${b.societe.batiments.length}</td></tr>
+        <tr><td>Métiers</td><td class="n">${b.societe.types
+          .map(t => BAT[t].nom.toLowerCase()).join(', ')}</td></tr>
+        <tr><td>Bénéfice</td><td class="n ${b.societe.profitAnnuel >= 0 ? 'vert' : 'rouge'}">${
+          eur(b.societe.profitAnnuel)}/an</td></tr>
+        <tr><td>Trésorerie</td><td class="n ${b.societe.tresorerie >= 0 ? 'doux' : 'rouge'}">${
+          eur(b.societe.tresorerie)}</td></tr>
+        <tr><td><b>Capitalisation</b></td><td class="n"><b>${eur(cap)}</b></td></tr>
+      </table>
+      <div class="actions" style="margin-top:8px">
+        <button class="primaire" data-vue="bourse">Voir en bourse</button>
+      </div>
+      <div class="note">Ce bâtiment appartient à une <b>filière de la ville</b>, qui tient son
+        métier de la matière au produit fini. Elle ne vend pas au coup par coup : on la prend
+        <b>en bourse</b>, par une offre publique d'achat sur la société entière, ou l'on n'a
+        rien. Ses bénéfices se réinvestissent sur place et gonflent la capacité
+        d'investissement de sa ville ; ses pertes la rognent.</div>`;
+
   } else {
     // Une offre sur le bien d'un rival : un curseur, une réponse en un clic.
     const possible = monde.offrePossible(b, joueur);

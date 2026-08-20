@@ -62,6 +62,19 @@ export function voletFiltres(monde, rendu) {
       rapporte rien, vert à 20 % l'an — le rendement visé de la transformation, au milieu du
       barème. Ceux d'un autre métier restent en silhouette.</div>
 
+    <h3>Les filières — qui possède quoi</h3>
+    ${monde.villes.map(v => {
+      const fs = monde.filieresDe(v).filter(x => x.batiments.length);
+      if (!fs.length) return '';
+      return `<div class="etiq" style="margin:6px 0 3px">${v.nom}</div>
+        <div class="pastilles">${fs.map(x =>
+          past('soc:' + x.id, `${x.filiereNom} · ${x.batiments.length}`,
+               f === 'soc:' + x.id, x.couleur)).join('')}</div>`;
+    }).join('')}
+    <div class="note">Le parc d'une ville appartient à des sociétés de filière, qui tiennent
+      leur métier de la matière au produit fini. Un filtre par société : ce qui est à elle
+      s'allume, le reste s'efface.</div>
+
     <h3>Le prix d'une marchandise, ville par ville</h3>
     <div class="pastilles">
       ${RESSOURCES.map(r =>
@@ -178,6 +191,57 @@ export function voletVilles(monde) {
   `;
 }
 
+// ---------------------------------------------------------------------------
+// CE QUE LA VILLE PEUT INVESTIR
+//
+// Deux argents, et il faut les voir séparément. L'épargne des ménages est un
+// RÉSIDU — ce qui reste une fois le panier payé — donc volatile et sensible aux
+// prix. La trésorerie des filières est un bénéfice accumulé, donc sensible aux
+// marges. Une ville peut avoir des ménages à l'aise et une industrie qui saigne,
+// ou l'inverse, et la somme seule ne le dirait pas.
+// ---------------------------------------------------------------------------
+
+function capaciteVille(monde, v) {
+  const c = monde.capaciteInvestissement(v);
+  const fs = monde.filieresDe(v).slice()
+    .sort((a, b) => a.tresorerie - b.tresorerie);
+  const part = (x) => c.total > 0 ? Math.max(0, x) / (Math.max(0, c.menages)
+    + Math.max(0, c.societes)) * 100 : 0;
+
+  return `
+    <h3>La capacité d'investissement</h3>
+    <div class="grille">
+      <div class="fiche"><div class="etiq">Total disponible</div>
+        <div class="v ${c.total >= 0 ? 'or' : 'rouge'}">${eur(c.total)}</div>
+        <div class="etiq" style="margin-top:2px">à bâtir ou à placer</div></div>
+      <div class="fiche"><div class="etiq">Épargne des ménages</div>
+        <div class="v ${c.menages >= 0 ? 'doux' : 'rouge'}">${eur(c.menages)}</div>
+        <div class="etiq" style="margin-top:2px">${part(c.menages).toFixed(0)} % du total</div></div>
+      <div class="fiche"><div class="etiq">Trésorerie des filières</div>
+        <div class="v ${c.societes >= 0 ? 'doux' : 'rouge'}">${eur(c.societes)}</div>
+        <div class="etiq" style="margin-top:2px">${part(c.societes).toFixed(0)} % du total</div></div>
+      <div class="fiche"><div class="etiq">Dont pertes</div>
+        <div class="v ${c.pertes < 0 ? 'rouge' : 'doux'}">${eur(c.pertes)}</div>
+        <div class="etiq" style="margin-top:2px">en déduction</div></div>
+    </div>
+    <div class="listeRes" style="margin-top:6px">
+      ${fs.map(f => `<div class="carteRes">
+        <div class="tetRes">
+          <span><b>${f.filiereNom}</b>
+            <span class="cv"><br>${f.batiments.length} bâtiments ·
+              ${eur(f.profitAnnuel)}/an</span></span>
+          <span class="prixRes ${f.tresorerie >= 0 ? 'vert' : 'rouge'}">${eur(f.tresorerie)}
+            <span class="etiq" style="display:block;text-align:right">trésorerie</span></span>
+        </div></div>`).join('')}
+    </div>
+    <div class="note">
+      La ville bâtit sur ces deux argents à la fois, et en place une part en bourse. Une filière
+      qui perd de l'argent entre dans la somme <b>avec son signe</b> : elle fige la construction
+      de toute la ville, et pas seulement la sienne. C'est ce qui rend une filière malade
+      intéressante à prendre — on la redresse, et la ville repart.
+    </div>`;
+}
+
 export function detailVille(monde, v) {
   const b = v.barometres;
   const a = monde.attractivite(v);
@@ -223,6 +287,8 @@ export function detailVille(monde, v) {
       <div class="fiche"><div class="etiq">Bras libres</div>
         <div class="v">${Math.round(Math.max(0, (v.bras || 0) - (v.postesDemandes || 0)))}</div></div>
     </div>
+
+    ${capaciteVille(monde, v)}
 
     <h3>Les trois baromètres</h3>
     ${jauge('Nourriture', b.nourriture, P.seuilsCritiques.nourriture)}
@@ -459,6 +525,76 @@ export function voletSociete(monde) {
 // que vient le cycle, sans qu'aucun « climat » n'ait à être piloté.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// LES FILIÈRES DES VILLES, ET L'OPA
+//
+// On ne rachète pas une scierie à la Forestière : elle ne vend pas. On prend la
+// Forestière. Le curseur dit la prime au-dessus de la capitalisation, et le
+// public répond en un clic — au-dessus de la prime minimale il vend, en dessous
+// il refuse. C'est le seul chemin vers le parc d'une ville, et il coûte cher :
+// une filière rentable capitalise ses bénéfices au multiple du marché.
+// ---------------------------------------------------------------------------
+
+function filieresCotees(monde, rendu) {
+  const per = monde.per;
+  const joueur = monde.joueur;
+  const choisie = rendu.opaCible
+    ? monde.societes.find(s => s.id === rendu.opaCible) : null;
+  const prime = rendu.opaPrime === undefined ? 25 : rendu.opaPrime;
+
+  const carte = (f) => {
+    const cours = f.cours(per), cap = cours * f.actions;
+    const b = f.profitAnnuel;
+    const active = choisie === f;
+    const prix = monde.prixOPA(f, prime / 100);
+    const accepte = prime / 100 >= P.primeOPA;
+    return `<div class="carteRes ${active ? 'actif' : ''}">
+      <div class="tetRes" data-opa="${f.id}">
+        <span><b>${f.filiereNom}</b>
+          <span class="cv"><br>${f.batiments.length} bâtiments ·
+            ${f.types.map(t => BAT[t].nom.toLowerCase()).join(', ')}</span></span>
+        <span class="prixRes">${eur(cap)}
+          <span class="etiq" style="display:block;text-align:right">capitalisation</span></span>
+      </div>
+      <div class="piedRes">
+        <span>trésorerie <b class="${f.tresorerie >= 0 ? 'doux' : 'rouge'}">${eur(f.tresorerie)}</b></span>
+        <span class="${b >= 0 ? 'vert' : 'rouge'}">${eur(b)}/an</span>
+      </div>
+      ${active ? `
+        <div class="note" style="margin:6px 0 4px">
+          Prime de <b>${prime} %</b> sur la capitalisation —
+          <b class="or" id="montantOPA">${eur(prix)}</b>.
+          ${accepte ? '<span class="vert">le public vend à ce prix</span>'
+                    : `<span class="rouge">sous ${Math.round(P.primeOPA * 100)} %, le public refuse</span>`}
+        </div>
+        <input type="range" id="curseurOPA" min="${P.curseurOPA[0]}" max="${P.curseurOPA[1]}"
+               step="1" value="${prime}" style="width:100%">
+        <div class="actions" style="margin-top:6px">
+          <button id="btnOPA" data-opa-lancer="${f.id}"
+            ${joueur.tresorerie < prix ? 'disabled' : ''}>Lancer l'offre</button>
+        </div>
+        <div id="lectureOPA" class="note"></div>` : ''}
+    </div>`;
+  };
+
+  const parVille = monde.villes.map(v => {
+    const fs = monde.filieresDe(v).filter(f => f.batiments.length);
+    if (!fs.length) return '';
+    return `<h3 style="margin-top:10px">${v.nom}</h3>
+            <div class="listeRes">${fs.map(carte).join('')}</div>`;
+  }).join('');
+
+  return `<h3>Les filières des villes</h3>
+    <div class="note" style="margin-bottom:8px">
+      Le parc d'une ville appartient à des <b>sociétés de filière</b> qui tiennent leur métier
+      d'un seul tenant — la coupe <i>et</i> la scierie, la ferme <i>et</i> la minoterie. Elles ne
+      vendent pas au coup par coup : <b>on les prend en bourse, ou pas du tout</b>. Leurs
+      bénéfices se réinvestissent sur place et nourrissent la capacité d'investissement de leur
+      ville ; leurs pertes la rognent.
+    </div>
+    ${parVille}`;
+}
+
 export function voletBourse(monde, rendu) {
   const per = monde.per;
   const ouvert = rendu.coursOuvert || null;
@@ -491,7 +627,7 @@ export function voletBourse(monde, rendu) {
              le haut de cycle — et retombe quand l'économie rentre.</div>` : ''}
     </div>`;
 
-  const societes = monde.societes.map(s => {
+  const societes = monde.societes.filter(s => !s.locale).map(s => {
     const cours = s.cours(per), cap = cours * s.actions;
     const part = s.partDe(s === monde.joueur ? s.id + ':fondateur' : '__');
     const b = s.profitAnnuel;
@@ -558,6 +694,7 @@ export function voletBourse(monde, rendu) {
 
   return entete
     + `<h3>Les sociétés</h3><div class="listeRes">${societes}</div>`
+    + filieresCotees(monde, rendu)
     + `<h3>Le chemin de fer</h3><div class="listeRes">${rails}</div>`
     + `<div class="note">
         Il n'y a qu'<b>une compagnie</b>, et elle pose ses lignes l'une après l'autre. Tant

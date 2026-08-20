@@ -311,7 +311,11 @@ export function piloterVille(monde, ville) {
 // au suivant plutôt que de ne rien faire — c'est ainsi que le capital finit par
 // aller là où il manque, au lieu de s'entêter là où il ne sert à rien.
 function unChantierDeVille(monde, ville) {
-  const budget = ville.epargne;
+  // LA VILLE INVESTIT DEUX ARGENTS À LA FOIS : l'épargne de ses ménages et les
+  // bénéfices que ses filières ont mis de côté. Une filière en déficit vient en
+  // déduction — c'est ainsi qu'une industrie qui saigne fige la construction de
+  // toute sa ville, et pas seulement la sienne.
+  const budget = monde.capaciteInvestissement(ville).total;
   if (budget < 200) return false;
 
   const besoins = besoinsClasses(monde, ville);
@@ -441,8 +445,11 @@ function unChantierDeVille(monde, ville) {
     if (def.cat !== 'loge' && !vital && !necessaire
         && rendementAttendu(monde, ville, type, cases) < P.rendementMinimalPourBatir) continue;
 
-    ville.epargne -= cout;
-    monde.poser(type, ville, cases, null);
+    // Le bâtiment naît chez la filière de son métier, qui le paie sur ses
+    // propres bénéfices avant d'appeler l'épargne des ménages. Seul le logement
+    // reste aux habitants : une maison ne se possède pas, elle s'habite.
+    const proprietaire = monde.financerLocal(ville, type, cout);
+    monde.poser(type, ville, cases, proprietaire);
     return true;
   }
   return false;

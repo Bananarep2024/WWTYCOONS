@@ -289,6 +289,8 @@ export function genererMonde(nbVilles, graine) {
       occupation: 0.85, salaire: P.salaireCase, niveau: 1,
       barometres: { nourriture: 1, emploi: 0.78, produits: 0.6 },
       epargne: 0, marche: null, histo: [],
+      // L'index du parc, tenu par la ville : voir `Monde.tousBatiments`.
+      batiments: [],
     };
 
     // Les germes de quartiers. La vocation résidentielle est la plus fréquente

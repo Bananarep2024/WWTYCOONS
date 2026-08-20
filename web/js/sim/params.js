@@ -164,6 +164,17 @@ export const P = {
   beneficePlancher: 4000,      // sous ce total, la tension divergerait — et au premier
                                // mois aucune société n'a encore douze mois d'historique
 
+  // --- Les sociétés locales ---
+  //
+  // Le parc d'une ville n'appartient plus à des « indépendants » anonymes : il
+  // appartient à des sociétés de filière, une par métier et par ville, qui
+  // possèdent leur amont et leur aval d'un seul tenant — la coupe ET la scierie,
+  // la ferme ET la minoterie. On ne leur rachète pas un bâtiment : on les prend
+  // en bourse, ou pas du tout.
+  partProfitLocalEnBourse: 0.30,  // ce que la filière place au lieu de bâtir
+  primeOPA: 0.15,                 // la prime minimale qu'accepte le public
+  curseurOPA: [0, 60],            // le curseur de l'offre, en % au-dessus du cours
+
   // --- Les compagnies de chemin de fer ---
   //
   // Une liaison EST une société : on y souscrit pendant les travaux, elle entre
@@ -547,6 +558,40 @@ export const BAT = {
 };
 
 export const TYPES_BAT = Object.keys(BAT);
+
+// ---------------------------------------------------------------------------
+// LES FILIÈRES LOCALES
+//
+// Une ville n'est pas un tas de bâtiments sans maître. Chaque métier y est tenu
+// d'un seul tenant, de la matière au produit fini, par une société qui porte le
+// nom de la ville : la Meunerie de Roche-Noire possède les fermes ET les
+// minoteries, la Forestière possède les coupes ET les scieries. C'est ce qui
+// donne un sens au rachat — on ne prend pas une scierie, on prend une filière —
+// et c'est ce qui rend l'OPA intéressante : le jour où l'on tient la Forestière,
+// on tient le bois d'une ville entière.
+//
+// Ce qui n'est pas là est délibéré. Le LOGEMENT reste aux habitants : il ne se
+// possède pas, il s'habite. L'ACIÉRIE et la MANUFACTURE ne sont pas non plus
+// dans ce tableau — elles n'ont pas de filière propre, elles se rattachent à
+// celle qui leur fournit un intrant et qui dégage la plus grosse marge. Une
+// aciérie appartient donc aux Charbonnages ou à la Minière selon la ville, et
+// jamais aux deux.
+export const FILIERES_LOCALES = [
+  { cle: 'bois',     nom: 'Forestière',   couleur: '#6f8f5a', types: ['coupe', 'scierie'] },
+  { cle: 'argile',   nom: 'Argilière',    couleur: '#b07a4e', types: ['carriere', 'briqueterie'] },
+  { cle: 'cereales', nom: 'Meunerie',     couleur: '#c9a227', types: ['ferme', 'minoterie'] },
+  { cle: 'elevage',  nom: 'Élevage',      couleur: '#a4614f', types: ['ranch', 'abattoir'] },
+  { cle: 'charbon',  nom: 'Charbonnages', couleur: '#6b6b76', types: ['mineCharbon'] },
+  { cle: 'fer',      nom: 'Minière',      couleur: '#8a7fa8', types: ['mineFer'] },
+  { cle: 'negoce',   nom: 'Comptoir',     couleur: '#4f8a97', types: ['bureaux', 'entrepot'] },
+];
+
+// Où vont l'aciérie et la manufacture : la filière qui détient l'un de leurs
+// intrants, et parmi celles-là, la plus profitable.
+export const RATTACHEMENTS = {
+  acierie:     ['charbon', 'fer'],
+  manufacture: ['bois', 'acier'],   // 'acier' = la filière qui a hérité de l'aciérie
+};
 
 // Coût total de construction d'un bâtiment, en quantités de matériaux.
 // L'échelle ne concerne QUE l'exploitation. Une case de sol porte plusieurs

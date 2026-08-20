@@ -202,6 +202,9 @@ export class Rendu {
       for (const b of this.monde.tousBatiments(v)) this.index.push(b);
     }
     if (this.filtre && FILTRES_VILLE[this.filtre]) this.solPerime = true;
+    if (this.filtre === 'proprio' || (this.filtre && this.filtre.startsWith('soc:'))) {
+      this.solPerime = true;   // le parc bouge au mois, la carte des maîtres avec lui
+    }
     if (this.filtrePrix) this.solPerime = true;
   }
 
@@ -260,6 +263,18 @@ export class Rendu {
           const gris = 32 + c.alt * 26;
           r = gris; g = gris + 2; b = gris - 2;
         }
+      } else if (this.filtre && this.filtre.startsWith('soc:')) {
+        // Les possessions d'UNE société. Même principe que « mes possessions » :
+        // ce filtre ne mesure rien, il désigne. Ce qui est à elle prend sa
+        // couleur, le reste s'efface — et l'on voit d'un coup d'œil qu'une
+        // filière tient tout un versant de la ville.
+        const id = this.filtre.slice(4);
+        if (c.proprio === id) {
+          const t = couleursSocietes.get(id) || [224, 177, 85];
+          [r, g, b] = t;
+        } else if (c.bat || c.proprio) { r = 62; g = 59; b = 51; }
+        else if (c.ville) { r = 38; g = 36; b = 31; }
+        else { r = 22; g = 21; b = 19; }
       } else if (this.filtre === 'proprio') {
         // Ce qui est à vous saute aux yeux ; le reste s'efface. C'est le seul
         // filtre qui ne suit pas l'échelle rouge-vert : il ne mesure rien, il

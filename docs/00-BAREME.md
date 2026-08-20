@@ -456,6 +456,63 @@ pathologie qu'elle prétendait éviter.
 Mesuré à 240 mois, cinq villes reliées : **1,0 % des bâtiments productifs sous 25 % d'activité**
 (22 sur 2 204), la plupart des filières entre 92 et 100 %.
 
+### 5.10 — Les filières locales, et l'OPA
+
+Le parc d'une ville n'appartient plus à des « indépendants » anonymes et sans compte. Il appartient
+à des **sociétés de filière**, une par métier et par ville, qui tiennent leur métier d'un seul
+tenant — la coupe *et* la scierie, la ferme *et* la minoterie :
+
+| Filière | Métiers |
+|---|---|
+| Forestière | coupe, scierie |
+| Argilière | carrière, briqueterie |
+| Meunerie | ferme, minoterie |
+| Élevage | ranch, abattoir |
+| Charbonnages | mine de charbon |
+| Minière | mine de fer |
+| Comptoir | bureaux, entrepôt |
+
+**L'aciérie et la manufacture n'ont pas de filière à elles.** Elles se rattachent à celle qui leur
+fournit un intrant *et* qui dégage la plus grosse marge au prix de référence — c'est la logique
+d'une intégration verticale : on remonte la chaîne depuis ce qu'on tient déjà, et c'est le plus
+riche qui rachète. L'aciérie va donc aux Charbonnages ou à la Minière selon la ville ; la
+manufacture, en pratique, à la Forestière, parce que les planches pèsent 63 % de sa facture
+d'intrants. **Le logement reste dehors** : une maison ne se possède pas, elle s'habite, et c'est le
+seul bien que le joueur puisse encore acheter case par case.
+
+**On ne rachète pas une scierie à la Forestière : elle ne vend pas.** Le rachat au coup par coup —
+terrain plus trois années de profit — ne vaut plus que pour les logements. Une filière se prend
+**en bourse**, par une offre publique sur la société entière : capitalisation au multiple du
+marché, majorée d'une prime que le joueur règle au curseur. Le public vend au-dessus de **15 %** de
+prime et refuse en dessous. Ce qui passe alors : les murs, les terres, la trésorerie.
+
+La société absorbée disparaît — et la ville **se refonde une filière du même nom** dès qu'elle en
+rebâtit le premier atelier. Une OPA prend un patrimoine, elle n'achète pas un monopole perpétuel.
+
+### 5.11 — La capacité d'investissement d'une ville
+
+```
+capacité = épargne des ménages + trésorerie des filières locales
+```
+
+Les deux termes ne se comportent pas de la même façon, et c'est pourquoi l'écran des villes les
+affiche séparément. L'épargne des ménages est un **résidu** — ce qui reste une fois le panier payé —
+donc volatile et sensible aux prix. La trésorerie des filières est un **bénéfice accumulé**, donc
+sensible aux marges. Une ville peut avoir des ménages à l'aise et une industrie qui saigne, ou
+l'inverse, et la somme seule ne le dirait pas.
+
+Cette capacité sert à deux choses : **bâtir**, et **placer**. Une part des bénéfices des filières
+part en bourse au lieu de devenir des murs, exactement comme le fait déjà l'épargne des ménages, et
+nourrit le multiple de marché.
+
+**Une filière en déficit vient en déduction.** Sa trésorerie passe sous zéro et entre dans la somme
+avec son signe : elle fige la construction de toute sa ville, et pas seulement la sienne. C'est ce
+qui rend une filière malade intéressante à prendre — on la redresse, et la ville repart.
+
+Mesuré à 120 mois (graine 12345), Roche-Noire : capacité totale 10 396 $, dont 18 136 $ d'épargne
+des ménages et **−7 740 $** de trésorerie des filières — la Meunerie à −18 045 $ et l'Élevage à
+−11 279 $ contre une Forestière à +1 083 $ qui dégage 20 265 $ par an.
+
 ---
 
 ## 6. La carte

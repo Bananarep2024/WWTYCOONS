@@ -12,13 +12,21 @@ import { P, RESSOURCES, materiaux } from './params.js';
 let _idSociete = 1;
 
 export class Societe {
-  constructor(nom, couleur, estJoueur = false) {
+  constructor(nom, couleur, estJoueur = false, locale = null) {
     this.id = `S${_idSociete++}`;
     this.nom = nom;
     this.couleur = couleur;
     this.estJoueur = estJoueur;
 
-    this.tresorerie = P.apportJoueur / P.partFondateur;   // 15 000 $
+    // UNE SOCIÉTÉ LOCALE — une filière de ville. Elle ne joue pas : elle
+    // exploite son métier là où elle est née, réinvestit ses bénéfices sur
+    // place, et n'a pas de fondateur. Ses titres sont tous au public, ce qui est
+    // exactement ce qui la rend prenable : une OPA, ou rien.
+    this.locale = locale ? locale.cle : null;
+    this.ville = locale ? locale.ville : null;
+    this.filiereNom = locale ? locale.nom : null;
+
+    this.tresorerie = locale ? 0 : P.apportJoueur / P.partFondateur;   // 15 000 $
     this.actions = P.actionsInitiales;
     this.dette = 0;
     this.batiments = [];
@@ -27,8 +35,11 @@ export class Societe {
     this.histoCours = [];
     this.faillite = false;
 
-    // Le porteur détient 10 % ; les 90 % restants sont au public.
-    this.parts = { [this.id + ':fondateur']: P.actionsInitiales * P.partFondateur };
+    // Le porteur détient 10 % ; les 90 % restants sont au public. Une société
+    // locale n'a pas de porteur : tout est au public, et tout est à prendre.
+    this.parts = locale
+      ? { [this.id + ':public']: P.actionsInitiales }
+      : { [this.id + ':fondateur']: P.actionsInitiales * P.partFondateur };
     this.histoResultat = [];
     this.rails = [];                    // compagnies ferroviaires détenues
     this.cotee = true;                  // les sociétés des joueurs le sont d'emblée

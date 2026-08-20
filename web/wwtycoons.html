@@ -913,6 +913,17 @@ const P = {
   beneficePlancher: 4000,      // sous ce total, la tension divergerait — et au premier
                                // mois aucune société n'a encore douze mois d'historique
 
+  // --- Les sociétés locales ---
+  //
+  // Le parc d'une ville n'appartient plus à des « indépendants » anonymes : il
+  // appartient à des sociétés de filière, une par métier et par ville, qui
+  // possèdent leur amont et leur aval d'un seul tenant — la coupe ET la scierie,
+  // la ferme ET la minoterie. On ne leur rachète pas un bâtiment : on les prend
+  // en bourse, ou pas du tout.
+  partProfitLocalEnBourse: 0.30,  // ce que la filière place au lieu de bâtir
+  primeOPA: 0.15,                 // la prime minimale qu'accepte le public
+  curseurOPA: [0, 60],            // le curseur de l'offre, en % au-dessus du cours
+
   // --- Les compagnies de chemin de fer ---
   //
   // Une liaison EST une société : on y souscrit pendant les travaux, elle entre
@@ -1296,6 +1307,40 @@ const BAT = {
 };
 
 const TYPES_BAT = Object.keys(BAT);
+
+// ---------------------------------------------------------------------------
+// LES FILIÈRES LOCALES
+//
+// Une ville n'est pas un tas de bâtiments sans maître. Chaque métier y est tenu
+// d'un seul tenant, de la matière au produit fini, par une société qui porte le
+// nom de la ville : la Meunerie de Roche-Noire possède les fermes ET les
+// minoteries, la Forestière possède les coupes ET les scieries. C'est ce qui
+// donne un sens au rachat — on ne prend pas une scierie, on prend une filière —
+// et c'est ce qui rend l'OPA intéressante : le jour où l'on tient la Forestière,
+// on tient le bois d'une ville entière.
+//
+// Ce qui n'est pas là est délibéré. Le LOGEMENT reste aux habitants : il ne se
+// possède pas, il s'habite. L'ACIÉRIE et la MANUFACTURE ne sont pas non plus
+// dans ce tableau — elles n'ont pas de filière propre, elles se rattachent à
+// celle qui leur fournit un intrant et qui dégage la plus grosse marge. Une
+// aciérie appartient donc aux Charbonnages ou à la Minière selon la ville, et
+// jamais aux deux.
+const FILIERES_LOCALES = [
+  { cle: 'bois',     nom: 'Forestière',   couleur: '#6f8f5a', types: ['coupe', 'scierie'] },
+  { cle: 'argile',   nom: 'Argilière',    couleur: '#b07a4e', types: ['carriere', 'briqueterie'] },
+  { cle: 'cereales', nom: 'Meunerie',     couleur: '#c9a227', types: ['ferme', 'minoterie'] },
+  { cle: 'elevage',  nom: 'Élevage',      couleur: '#a4614f', types: ['ranch', 'abattoir'] },
+  { cle: 'charbon',  nom: 'Charbonnages', couleur: '#6b6b76', types: ['mineCharbon'] },
+  { cle: 'fer',      nom: 'Minière',      couleur: '#8a7fa8', types: ['mineFer'] },
+  { cle: 'negoce',   nom: 'Comptoir',     couleur: '#4f8a97', types: ['bureaux', 'entrepot'] },
+];
+
+// Où vont l'aciérie et la manufacture : la filière qui détient l'un de leurs
+// intrants, et parmi celles-là, la plus profitable.
+const RATTACHEMENTS = {
+  acierie:     ['charbon', 'fer'],
+  manufacture: ['bois', 'acier'],   // 'acier' = la filière qui a hérité de l'aciérie
+};
 
 // Coût total de construction d'un bâtiment, en quantités de matériaux.
 // L'échelle ne concerne QUE l'exploitation. Une case de sol porte plusieurs
@@ -1825,6 +1870,8 @@ function genererMonde(nbVilles, graine) {
       occupation: 0.85, salaire: P.salaireCase, niveau: 1,
       barometres: { nourriture: 1, emploi: 0.78, produits: 0.6 },
       epargne: 0, marche: null, histo: [],
+      // L'index du parc, tenu par la ville : voir `Monde.tousBatiments`.
+      batiments: [],
     };
 
     // Les germes de quartiers. La vocation résidentielle est la plus fréquente
@@ -3169,13 +3216,21 @@ class Batiment {
 let _idSociete = 1;
 
 class Societe {
-  constructor(nom, couleur, estJoueur = false) {
+  constructor(nom, couleur, estJoueur = false, locale = null) {
     this.id = `S${_idSociete++}`;
     this.nom = nom;
     this.couleur = couleur;
     this.estJoueur = estJoueur;
 
-    this.tresorerie = P.apportJoueur / P.partFondateur;   // 15 000 $
+    // UNE SOCIÉTÉ LOCALE — une filière de ville. Elle ne joue pas : elle
+    // exploite son métier là où elle est née, réinvestit ses bénéfices sur
+    // place, et n'a pas de fondateur. Ses titres sont tous au public, ce qui est
+    // exactement ce qui la rend prenable : une OPA, ou rien.
+    this.locale = locale ? locale.cle : null;
+    this.ville = locale ? locale.ville : null;
+    this.filiereNom = locale ? locale.nom : null;
+
+    this.tresorerie = locale ? 0 : P.apportJoueur / P.partFondateur;   // 15 000 $
     this.actions = P.actionsInitiales;
     this.dette = 0;
     this.batiments = [];
@@ -3184,8 +3239,11 @@ class Societe {
     this.histoCours = [];
     this.faillite = false;
 
-    // Le porteur détient 10 % ; les 90 % restants sont au public.
-    this.parts = { [this.id + ':fondateur']: P.actionsInitiales * P.partFondateur };
+    // Le porteur détient 10 % ; les 90 % restants sont au public. Une société
+    // locale n'a pas de porteur : tout est au public, et tout est à prendre.
+    this.parts = locale
+      ? { [this.id + ':public']: P.actionsInitiales }
+      : { [this.id + ':fondateur']: P.actionsInitiales * P.partFondateur };
     this.histoResultat = [];
     this.rails = [];                    // compagnies ferroviaires détenues
     this.cotee = true;                  // les sociétés des joueurs le sont d'emblée
@@ -3659,7 +3717,11 @@ function piloterVille(monde, ville) {
 // au suivant plutôt que de ne rien faire — c'est ainsi que le capital finit par
 // aller là où il manque, au lieu de s'entêter là où il ne sert à rien.
 function unChantierDeVille(monde, ville) {
-  const budget = ville.epargne;
+  // LA VILLE INVESTIT DEUX ARGENTS À LA FOIS : l'épargne de ses ménages et les
+  // bénéfices que ses filières ont mis de côté. Une filière en déficit vient en
+  // déduction — c'est ainsi qu'une industrie qui saigne fige la construction de
+  // toute sa ville, et pas seulement la sienne.
+  const budget = monde.capaciteInvestissement(ville).total;
   if (budget < 200) return false;
 
   const besoins = besoinsClasses(monde, ville);
@@ -3789,8 +3851,11 @@ function unChantierDeVille(monde, ville) {
     if (def.cat !== 'loge' && !vital && !necessaire
         && rendementAttendu(monde, ville, type, cases) < P.rendementMinimalPourBatir) continue;
 
-    ville.epargne -= cout;
-    monde.poser(type, ville, cases, null);
+    // Le bâtiment naît chez la filière de son métier, qui le paie sur ses
+    // propres bénéfices avant d'appeler l'épargne des ménages. Seul le logement
+    // reste aux habitants : une maison ne se possède pas, elle s'habite.
+    const proprietaire = monde.financerLocal(ville, type, cout);
+    monde.poser(type, ville, cases, proprietaire);
     return true;
   }
   return false;
@@ -4118,7 +4183,7 @@ class Monde {
       vivresJusqua: this.mois + P.moisDeVivres,
       // Les mêmes collections que les villes de la génération : sans elles, le
       // pilote de ville tombe au premier mois sur un champ qui n'existe pas.
-      batIndependants: [], chantiersInd: [], germes: [],
+      batIndependants: [], chantiersInd: [], germes: [], batiments: [],
     };
 
     // Le territoire. Premier arrivé, premier servi, comme à la génération.
@@ -4235,8 +4300,217 @@ class Monde {
       // Un parc de départ minimal, aux mains des indépendants : sans lui la
       // ville n'a rien à manger le premier mois.
       this.parcDeDepart(v);
+      this.constituerFilieres(v);
     }
     this.calibrerPrixInitiaux();
+  }
+
+  // ==========================================================================
+  //  LES SOCIÉTÉS LOCALES
+  // ==========================================================================
+  //
+  // Le parc d'une ville passe des « indépendants » — un propriétaire anonyme et
+  // sans compte — à des sociétés de filière qui portent le nom de la ville. Ce
+  // n'est pas un habillage : une filière a une trésorerie, un résultat, un
+  // cours, et elle se prend en bourse. Le joueur ne peut plus ramasser une
+  // scierie isolée en payant trois ans de profit ; il doit prendre la Forestière
+  // entière, ou s'en passer.
+  //
+  // Le logement reste dehors. Une maison ne se possède pas, elle s'habite, et
+  // c'est le seul bien que le joueur puisse encore acheter case par case.
+  constituerFilieres(v) {
+    v.filieres = {};
+    for (const def of FILIERES_LOCALES) this.creerFiliere(v, def);
+
+    // L'aciérie et la manufacture n'ont pas de filière à elles : elles vont à
+    // celle qui leur fournit un intrant ET qui gagne le plus. C'est la logique
+    // d'une intégration verticale — on remonte la chaîne depuis ce qu'on tient
+    // déjà, et c'est le plus riche qui rachète.
+    const acierie = this.plusProfitable(v, RATTACHEMENTS.acierie);
+    if (acierie) acierie.types.push('acierie');
+    v.filieres.acier = acierie;
+
+    const candidatsManu = ['bois', acierie ? acierie.locale : null].filter(Boolean);
+    const manu = this.plusProfitable(v, candidatsManu);
+    if (manu) manu.types.push('manufacture');
+
+    // Et l'on distribue le parc déjà debout.
+    for (const b of this.tousBatiments(v)) {
+      if (b.societe) continue;
+      const s = this.societeLocale(v, b.type);
+      if (!s) continue;
+      v.batIndependants = v.batIndependants.filter(x => x !== b);
+      b.societe = s;
+      s.batiments.push(b);
+      for (const c of b.cases) c.proprio = s.id;
+    }
+  }
+
+  // La marge brute d'une filière au prix de référence : ce que ses bâtiments
+  // sortent, moins ce qu'ils paient en salaires. On la mesure au barème et non
+  // au cours du jour, parce qu'au premier mois les cours ne veulent encore rien
+  // dire — et parce que c'est la vocation de la ville qu'on cherche à lire, pas
+  // sa conjoncture.
+  margeDeReference(societe) {
+    let m = 0;
+    for (const b of societe.batiments) {
+      if (b.def.sort) m += b.capacite * RES[b.def.sort].prix;
+      m -= b.emplois * P.salaireCase;
+    }
+    return m;
+  }
+
+  plusProfitable(v, cles) {
+    let meilleur = null, mieux = -Infinity;
+    for (const cle of cles) {
+      const s = v.filieres[cle];
+      if (!s || !s.batiments.length) continue;      // pas d'intrant, pas de titre
+      const m = this.margeDeReference(s);
+      if (m > mieux) { mieux = m; meilleur = s; }
+    }
+    return meilleur;
+  }
+
+  creerFiliere(v, def) {
+    const s = new Societe(`${def.nom} de ${v.nom}`, def.couleur, false,
+                          { cle: def.cle, nom: def.nom, ville: v });
+    s.types = def.types.slice();
+    this.societes.push(s);
+    v.filieres[def.cle] = s;
+    return s;
+  }
+
+  // À quelle filière appartient ce métier, dans cette ville ? Le logement n'en a
+  // aucune, et c'est voulu.
+  //
+  // Si la filière manque — parce qu'un joueur l'a prise en bourse et l'a absorbée
+  // — elle SE REFONDE. Une ville ne reste pas sans meunier parce qu'on lui a
+  // racheté le sien : quelqu'un d'autre monte la minoterie suivante, sous le
+  // même nom, et il faudra la reprendre à son tour. C'est ce qui empêche une OPA
+  // d'être un gain définitif et sans suite.
+  societeLocale(ville, type) {
+    if (!ville.filieres || BAT[type].cat === 'loge') return null;
+    for (const s of Object.values(ville.filieres)) {
+      if (s && s.types && s.types.includes(type)) return s;
+    }
+    const def = FILIERES_LOCALES.find(d => d.types.includes(type));
+    if (def) return this.creerFiliere(ville, def);
+
+    // L'aciérie et la manufacture n'ont pas de filière à elles : on les rattache
+    // à nouveau, comme au premier jour, à celle qui leur donne un intrant.
+    const cles = type === 'acierie' ? RATTACHEMENTS.acierie
+               : type === 'manufacture' ? ['bois', 'charbon', 'fer'] : null;
+    if (!cles) return null;
+    let hote = this.plusProfitable(ville, cles);
+    if (!hote) {
+      const d = FILIERES_LOCALES.find(x => x.cle === cles[0]);
+      hote = ville.filieres[cles[0]] || (d ? this.creerFiliere(ville, d) : null);
+    }
+    if (hote && !hote.types.includes(type)) hote.types.push(type);
+    return hote;
+  }
+
+  // ------------------------------------------------------------------------
+  //  L'OFFRE PUBLIQUE D'ACHAT
+  //
+  // On ne rachète pas une filière bâtiment par bâtiment — c'est justement ce
+  // qu'elle interdit. On la prend en bourse, d'un bloc, en payant sa
+  // capitalisation majorée d'une prime. Le public vend au-dessus de la prime
+  // minimale et refuse en dessous : il n'y a rien à négocier, il y a un curseur
+  // et une réponse.
+  //
+  // Ce qui passe : les murs, les terres, la trésorerie. La société absorbée
+  // disparaît, et la ville se refonde une filière du même nom dès qu'elle en
+  // rebâtit le premier atelier — une OPA prend un patrimoine, elle n'achète pas
+  // un monopole perpétuel.
+  capitalisationDe(societe) { return societe.cours(this.per) * societe.actions; }
+
+  prixOPA(societe, prime) { return this.capitalisationDe(societe) * (1 + prime); }
+
+  opaPossible(societe, acquereur) {
+    return !!societe && societe.locale && societe !== acquereur
+      && societe.batiments.length > 0;
+  }
+
+  lancerOPA(cible, acquereur, prime) {
+    if (!this.opaPossible(cible, acquereur)) return { fait: false, motif: 'cible impossible' };
+    const prix = this.prixOPA(cible, prime);
+    if (!acquereur.peutPayer(prix)) return { fait: false, motif: 'trésorerie insuffisante' };
+    if (prime < P.primeOPA) {
+      return { fait: true, accepte: false, prix,
+               motif: `le public refuse sous ${Math.round(P.primeOPA * 100)} % de prime` };
+    }
+
+    acquereur.payer(prix);
+    const v = cible.ville;
+    for (const b of cible.batiments.slice()) {
+      b.societe = acquereur;
+      acquereur.batiments.push(b);
+      for (const c of b.cases) c.proprio = acquereur.id;
+    }
+    cible.batiments = [];
+    acquereur.encaisser(cible.tresorerie);
+    cible.tresorerie = 0;
+
+    // La société sort du monde : plus de cours, plus de titres, plus de place
+    // dans la ville. Son métier redeviendra vacant, et la ville s'en redonnera
+    // une le jour où elle rebâtira.
+    this.societes = this.societes.filter(x => x !== cible);
+    if (v && v.filieres) {
+      for (const [cle, x] of Object.entries(v.filieres)) if (x === cible) delete v.filieres[cle];
+    }
+    this.journal.push(`${this.mois} · ⚑ ${acquereur.nom} prend ${cible.nom}`
+      + ` pour ${Math.round(prix)} $ — prime de ${Math.round(prime * 100)} %`);
+    return { fait: true, accepte: true, prix };
+  }
+
+  // ------------------------------------------------------------------------
+  //  CE QUE LA VILLE PEUT INVESTIR
+  //
+  //   capacité = épargne des ménages + trésorerie des filières locales
+  //
+  // Les deux termes se comportent différemment et c'est tout l'intérêt de les
+  // afficher séparément. L'épargne des ménages est un RÉSIDU — ce qui reste une
+  // fois le panier payé — donc volatile et sensible aux prix. La trésorerie des
+  // filières est un profit accumulé, donc sensible aux marges. Une ville peut
+  // avoir des ménages à l'aise et des entreprises qui saignent, ou l'inverse.
+  //
+  // Et une filière en déficit vient EN DÉDUCTION : sa trésorerie passe sous
+  // zéro, elle entre dans la somme avec son signe, et la ville bâtit moins.
+  // C'est ce qui fait qu'une filière ruinée pèse sur toute sa ville et pas
+  // seulement sur elle-même.
+  capaciteInvestissement(ville) {
+    const societes = this.filieresDe(ville).reduce((s, f) => s + f.tresorerie, 0);
+    return {
+      menages: ville.epargne,
+      societes,
+      total: ville.epargne + societes,
+      pertes: this.filieresDe(ville)
+        .reduce((s, f) => s + Math.min(0, f.tresorerie), 0),
+    };
+  }
+
+  // Financer un chantier de ville. La filière paie sur sa propre trésorerie, et
+  // l'épargne des ménages complète — c'est l'ordre naturel : une entreprise
+  // investit d'abord ses bénéfices, et n'appelle l'épargne du public qu'ensuite.
+  // Renvoie la société qui portera le bâtiment, ou null pour un logement, qui
+  // reste aux habitants.
+  financerLocal(ville, type, cout) {
+    const s = this.societeLocale(ville, type);
+    if (!s) { ville.epargne -= cout; return null; }
+    const surLaSociete = Math.max(0, Math.min(cout, s.tresorerie));
+    s.tresorerie -= surLaSociete;
+    ville.epargne -= cout - surLaSociete;
+    return s;
+  }
+
+  filieresDe(ville) {
+    if (!ville.filieres) return [];
+    const vues = new Set(), out = [];
+    for (const s of Object.values(ville.filieres)) {
+      if (s && !vues.has(s.id)) { vues.add(s.id); out.push(s); }
+    }
+    return out;
   }
 
   // Une partie ne commence pas à l'équilibre parfait. Chaque ville a hérité
@@ -4709,13 +4983,15 @@ class Monde {
   poser(type, ville, cases, societe) {
     for (const c of cases) {
       c.vendue = true;
-      if (!societe && !c.proprio) c.proprio = 'ind';
+      if (societe) c.proprio = societe.id;
+      else if (!c.proprio) c.proprio = 'ind';
       c.prixPaye = this.prixCase(ville, c);
     }
     const b = new Batiment(type, ville, cases, societe);
     for (const c of cases) c.bat = b;
     if (societe) societe.batiments.push(b);
     else (ville.batIndependants ||= []).push(b);
+    (ville.batiments ||= []).push(b);
     return b;
   }
 
@@ -4841,6 +5117,9 @@ class Monde {
   // vous intéresse chez un rival — vous devez désigner ce qui compte vraiment.
   offrePossible(b, societe) {
     if (!b.societe || b.societe === societe) return false;
+    // Le bien d'une filière locale ne se rachète pas au coup par coup : on prend
+    // la société entière en bourse, ou l'on n'a rien.
+    if (b.societe.locale) return false;
     const faites = this.offresDuMois.get(societe.id);
     return !faites || !faites.has(b.societe.id);
   }
@@ -4889,12 +5168,19 @@ class Monde {
     for (const c of b.cases) c.bat = null;
     if (b.societe) b.societe.batiments = b.societe.batiments.filter(x => x !== b);
     else b.ville.batIndependants = b.ville.batIndependants.filter(x => x !== b);
+    if (b.ville.batiments) b.ville.batiments = b.ville.batiments.filter(x => x !== b);
   }
 
+  // LE PARC D'UNE VILLE, LU SUR PLACE.
+  //
+  // Cette méthode est appelée des dizaines de fois par ville et par mois. Elle
+  // parcourait toutes les sociétés en filtrant sur la ville : tant que le parc
+  // appartenait à des indépendants rangés par ville, cela ne coûtait rien.
+  // Depuis que chaque filière est une société, il y en a une quarantaine, et le
+  // coût devenait celui du parc mondial entier à chaque appel. La ville tient
+  // donc son propre index, et c'est lui qui fait foi.
   tousBatiments(ville) {
-    const out = ville.batIndependants ? ville.batIndependants.slice() : [];
-    for (const s of this.societes) for (const b of s.batiments) if (b.ville === ville) out.push(b);
-    return out;
+    return ville.batiments || (ville.batiments = []);
   }
 
   // LE MARCHÉ QUI APPROVISIONNE UN CHANTIER.
@@ -5194,6 +5480,24 @@ class Monde {
       v.tauxEpargne = revenu > 0 ? Math.max(0, revenu - depense) / revenu : 0;
     }
 
+    // --- 6 bis. Les filières placent une part de leur bénéfice ---------------
+    //
+    // La capacité d'investissement d'une ville ne sert pas qu'à bâtir : elle
+    // s'emploie aussi en titres. Ce que les ménages font depuis toujours, les
+    // filières le font maintenant aussi — une part de ce qu'elles gagnent part
+    // en bourse au lieu de devenir des murs, et nourrit le multiple de marché
+    // comme le reste de l'épargne. Une perte, elle, ne se place pas : elle
+    // s'encaisse, et la ville bâtit moins le mois suivant.
+    for (const v of this.villes) {
+      for (const f of this.filieresDe(v)) {
+        const gain = f.resultatMensuel;
+        if (gain <= 0) continue;
+        const place = gain * P.partProfitLocalEnBourse;
+        f.tresorerie -= place;
+        this.capitauxBourse += place;
+      }
+    }
+
     // --- 7. Les prix du mois suivant ----------------------------------------
     // Maintenant seulement, sur le rapport entre les besoins réels du mois et ce
     // qui est entré sur le marché — augmentés de ce qu'il faut acheter, ou
@@ -5219,6 +5523,7 @@ class Monde {
           const b = new Batiment(ch.type, ch.ville, ch.cases, s);
           for (const c of ch.cases) c.bat = b;
           s.batiments.push(b);
+          (ch.ville.batiments ||= []).push(b);
           this.journal.push(`${this.mois} · ${s.nom} achève ${BAT[ch.type].nom} à ${ch.ville.nom}`);
         } else restants.push(ch);
       }
@@ -5246,7 +5551,9 @@ class Monde {
 
     // --- 13. L'ordinateur et les rivaux bâtissent ---------------------------
     for (const v of this.villes) piloterVille(this, v);
-    for (const s of this.societes) if (!s.estJoueur) piloterSociete(this, s);
+    // Une filière locale ne joue pas la partie : elle exploite son métier et
+    // réinvestit sur place, ce dont `piloterVille` s'est déjà chargé.
+    for (const s of this.societes) if (!s.estJoueur && !s.locale) piloterSociete(this, s);
 
     // --- 14. Finance --------------------------------------------------------
     this.exploiterRail();
@@ -5691,7 +5998,7 @@ class Monde {
   // Fortune finale = argent liquide + actions détenues × cours, le cours retenu
   // étant la moyenne des douze derniers mois.
   classement() {
-    return this.societes.map(s => ({
+    return this.societes.filter(s => !s.locale).map(s => ({
       societe: s,
       fortune: s.coursMoyen() * s.actions * P.partFondateur,
     })).sort((a, b) => b.fortune - a.fortune);
@@ -6190,6 +6497,9 @@ class Rendu {
       for (const b of this.monde.tousBatiments(v)) this.index.push(b);
     }
     if (this.filtre && FILTRES_VILLE[this.filtre]) this.solPerime = true;
+    if (this.filtre === 'proprio' || (this.filtre && this.filtre.startsWith('soc:'))) {
+      this.solPerime = true;   // le parc bouge au mois, la carte des maîtres avec lui
+    }
     if (this.filtrePrix) this.solPerime = true;
   }
 
@@ -6248,6 +6558,18 @@ class Rendu {
           const gris = 32 + c.alt * 26;
           r = gris; g = gris + 2; b = gris - 2;
         }
+      } else if (this.filtre && this.filtre.startsWith('soc:')) {
+        // Les possessions d'UNE société. Même principe que « mes possessions » :
+        // ce filtre ne mesure rien, il désigne. Ce qui est à elle prend sa
+        // couleur, le reste s'efface — et l'on voit d'un coup d'œil qu'une
+        // filière tient tout un versant de la ville.
+        const id = this.filtre.slice(4);
+        if (c.proprio === id) {
+          const t = couleursSocietes.get(id) || [224, 177, 85];
+          [r, g, b] = t;
+        } else if (c.bat || c.proprio) { r = 62; g = 59; b = 51; }
+        else if (c.ville) { r = 38; g = 36; b = 31; }
+        else { r = 22; g = 21; b = 19; }
       } else if (this.filtre === 'proprio') {
         // Ce qui est à vous saute aux yeux ; le reste s'efface. C'est le seul
         // filtre qui ne suit pas l'échelle rouge-vert : il ne mesure rien, il
@@ -6648,6 +6970,19 @@ function voletFiltres(monde, rendu) {
       rapporte rien, vert à 20 % l'an — le rendement visé de la transformation, au milieu du
       barème. Ceux d'un autre métier restent en silhouette.</div>
 
+    <h3>Les filières — qui possède quoi</h3>
+    ${monde.villes.map(v => {
+      const fs = monde.filieresDe(v).filter(x => x.batiments.length);
+      if (!fs.length) return '';
+      return `<div class="etiq" style="margin:6px 0 3px">${v.nom}</div>
+        <div class="pastilles">${fs.map(x =>
+          past('soc:' + x.id, `${x.filiereNom} · ${x.batiments.length}`,
+               f === 'soc:' + x.id, x.couleur)).join('')}</div>`;
+    }).join('')}
+    <div class="note">Le parc d'une ville appartient à des sociétés de filière, qui tiennent
+      leur métier de la matière au produit fini. Un filtre par société : ce qui est à elle
+      s'allume, le reste s'efface.</div>
+
     <h3>Le prix d'une marchandise, ville par ville</h3>
     <div class="pastilles">
       ${RESSOURCES.map(r =>
@@ -6764,6 +7099,57 @@ function voletVilles(monde) {
   `;
 }
 
+// ---------------------------------------------------------------------------
+// CE QUE LA VILLE PEUT INVESTIR
+//
+// Deux argents, et il faut les voir séparément. L'épargne des ménages est un
+// RÉSIDU — ce qui reste une fois le panier payé — donc volatile et sensible aux
+// prix. La trésorerie des filières est un bénéfice accumulé, donc sensible aux
+// marges. Une ville peut avoir des ménages à l'aise et une industrie qui saigne,
+// ou l'inverse, et la somme seule ne le dirait pas.
+// ---------------------------------------------------------------------------
+
+function capaciteVille(monde, v) {
+  const c = monde.capaciteInvestissement(v);
+  const fs = monde.filieresDe(v).slice()
+    .sort((a, b) => a.tresorerie - b.tresorerie);
+  const part = (x) => c.total > 0 ? Math.max(0, x) / (Math.max(0, c.menages)
+    + Math.max(0, c.societes)) * 100 : 0;
+
+  return `
+    <h3>La capacité d'investissement</h3>
+    <div class="grille">
+      <div class="fiche"><div class="etiq">Total disponible</div>
+        <div class="v ${c.total >= 0 ? 'or' : 'rouge'}">${eur(c.total)}</div>
+        <div class="etiq" style="margin-top:2px">à bâtir ou à placer</div></div>
+      <div class="fiche"><div class="etiq">Épargne des ménages</div>
+        <div class="v ${c.menages >= 0 ? 'doux' : 'rouge'}">${eur(c.menages)}</div>
+        <div class="etiq" style="margin-top:2px">${part(c.menages).toFixed(0)} % du total</div></div>
+      <div class="fiche"><div class="etiq">Trésorerie des filières</div>
+        <div class="v ${c.societes >= 0 ? 'doux' : 'rouge'}">${eur(c.societes)}</div>
+        <div class="etiq" style="margin-top:2px">${part(c.societes).toFixed(0)} % du total</div></div>
+      <div class="fiche"><div class="etiq">Dont pertes</div>
+        <div class="v ${c.pertes < 0 ? 'rouge' : 'doux'}">${eur(c.pertes)}</div>
+        <div class="etiq" style="margin-top:2px">en déduction</div></div>
+    </div>
+    <div class="listeRes" style="margin-top:6px">
+      ${fs.map(f => `<div class="carteRes">
+        <div class="tetRes">
+          <span><b>${f.filiereNom}</b>
+            <span class="cv"><br>${f.batiments.length} bâtiments ·
+              ${eur(f.profitAnnuel)}/an</span></span>
+          <span class="prixRes ${f.tresorerie >= 0 ? 'vert' : 'rouge'}">${eur(f.tresorerie)}
+            <span class="etiq" style="display:block;text-align:right">trésorerie</span></span>
+        </div></div>`).join('')}
+    </div>
+    <div class="note">
+      La ville bâtit sur ces deux argents à la fois, et en place une part en bourse. Une filière
+      qui perd de l'argent entre dans la somme <b>avec son signe</b> : elle fige la construction
+      de toute la ville, et pas seulement la sienne. C'est ce qui rend une filière malade
+      intéressante à prendre — on la redresse, et la ville repart.
+    </div>`;
+}
+
 function detailVille(monde, v) {
   const b = v.barometres;
   const a = monde.attractivite(v);
@@ -6809,6 +7195,8 @@ function detailVille(monde, v) {
       <div class="fiche"><div class="etiq">Bras libres</div>
         <div class="v">${Math.round(Math.max(0, (v.bras || 0) - (v.postesDemandes || 0)))}</div></div>
     </div>
+
+    ${capaciteVille(monde, v)}
 
     <h3>Les trois baromètres</h3>
     ${jauge('Nourriture', b.nourriture, P.seuilsCritiques.nourriture)}
@@ -7045,6 +7433,76 @@ function voletSociete(monde) {
 // que vient le cycle, sans qu'aucun « climat » n'ait à être piloté.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// LES FILIÈRES DES VILLES, ET L'OPA
+//
+// On ne rachète pas une scierie à la Forestière : elle ne vend pas. On prend la
+// Forestière. Le curseur dit la prime au-dessus de la capitalisation, et le
+// public répond en un clic — au-dessus de la prime minimale il vend, en dessous
+// il refuse. C'est le seul chemin vers le parc d'une ville, et il coûte cher :
+// une filière rentable capitalise ses bénéfices au multiple du marché.
+// ---------------------------------------------------------------------------
+
+function filieresCotees(monde, rendu) {
+  const per = monde.per;
+  const joueur = monde.joueur;
+  const choisie = rendu.opaCible
+    ? monde.societes.find(s => s.id === rendu.opaCible) : null;
+  const prime = rendu.opaPrime === undefined ? 25 : rendu.opaPrime;
+
+  const carte = (f) => {
+    const cours = f.cours(per), cap = cours * f.actions;
+    const b = f.profitAnnuel;
+    const active = choisie === f;
+    const prix = monde.prixOPA(f, prime / 100);
+    const accepte = prime / 100 >= P.primeOPA;
+    return `<div class="carteRes ${active ? 'actif' : ''}">
+      <div class="tetRes" data-opa="${f.id}">
+        <span><b>${f.filiereNom}</b>
+          <span class="cv"><br>${f.batiments.length} bâtiments ·
+            ${f.types.map(t => BAT[t].nom.toLowerCase()).join(', ')}</span></span>
+        <span class="prixRes">${eur(cap)}
+          <span class="etiq" style="display:block;text-align:right">capitalisation</span></span>
+      </div>
+      <div class="piedRes">
+        <span>trésorerie <b class="${f.tresorerie >= 0 ? 'doux' : 'rouge'}">${eur(f.tresorerie)}</b></span>
+        <span class="${b >= 0 ? 'vert' : 'rouge'}">${eur(b)}/an</span>
+      </div>
+      ${active ? `
+        <div class="note" style="margin:6px 0 4px">
+          Prime de <b>${prime} %</b> sur la capitalisation —
+          <b class="or" id="montantOPA">${eur(prix)}</b>.
+          ${accepte ? '<span class="vert">le public vend à ce prix</span>'
+                    : `<span class="rouge">sous ${Math.round(P.primeOPA * 100)} %, le public refuse</span>`}
+        </div>
+        <input type="range" id="curseurOPA" min="${P.curseurOPA[0]}" max="${P.curseurOPA[1]}"
+               step="1" value="${prime}" style="width:100%">
+        <div class="actions" style="margin-top:6px">
+          <button id="btnOPA" data-opa-lancer="${f.id}"
+            ${joueur.tresorerie < prix ? 'disabled' : ''}>Lancer l'offre</button>
+        </div>
+        <div id="lectureOPA" class="note"></div>` : ''}
+    </div>`;
+  };
+
+  const parVille = monde.villes.map(v => {
+    const fs = monde.filieresDe(v).filter(f => f.batiments.length);
+    if (!fs.length) return '';
+    return `<h3 style="margin-top:10px">${v.nom}</h3>
+            <div class="listeRes">${fs.map(carte).join('')}</div>`;
+  }).join('');
+
+  return `<h3>Les filières des villes</h3>
+    <div class="note" style="margin-bottom:8px">
+      Le parc d'une ville appartient à des <b>sociétés de filière</b> qui tiennent leur métier
+      d'un seul tenant — la coupe <i>et</i> la scierie, la ferme <i>et</i> la minoterie. Elles ne
+      vendent pas au coup par coup : <b>on les prend en bourse, ou pas du tout</b>. Leurs
+      bénéfices se réinvestissent sur place et nourrissent la capacité d'investissement de leur
+      ville ; leurs pertes la rognent.
+    </div>
+    ${parVille}`;
+}
+
 function voletBourse(monde, rendu) {
   const per = monde.per;
   const ouvert = rendu.coursOuvert || null;
@@ -7077,7 +7535,7 @@ function voletBourse(monde, rendu) {
              le haut de cycle — et retombe quand l'économie rentre.</div>` : ''}
     </div>`;
 
-  const societes = monde.societes.map(s => {
+  const societes = monde.societes.filter(s => !s.locale).map(s => {
     const cours = s.cours(per), cap = cours * s.actions;
     const part = s.partDe(s === monde.joueur ? s.id + ':fondateur' : '__');
     const b = s.profitAnnuel;
@@ -7144,6 +7602,7 @@ function voletBourse(monde, rendu) {
 
   return entete
     + `<h3>Les sociétés</h3><div class="listeRes">${societes}</div>`
+    + filieresCotees(monde, rendu)
     + `<h3>Le chemin de fer</h3><div class="listeRes">${rails}</div>`
     + `<div class="note">
         Il n'y a qu'<b>une compagnie</b>, et elle pose ses lignes l'une après l'autre. Tant
@@ -7954,6 +8413,32 @@ function ficheBatiment(monde, b, c) {
       de racheter, de démolir et de revendre le terrain pour fabriquer de l'argent.</div>
       ${peut ? '' : '<div class="avert">Trésorerie insuffisante.</div>'}`;
 
+  } else if (b.societe.locale) {
+    // LE BIEN D'UNE FILIÈRE LOCALE NE SE RACHÈTE PAS. C'est le point de toute la
+    // règle : une filière tient son métier d'un seul tenant, et l'on ne lui
+    // prend pas une scierie en la payant trois ans de profit. On la prend
+    // entière, en bourse, ou l'on s'en passe.
+    const cap = monde.capitalisationDe(b.societe);
+    actions = `<h3>${b.societe.nom}</h3>
+      <table>
+        <tr><td>Bâtiments de la filière</td><td class="n">${b.societe.batiments.length}</td></tr>
+        <tr><td>Métiers</td><td class="n">${b.societe.types
+          .map(t => BAT[t].nom.toLowerCase()).join(', ')}</td></tr>
+        <tr><td>Bénéfice</td><td class="n ${b.societe.profitAnnuel >= 0 ? 'vert' : 'rouge'}">${
+          eur(b.societe.profitAnnuel)}/an</td></tr>
+        <tr><td>Trésorerie</td><td class="n ${b.societe.tresorerie >= 0 ? 'doux' : 'rouge'}">${
+          eur(b.societe.tresorerie)}</td></tr>
+        <tr><td><b>Capitalisation</b></td><td class="n"><b>${eur(cap)}</b></td></tr>
+      </table>
+      <div class="actions" style="margin-top:8px">
+        <button class="primaire" data-vue="bourse">Voir en bourse</button>
+      </div>
+      <div class="note">Ce bâtiment appartient à une <b>filière de la ville</b>, qui tient son
+        métier de la matière au produit fini. Elle ne vend pas au coup par coup : on la prend
+        <b>en bourse</b>, par une offre publique d'achat sur la société entière, ou l'on n'a
+        rien. Ses bénéfices se réinvestissent sur place et gonflent la capacité
+        d'investissement de sa ville ; ses pertes la rognent.</div>`;
+
   } else {
     // Une offre sur le bien d'un rival : un curseur, une réponse en un clic.
     const possible = monde.offrePossible(b, joueur);
@@ -8187,6 +8672,36 @@ function brancherVolet(corps) {
     rafraichirTout();
   });
 
+  // L'OPA. Toucher une filière la déplie ; le curseur dit la prime ; le bouton
+  // porte l'offre au public, qui répond en un clic.
+  corps.querySelectorAll('[data-opa]').forEach(t => t.onclick = () => {
+    const id = t.dataset.opa;
+    rendu.opaCible = rendu.opaCible === id ? null : id;
+    rafraichirVolet();
+  });
+  const curOPA = corps.querySelector('#curseurOPA');
+  if (curOPA) curOPA.oninput = () => {
+    rendu.opaPrime = +curOPA.value;
+    const f = monde.societes.find(x => x.id === rendu.opaCible);
+    if (f) $('#montantOPA').textContent = eur(monde.prixOPA(f, rendu.opaPrime / 100));
+    const btn = $('#btnOPA');
+    if (btn && f) btn.disabled = monde.joueur.tresorerie < monde.prixOPA(f, rendu.opaPrime / 100);
+  };
+  const btnOPA = corps.querySelector('[data-opa-lancer]');
+  if (btnOPA) btnOPA.onclick = () => {
+    const f = monde.societes.find(x => x.id === btnOPA.dataset.opaLancer);
+    if (!f) return;
+    const r = monde.lancerOPA(f, monde.joueur, (rendu.opaPrime ?? 25) / 100);
+    if (!r.fait || !r.accepte) {
+      const l = $('#lectureOPA');
+      if (l) l.innerHTML = `<span class="rouge">${r.motif}</span>`;
+      return;
+    }
+    rendu.opaCible = null;
+    rendu.rafraichirIndex();
+    rafraichirTout();
+  };
+
   // Le choix des deux gares, et l'ouverture du chantier.
   const selA = corps.querySelector('#railA'), selB = corps.querySelector('#railB');
   if (selA) selA.onchange = () => { choixVoie.a = +selA.value; rafraichirVolet(); };
@@ -8246,20 +8761,23 @@ function appliquerFiltre(nom, prix, rdt) {
   const b = $('#bandeauFiltre');
   if (!nom && !prix && !rdt) { b.classList.add('cachee'); return; }
   b.classList.remove('cachee');
+  const societe = nom && nom.startsWith('soc:')
+    ? monde.societes.find(s => s.id === nom.slice(4)) : null;
   $('#bandeauNom').textContent =
       rdt ? (rdt === 'tous' ? 'Rentabilité — tous' : `Rentabilité — ${BAT[rdt].nom}`)
     : prix ? `Prix — ${RES[prix].nom}`
     : nom === 'proprio' ? 'Mes possessions'
+    : societe ? societe.nom
     : (FILTRES_CASE[nom] || FILTRES_VILLE[nom]).nom;
   // L'échelle porte enfin ses deux bouts. Un dégradé rouge → vert sans légende
   // se lit « vert = beaucoup », ce qui est vrai pour la fertilité et faux pour
   // le prix du sol, où le vert dit « bon marché ».
-  const f = rdt ? null : prix ? null : (FILTRES_CASE[nom] || FILTRES_VILLE[nom]);
+  const f = rdt || prix || societe ? null : (FILTRES_CASE[nom] || FILTRES_VILLE[nom]);
   const bornes = rdt ? ['à l\'arrêt', 'au rendement visé']
     : prix ? ['cher · ×2 la référence', 'bon marché · ×0,5']
     : f && f.bornes ? f.bornes : null;
   const mesure = $('#bandeauMesure');
-  mesure.style.display = nom === 'proprio' ? 'none' : '';
+  mesure.style.display = (nom === 'proprio' || societe) ? 'none' : '';
   $('#bandeauBas').textContent  = bornes ? bornes[0] : '';
   $('#bandeauHaut').textContent = bornes ? bornes[1] : '';
 }

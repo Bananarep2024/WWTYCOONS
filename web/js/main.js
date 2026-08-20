@@ -199,6 +199,36 @@ function brancherVolet(corps) {
     rafraichirTout();
   });
 
+  // L'OPA. Toucher une filière la déplie ; le curseur dit la prime ; le bouton
+  // porte l'offre au public, qui répond en un clic.
+  corps.querySelectorAll('[data-opa]').forEach(t => t.onclick = () => {
+    const id = t.dataset.opa;
+    rendu.opaCible = rendu.opaCible === id ? null : id;
+    rafraichirVolet();
+  });
+  const curOPA = corps.querySelector('#curseurOPA');
+  if (curOPA) curOPA.oninput = () => {
+    rendu.opaPrime = +curOPA.value;
+    const f = monde.societes.find(x => x.id === rendu.opaCible);
+    if (f) $('#montantOPA').textContent = eur(monde.prixOPA(f, rendu.opaPrime / 100));
+    const btn = $('#btnOPA');
+    if (btn && f) btn.disabled = monde.joueur.tresorerie < monde.prixOPA(f, rendu.opaPrime / 100);
+  };
+  const btnOPA = corps.querySelector('[data-opa-lancer]');
+  if (btnOPA) btnOPA.onclick = () => {
+    const f = monde.societes.find(x => x.id === btnOPA.dataset.opaLancer);
+    if (!f) return;
+    const r = monde.lancerOPA(f, monde.joueur, (rendu.opaPrime ?? 25) / 100);
+    if (!r.fait || !r.accepte) {
+      const l = $('#lectureOPA');
+      if (l) l.innerHTML = `<span class="rouge">${r.motif}</span>`;
+      return;
+    }
+    rendu.opaCible = null;
+    rendu.rafraichirIndex();
+    rafraichirTout();
+  };
+
   // Le choix des deux gares, et l'ouverture du chantier.
   const selA = corps.querySelector('#railA'), selB = corps.querySelector('#railB');
   if (selA) selA.onchange = () => { choixVoie.a = +selA.value; rafraichirVolet(); };
@@ -258,20 +288,23 @@ function appliquerFiltre(nom, prix, rdt) {
   const b = $('#bandeauFiltre');
   if (!nom && !prix && !rdt) { b.classList.add('cachee'); return; }
   b.classList.remove('cachee');
+  const societe = nom && nom.startsWith('soc:')
+    ? monde.societes.find(s => s.id === nom.slice(4)) : null;
   $('#bandeauNom').textContent =
       rdt ? (rdt === 'tous' ? 'Rentabilité — tous' : `Rentabilité — ${BAT[rdt].nom}`)
     : prix ? `Prix — ${RES[prix].nom}`
     : nom === 'proprio' ? 'Mes possessions'
+    : societe ? societe.nom
     : (FILTRES_CASE[nom] || FILTRES_VILLE[nom]).nom;
   // L'échelle porte enfin ses deux bouts. Un dégradé rouge → vert sans légende
   // se lit « vert = beaucoup », ce qui est vrai pour la fertilité et faux pour
   // le prix du sol, où le vert dit « bon marché ».
-  const f = rdt ? null : prix ? null : (FILTRES_CASE[nom] || FILTRES_VILLE[nom]);
+  const f = rdt || prix || societe ? null : (FILTRES_CASE[nom] || FILTRES_VILLE[nom]);
   const bornes = rdt ? ['à l\'arrêt', 'au rendement visé']
     : prix ? ['cher · ×2 la référence', 'bon marché · ×0,5']
     : f && f.bornes ? f.bornes : null;
   const mesure = $('#bandeauMesure');
-  mesure.style.display = nom === 'proprio' ? 'none' : '';
+  mesure.style.display = (nom === 'proprio' || societe) ? 'none' : '';
   $('#bandeauBas').textContent  = bornes ? bornes[0] : '';
   $('#bandeauHaut').textContent = bornes ? bornes[1] : '';
 }
