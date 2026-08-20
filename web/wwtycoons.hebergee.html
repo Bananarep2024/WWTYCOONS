@@ -5889,13 +5889,37 @@ class Monde {
     return meilleure ? meilleure.marche : ville.marche;
   }
 
-  // Le temps qu'il faut de plus pour bâtir au bout du monde. Un chantier isolé
-  // n'attend pas des ouvriers, il attend un convoi : tant que ce délai n'est pas
-  // écoulé, rien ne lui est livré.
-  chantierAcheminant(ch, ville) {
-    if (ville.fondee === undefined) return false;
-    if (ville.marche && ville.marche.villes.length > 1) return false;
-    return this.mois - ch.ouvertLe < P.moisAcheminement;
+  // CE QU'UN CHANTIER ÉLOIGNÉ REÇOIT EN UN MOIS, en fraction de sa commande.
+  //
+  // C'était un INTERRUPTEUR : pendant dix mois un chantier de colonie ne recevait
+  // rien du tout, puis tout d'un coup. Le joueur voyait une barre de progression
+  // figée à zéro sans savoir si son chantier était en route ou mort, et rien ne
+  // distinguait « le convoi arrive » de « il n'y a plus de planches ».
+  //
+  // C'est devenu une CADENCE. Le chantier se remplit dès le premier mois, à un
+  // dixième de sa commande — la mule, pas le train. Il met le même temps, mais on
+  // le voit avancer, et l'on voit du même coup s'il n'avance pas.
+  //
+  // Une ville de la carte est chez elle et reçoit à plein. Une colonie reliée par
+  // le rail aussi : c'est très exactement ce que la voie lui apporte.
+  cadenceLivraison(ch, ville) {
+    void ch;
+    if (ville.fondee === undefined) return 1;
+    if (ville.marche && ville.marche.villes.length > 1) return 1;
+    return 1 / P.moisAcheminement;
+  }
+
+  // Ce qu'un chantier peut demander ce mois-ci, ressource par ressource : sa
+  // cadence appliquée à sa commande d'origine, plafonnée par ce qu'il lui reste.
+  tranche(ch, ville) {
+    const cad = this.cadenceLivraison(ch, ville);
+    const commande = materiaux(ch.type);
+    const out = {};
+    for (const [r, reste] of Object.entries(ch.restant)) {
+      if (reste <= 0) continue;
+      out[r] = Math.min(reste, (commande[r] || 0) * cad);
+    }
+    return out;
   }
 
   tousChantiers(ville) {
@@ -6026,9 +6050,10 @@ class Monde {
       // C'est ainsi qu'une ville à court de briques finit par se donner une
       // briqueterie.
       for (const ch of this.tousChantiers(v)) {
-        if (this.chantierAcheminant(ch, v)) continue;   // le convoi n'est pas arrivé
         const mf = this.marcheFournisseur(v);
-        for (const [r, q] of Object.entries(ch.restant)) if (q > 0) mf.demander(r, q, mf === m ? v : null);
+        for (const [r, q] of Object.entries(this.tranche(ch, v))) {
+          if (q > 0) mf.demander(r, q, mf === m ? v : null);
+        }
       }
 
       // L'entretien du bâti : une demande permanente de matériaux, qui donne
@@ -6106,12 +6131,11 @@ class Monde {
           const m = v.marche;
           const chs = this.tousChantiers(v).sort((a, b) => a.ouvertLe - b.ouvertLe);
           for (const ch of chs) {
-            if (this.chantierAcheminant(ch, v)) continue;
             const mf = this.marcheFournisseur(v);
-            for (const [r, q] of Object.entries(ch.restant)) {
+            for (const [r, q] of Object.entries(this.tranche(ch, v))) {
               if (q <= 0) continue;
               const servi = mf.prendre(r, q, mf === m ? v : null);
-              ch.restant[r] = Math.max(0, q - servi);
+              ch.restant[r] = Math.max(0, ch.restant[r] - servi);
               ch.recu[r] = (ch.recu[r] || 0) + servi;
               if (ch.societe) ch.societe.payer(servi * mf.prix[r]);
             }

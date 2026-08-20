@@ -305,6 +305,24 @@ joueur n'avait aucun sens, elle n'en a pas.
 > le modèle ferroviaire — coût, durée, capital nominal et péage s'appuient tous sur la longueur
 > euclidienne — et la changer invaliderait le calibrage de la commission. Signalé, pas corrigé.
 
+## 9. Le convoi est une cadence, plus un interrupteur
+
+Un chantier de colonie ne recevait **rien du tout pendant dix mois**, puis tout d'un coup. Le joueur
+voyait une barre figée à zéro sans savoir si son chantier était en route ou mort — et rien ne
+distinguait « le convoi arrive » de « il n'y a plus de planches ».
+
+C'est devenu une **cadence** : un dixième de la commande par mois, dès le premier mois. Le chantier
+met le même temps, mais on le voit avancer, et l'on voit du même coup s'il n'avance pas.
+
+```
+mois  1 : 10 %   11,8 planches sur 118
+mois  5 : 50 %   59,0
+mois 10 : 100 %  118,0   ← sorti de terre
+```
+
+Une ville de la carte reçoit à plein — elle est chez elle. Une colonie **reliée par le rail** aussi :
+c'est très exactement ce que la voie lui apporte.
+
 ### Reste ouvert
 
 Le contrôle « aucune montagne de marchandise » est rouge à 16 mois de meubles et d'outillage : les
