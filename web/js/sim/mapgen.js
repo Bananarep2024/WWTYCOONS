@@ -621,7 +621,7 @@ export function estAchetable(monde, c) {
 
 // Le carré constructible d'une ville : rayon du palier, distance de Chebyshev.
 export function rayonConstructible(ville) {
-  return P.rayonPalier[Math.max(0, Math.min(P.rayonPalier.length - 1, ville.niveau - 1))];
+  return P.rayonPalier[Math.max(0, Math.min(P.rayonPalier.length - 1, ville.niveau))];
 }
 
 export function dansLeCarre(ville, c) {

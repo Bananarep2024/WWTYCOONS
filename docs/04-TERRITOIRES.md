@@ -52,7 +52,8 @@ la bonne mesure pour un carré.
 
 | Palier | Bande | Rayon | Côté | Cases | Bâti au plafond | Occupation |
 |---|---|---:|---:|---:|---:|---:|
-| **Comptoir** | < 250 | **16** | 33 | 1 089 | 500 | 46 % |
+| **Hameau** | < 50 | **8** | 17 | 289 | 110 | 38 % |
+| **Comptoir** | 50 – 249 | **16** | 33 | 1 089 | 500 | 46 % |
 | **Bourg** | 250 – 499 | **21** | 43 | 1 849 | 950 | 51 % |
 | **Ville** | 500 – 999 | **26** | 53 | 2 809 | 1 700 | 61 % |
 | **Grandeville** | 1 000 – 1 999 | **30** | 61 | 3 721 | 3 100 | 83 % |
@@ -198,25 +199,69 @@ de valeur quand la ville grandit, l'invariant est tenu.
 et son carré maximal en pointillé : ce qu'on peut bâtir aujourd'hui, et ce que la ville donnera si
 elle grandit. Le pointillé rend aussi lisible la règle de fondation.
 
+## 6 bis. Le niveau 0 : le hameau
+
+**Une ville qu'on fonde est un hameau**, pas un comptoir : quelques baraques autour d'un quai. Le
+niveau est désormais un indice **de 0 à 5**, et le hameau est le zéro.
+
+| | Hameau | Comptoir |
+|---|---:|---:|
+| Ménages | < 50 | 50 – 249 |
+| Rayon | 8 | 16 |
+| Cases | 289 | 1 089 |
+| Facteur foncier | **0,70** | 1,00 |
+| Lisière ÷ centre | 54 % | 45 % |
+
+**C'est le passage à cinquante ménages qui revalorise le sol**, et c'est là que le fondateur réalise
+sa plus-value. Deux effets se cumulent : le facteur de ville passe de 0,70 à 1,00, et le rayon
+double, ce qui adoucit le gradient pour chaque case. Mesuré sur un site réel :
+
+```
+288 cases achetées au hameau            11 856 $
+les mêmes cases au comptoir             18 816 $
+────────────────────────────────────────────────
+plus-value                              +6 960 $   ×1,59
+```
+
+Et 800 cases s'ouvrent en plus à la construction — **qui restent à acheter**, au prix du comptoir.
+Le fondateur possède son noyau ; l'extension se paie.
+
+Le devis d'une gare tombe du même coup à **14 336 $** — 289 cases de hameau au lieu de 1 089 cases
+de comptoir — c'est-à-dire à portée de la trésorerie de départ. On fonde son premier hameau tôt, et
+c'est en le faisant grandir qu'on gagne de l'argent.
+
+> **Une ville ne redescend jamais d'un palier.** « Une ville qui décline garde ses rues ; elle les
+> laisse se vider » était déjà la règle du rayon, et il a fallu l'étendre au palier dès que le
+> niveau 0 est apparu : une ville repassant sous cinquante ménages voyait son carré retomber de
+> seize à huit cases, c'est-à-dire **sous l'emprise de ce qu'elle avait déjà bâti**. Elle ne pouvait
+> plus rien poser, donc plus rien redresser. Mesuré avant correction : Fort-Union à sept ménages.
+>
+> Les cinq villes de la carte s'ouvrent au Comptoir même si leur tempérament les taille sous
+> cinquante ménages : ce sont des bourgades établies. Le niveau 0 est réservé à ce que le joueur
+> fonde lui-même.
+
 ## 7. Fonder, c'est acheter un territoire
 
 **Le fondateur est propriétaire de son carré.** Toutes les cases libres du carré du Comptoir —
 1 089, moins le quai — passent à sa société le jour de la fondation. Il n'a plus rien à acheter pour
 bâtir chez lui, et ce sol vaudra davantage à chaque palier que la ville franchira.
 
-**Il les paie, remisé de 70 %.** Il achète en gros, d'un seul tenant, une terre que personne ne
-convoitait et qui ne vaudra quelque chose que s'il la fait vivre. Mesuré sur un site réel :
+**Il les paie plein tarif.** Une terre vaut ce qu'elle vaut, et l'affaire tient toute seule : le
+gain n'est pas dans une remise, il est dans la revalorisation au passage de palier (§ 6 bis).
+Mesuré sur un site réel :
 
 ```
-quai                                2 000 $
-douze mois de pain pour 5 ménages      410 $
-1 089 cases, 41 389 $ de terre nue  12 417 $   (remise de 70 %)
-──────────────────────────────────────────
-                                    14 827 $   contre 15 000 $ de trésorerie de départ
+quai                                 2 000 $
+douze mois de pain pour 5 ménages       410 $
+289 cases de hameau                  11 926 $
+───────────────────────────────────────────
+                                     14 336 $   contre 15 000 $ de trésorerie de départ
 ```
 
-On ne fonde donc pas au premier mois : on économise pour fonder. Et l'on acquiert 41 389 $ de terre
-pour 12 417 $ — **28 972 $ de plus-value latente**, qui est le vrai gain de l'opération.
+**La remise de 70 % porte ailleurs** : sur les cases situées au-delà du carré maximal de toute
+ville. Aucune ville ne pourra jamais y bâtir — c'est ce que garantit la règle d'écartement — et une
+terre sur laquelle on ne peut rien poser ne vaut pas le prix d'une terre à bâtir. Mesuré au niveau
+1 : 27,64 $ à trente-quatre cases de la gare, **8,12 $ à trente-cinq**.
 
 Le devis est **site-dépendant** : la terre ne vaut pas la même chose selon ce qu'elle porte. Le menu
 affiche une estimation à la qualité de référence (~20 700 $) ; la boîte de baptême affiche le devis

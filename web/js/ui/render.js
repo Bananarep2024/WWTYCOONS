@@ -72,11 +72,11 @@ export const FILTRES_CASE = {
   // foncier, il s'ajuste et le taux ne bouge pas. Ce qui diffère, c'est la
   // PENTE. On normalise sur l'amplitude complète du barème, de ×1 à ×4, pour
   // que la couleur veuille dire la même chose d'une ville à l'autre.
-  potentiel: { nom: 'Potentiel de valorisation', bornes: ['×1 — au bout', `×${P.facteurNiveau[4]} — tout à gagner`],
+  potentiel: { nom: 'Potentiel de valorisation', bornes: ['×1 — au bout', `×${(P.facteurNiveau[5] / P.facteurNiveau[0]).toFixed(1)} — tout à gagner`],
                lire: (c) => {
                  if (!c.ville) return 0;
                  const p = potentielTerrain(c.ville.niveau, c.distanceGare, qualiteMax(c));
-                 return Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[4] - 1)));
+                 return Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[5] / P.facteurNiveau[0] - 1)));
                } },
 };
 
@@ -369,7 +369,7 @@ export class Rendu {
     if (this.pose || this.filtre === 'terrain' || this.filtre === 'proprio' || inspecteUnTerrain) {
       const rMax = P.rayonPalier[P.rayonPalier.length - 1];
       for (const v of m.villes) {
-        const r = P.rayonPalier[Math.max(0, Math.min(4, v.niveau - 1))];
+        const r = P.rayonPalier[Math.max(0, Math.min(P.rayonPalier.length - 1, v.niveau))];
         const cadre = (rayon, style, tirets, epaisseur) => {
           const gx = ox + (v.gare.x - rayon) * p;
           const gy = oy + (v.gare.y - rayon) * p;

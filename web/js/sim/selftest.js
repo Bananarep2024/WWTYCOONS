@@ -140,6 +140,7 @@ console.log('\n=== Le marché sert le local d\'abord ===');
 }
 
 console.log('\n=== Foncier ===');
+ok('case contre la gare, hameau', prixTerrain(0, 0), 70, 0.01);
 ok('case contre la gare, comptoir', prixTerrain(1, 0), 100, 0.01);
 ok('case contre la gare, métropole', prixTerrain(5, 0), 400, 0.01);
 // LE GRADIENT SE LIT MAINTENANT À LA LISIÈRE, PAS À UNE DISTANCE ABSOLUE.
@@ -149,9 +150,9 @@ ok('case contre la gare, métropole', prixTerrain(5, 0), 400, 0.01);
 // seule question qui garde un sens est : que vaut le bord du carré, rapporté à
 // son centre ? Le calibrage d'origine est conservé là exactement : 45 % au
 // Comptoir, 17 % à la Métropole.
-for (const [n, part] of [[1, 0.448], [5, 0.169]]) {
-  const r = P.rayonPalier[n - 1];
-  ok(`lisière ÷ centre, ${P.nomsNiveau[n - 1].toLowerCase()} (r=${r})`,
+for (const [n, part] of [[0, 0.537], [1, 0.448], [5, 0.169]]) {
+  const r = P.rayonPalier[n];
+  ok(`lisière ÷ centre, ${P.nomsNiveau[n].toLowerCase()} (r=${r})`,
      prixTerrain(n, r) / prixTerrain(n, 0), part, 0.01);
 }
 
@@ -171,8 +172,8 @@ ok('… et elle vaut la prime de rendement',
 // La distance doit peser plus que la richesse, sans quoi la carte du prix du sol
 // ne se lit plus comme un gradient urbain.
 ok('la distance pèse autant que le sol',
-   prixTerrain(3, 0, 3) / prixTerrain(3, P.rayonPalier[2], 3),
-   1 + P.gradientFoncier[2], 0.001);
+   prixTerrain(3, 0, 3) / prixTerrain(3, P.rayonPalier[3], 3),
+   1 + P.gradientFoncier[3], 0.001);
 
 // UNE CASE DE NIVEAU 5 VAUT CINQ CASES DE NIVEAU 1 — en production, en emploi et
 // en prix du sol à la fois. C'est la même loi qui commande les trois, et c'est
@@ -188,6 +189,7 @@ ok('… et la case stérile garde son plancher',
    prixTerrain(1, 0, 0) / prixTerrain(1, 0, 1), P.solPlancher, 0.001);
 
 // Le gradient se durcit avec le niveau : c'est là tout le mécanisme.
+ok('potentiel du centre, hameau', potentielTerrain(0, 0), 4.00 / 0.70, 0.01);
 ok('potentiel du centre, comptoir', potentielTerrain(1, 0), 4.00, 0.01);
 // ET AUCUNE CASE DU CARRÉ MAXIMAL N'A UN POTENTIEL SOUS 1 : où qu'elle soit,
 // une case vaut plus dans une métropole que dans un comptoir. C'est l'invariant
@@ -195,7 +197,7 @@ ok('potentiel du centre, comptoir', potentielTerrain(1, 0), 4.00, 0.01);
 {
   let bas = Infinity, ou = 0;
   for (let d = 0; d <= P.rayonPalier[P.rayonPalier.length - 1]; d++) {
-    const p = potentielTerrain(1, d);
+    const p = potentielTerrain(0, d);
     if (p < bas) { bas = p; ou = d; }
   }
   sous(`potentiel minimal du carré (à ${ou} cases, ×${bas.toFixed(2)})`, 1 / bas, 1.0);
@@ -207,7 +209,7 @@ ok('potentiel du centre, comptoir', potentielTerrain(1, 0), 4.00, 0.01);
 {
   let pire = Infinity, ou = '';
   const dMax = P.rayonPalier[P.rayonPalier.length - 1];
-  for (let n = 1; n <= 4; n++) for (let d = 0; d <= dMax; d++) {
+  for (let n = 0; n <= P.nomsNiveau.length - 2; n++) for (let d = 0; d <= dMax; d++) {
     const r = prixTerrain(n + 1, d) / prixTerrain(n, d);
     if (r < pire) { pire = r; ou = `niveau ${n}→${n + 1} à ${d} cases`; }
   }

@@ -61,8 +61,8 @@ export class Batiment {
       return loyer(this.type, this.terrainCourant, this.valeurBatie);
     }
     if (this.def.cat === 'bur') {
-      const rdtParNiveau = [0.12, 0.14, 0.16, 0.18, 0.20];
-      const rdt = rdtParNiveau[this.ville.niveau - 1];
+      const rdtParNiveau = [0.11, 0.12, 0.14, 0.16, 0.18, 0.20];
+      const rdt = rdtParNiveau[this.ville.niveau] ?? 0.12;
       return rdt * (this.terrainCourant + this.valeurBatie) / 12 + this.entretien;
     }
     return 0;

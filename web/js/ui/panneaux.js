@@ -150,7 +150,7 @@ function carteVille(monde, v) {
   return `<div class="carteVille ${monde.villeChoisie === v ? 'actif' : ''}" data-ville="${v.id}">
     <div class="tetVille">
       <span><b>${v.nom}</b>${v.enCrise ? ' <span class="rouge">⚠</span>' : ''}
-        <span class="cv"><br>${P.nomsNiveau[v.niveau - 1]} · ${Math.round(v.menages)} ménages
+        <span class="cv"><br>${P.nomsNiveau[v.niveau]} · ${Math.round(v.menages)} ménages
         · ${pct(v.occupation)} occupé${v.temperament
           ? `<br><i class="faible">fondée comme ${v.temperament.nom}</i>` : ''}</span></span>
       <span class="attrait" style="color:${rgb(echelle(a))}">${pct(a)}
@@ -328,13 +328,14 @@ export function detailVille(monde, v) {
     </div>`;
 
   const n = niveauVille(v.menages);
-  const palier = n >= 5 ? 'Métropole — dernier palier.'
-    : `${P.nomsNiveau[n]} à ${P.seuilsNiveau[n]} ménages — il en manque
-       <b>${Math.max(0, Math.ceil(P.seuilsNiveau[n] - v.menages))}</b>, et le foncier
-       passerait de ×${P.facteurNiveau[n - 1].toFixed(1)} à ×${P.facteurNiveau[n].toFixed(1)}.`;
+  const palier = n >= P.nomsNiveau.length - 1 ? 'Métropole — dernier palier.'
+    : `${P.nomsNiveau[n + 1]} à ${P.seuilsNiveau[n]} ménages — il en manque
+       <b>${Math.max(0, Math.ceil(P.seuilsNiveau[n] - v.menages))}</b>, le foncier
+       passerait de ×${P.facteurNiveau[n].toFixed(2)} à ×${P.facteurNiveau[n + 1].toFixed(2)}
+       et le rayon constructible de ${P.rayonPalier[n]} à ${P.rayonPalier[n + 1]} cases.`;
 
   return `
-    <h3>${v.nom} · ${P.nomsNiveau[v.niveau - 1]}</h3>
+    <h3>${v.nom} · ${P.nomsNiveau[v.niveau]}</h3>
     ${v.temperament ? `<div class="note" style="margin:0 0 9px">Fondée comme
       <b>${v.temperament.nom}</b>. Les cinq villes n'ouvrent pas la partie dans le même état :
       celle-ci démarrait avec ${Math.round(v.temperament.emploi * 100)} % de ses bras employés,

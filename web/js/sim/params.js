@@ -254,9 +254,19 @@ export const P = {
   histoireDesCours: 180,       // mois de cours conservés par marchandise
 
   // Foncier
-  facteurNiveau: [1.0, 1.3, 1.8, 2.6, 4.0],
-  seuilsNiveau: [100, 250, 500, 1000, 2000],   // en ménages
-  nomsNiveau: ['Comptoir', 'Bourg', 'Ville', 'Grandeville', 'Métropole'],
+  // LE NIVEAU EST UN INDICE, DE 0 À 5, ET LE HAMEAU EST LE NIVEAU 0.
+  //
+  // Une ville qu'on vient de fonder n'est pas un Comptoir : c'est un hameau de
+  // quelques baraques, et sa terre ne vaut pas celle d'une ville constituée. Il
+  // faut CINQUANTE MÉNAGES pour devenir Comptoir — et c'est ce passage-là qui
+  // revalorise le sol, donc qui permet au fondateur de réaliser sa plus-value.
+  //
+  // Le facteur du hameau est 0,70 : sa terre vaut sept dixièmes de celle d'un
+  // Comptoir, et le passage au palier suivant la multiplie par 1,43 — avant même
+  // de compter l'effet du rayon, qui double.
+  facteurNiveau: [0.70, 1.0, 1.3, 1.8, 2.6, 4.0],
+  seuilsNiveau: [50, 250, 500, 1000, 2000],   // en ménages, pour ENTRER au palier suivant
+  nomsNiveau: ['Hameau', 'Comptoir', 'Bourg', 'Ville', 'Grandeville', 'Métropole'],
   // L'atténuation du prix du sol avec la distance à la gare, PAR NIVEAU.
   //
   // C'était une constante, et c'était l'erreur : le rapport centre / périphérie
@@ -292,7 +302,7 @@ export const P = {
   // exactement la même fraction du centre qu'avant — 45 % au Comptoir, 17 % à
   // la Métropole. Le calibrage est conservé là où il avait été mesuré ; seul
   // l'intérieur se redistribue.
-  gradientFoncier: [1.232, 1.602, 2.218, 3.203, 4.928],
+  gradientFoncier: [0.862, 1.232, 1.602, 2.218, 3.203, 4.928],
   partIndependants: 0.30,
   surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
   anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
@@ -312,7 +322,8 @@ export const P = {
   // plafond. Mesuré : quatre villes sur cinq bloquées à 215 ménages, incapables
   // de poser une case de plus, et le monde à l'arrêt.
   //
-  //   Comptoir    <250       r=16  côté 33  1 089 cases    500 bâties   46 %
+  //   Hameau       <50       r= 8  côté 17    289 cases    110 bâties   38 %
+  //   Comptoir    50-249     r=16  côté 33  1 089 cases    500          46 %
   //   Bourg        250-499   r=21  côté 43  1 849 cases    950          51 %
   //   Ville        500-999   r=26  côté 53  2 809 cases  1 700          61 %
   //   Grandeville 1000-1999  r=30  côté 61  3 721 cases  3 100          83 %
@@ -332,7 +343,7 @@ export const P = {
   // La distance se mesure en CHEBYSHEV — le plus grand des deux écarts — parce
   // que c'est la distance d'un carré. En euclidien, les coins seraient hors du
   // territoire tout en paraissant dedans.
-  rayonPalier: [16, 21, 26, 30, 34],
+  rayonPalier: [8, 16, 21, 26, 30, 34],
   // Deux carrés maximaux ne se recoupent jamais : c'est la seule condition pour
   // fonder une gare. 2 × 34 + 1.
   ecartMinimalGares: 69,
@@ -941,13 +952,13 @@ export function devisGare(monde = null, x = 0, y = 0) {
       const c = monde.caseAt(x + dx, y + dy);
       if (!c || c.ville || c.voie) continue;
       cases++;
-      terrain += prixTerrain(1, Math.max(Math.abs(dx), Math.abs(dy)), qualiteMax(c));
+      terrain += prixTerrain(0, Math.max(Math.abs(dx), Math.abs(dy)), qualiteMax(c));
     }
   } else {
     // L'estimation du menu : le carré plein, à la qualité de référence.
     for (let dy = -r0; dy <= r0; dy++) for (let dx = -r0; dx <= r0; dx++) {
       cases++;
-      terrain += prixTerrain(1, Math.max(Math.abs(dx), Math.abs(dy)), 1);
+      terrain += prixTerrain(0, Math.max(Math.abs(dx), Math.abs(dy)), 1);
     }
   }
   return {
@@ -1022,10 +1033,14 @@ export const RELIEFS = {
 export const QUALITES = ['fertilite', 'argile', 'bois', 'charbon', 'minerai'];
 
 // Le niveau d'une ville, d'après son nombre de ménages.
+// LE NIVEAU EST UN INDICE 0-BASÉ. Zéro pour le hameau, cinq pour la métropole.
+// Les tableaux `facteurNiveau`, `gradientFoncier`, `rayonPalier` et `nomsNiveau`
+// s'indexent donc directement par lui, sans le décalage d'un qu'il fallait
+// autrefois et qu'on oubliait une fois sur deux.
 export function niveauVille(menages) {
-  let n = 1;
+  let n = 0;
   for (let i = 0; i < P.seuilsNiveau.length; i++) if (menages >= P.seuilsNiveau[i]) n = i + 1;
-  return Math.min(n, 5);
+  return Math.min(n, P.nomsNiveau.length - 1);
 }
 
 // Ce qu'une case de sol rend, rapporté à une terre moyenne.
@@ -1110,9 +1125,9 @@ export function valeurSol(q) {
 // prix du sol au lieu de tomber dans la poche du premier arrivé. C'est aussi ce
 // qui donne son sel à l'achat précoce — la terre est chère AVANT qu'on ait bâti.
 export function prixTerrain(niveau, distanceGare, richesse = 1) {
-  const fn = P.facteurNiveau[niveau - 1];
-  const part = distanceGare / P.rayonPalier[niveau - 1];
-  const fd = 1 / (1 + P.gradientFoncier[niveau - 1] * part);
+  const fn = P.facteurNiveau[niveau];
+  const part = distanceGare / P.rayonPalier[niveau];
+  const fd = 1 / (1 + P.gradientFoncier[niveau] * part);
 
   // HORS DU CARRÉ MAXIMAL, la terre est remisée. Aucune ville ne pourra jamais
   // y bâtir — la règle d'écartement des gares le garantit — et une terre sur
@@ -1149,7 +1164,7 @@ export function prixTerrain(niveau, distanceGare, richesse = 1) {
 export function potentielTerrain(niveau, distanceGare, richesse = 1) {
   const ici = prixTerrain(niveau, distanceGare, richesse);
   if (ici <= 0) return 1;
-  return prixTerrain(P.facteurNiveau.length, distanceGare, richesse) / ici;
+  return prixTerrain(P.facteurNiveau.length - 1, distanceGare, richesse) / ici;
 }
 
 // La meilleure ressource d'une case décide de ce qu'elle vaut : le sol se paie

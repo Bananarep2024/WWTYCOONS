@@ -175,7 +175,12 @@ export class Monde {
       // peut bâtir AUJOURD'HUI reste le carré de son palier.
       gare: { x, y }, rayon: P.rayonPalier[P.rayonPalier.length - 1], cases: [],
       menages: 0,
-      occupation: 0.85, salaire: P.salaireCase, niveau: 1,
+      // UNE VILLE QU'ON FONDE EST UN HAMEAU — niveau 0. Quelques baraques
+      // autour d'un quai, un carré de dix-sept cases de côté, et une terre qui
+      // vaut sept dixièmes de celle d'un Comptoir. C'est à CINQUANTE MÉNAGES
+      // qu'elle devient Comptoir, que son carré double et que son sol se
+      // revalorise — le moment où le fondateur réalise sa plus-value.
+      occupation: 0.85, salaire: P.salaireCase, niveau: 0,
       barometres: { nourriture: 1, emploi: 0.78, produits: 1 },
       epargne: 0, marche: null, histo: [], fondee: this.mois,
       // Les vivres de fondation sont datés : la freinte ne les touche pas tant
@@ -314,7 +319,11 @@ export class Monde {
         v.marche.livre(v).stock[r] += q;
       }
       v.marche.recomposerStock();
-      v.niveau = niveauVille(v.menages);
+      // Les cinq villes de la carte sont des bourgades établies, pas des
+      // hameaux : elles s'ouvrent au Comptoir même si le tempérament les a
+      // taillées sous cinquante ménages. Le niveau 0 est réservé à ce que le
+      // joueur fonde lui-même.
+      v.niveau = Math.max(1, niveauVille(v.menages));
       // Un parc de départ minimal, aux mains des indépendants : sans lui la
       // ville n'a rien à manger le premier mois.
       this.parcDeDepart(v);
@@ -1738,7 +1747,16 @@ export class Monde {
     this.fixerPER();
     for (const s of this.societes) s.enregistrerCours(this.per);
     for (const v of this.villes) {
-      v.niveau = niveauVille(v.menages);
+      // UNE VILLE NE REDESCEND JAMAIS D'UN PALIER.
+      //
+      // « Une ville qui décline garde ses rues ; elle les laisse se vider. »
+      // C'était déjà la règle du rayon, et il fallait l'étendre au palier
+      // lui-même dès qu'un niveau 0 est apparu : une ville qui repasse sous
+      // cinquante ménages voyait son carré retomber de seize à huit cases,
+      // c'est-à-dire sous l'emprise de ce qu'elle avait DÉJÀ bâti. Elle ne
+      // pouvait plus rien poser, donc plus rien redresser. Mesuré : Fort-Union
+      // à sept ménages, Bois-Perdu bloqué au premier palier.
+      v.niveau = Math.max(v.niveau || 0, niveauVille(v.menages));
       v.histo.push({ mois: this.mois, menages: v.menages, salaire: v.salaire,
                      ...v.barometres });
       if (v.histo.length > 400) v.histo.shift();

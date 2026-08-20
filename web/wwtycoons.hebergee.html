@@ -1007,9 +1007,19 @@ const P = {
   histoireDesCours: 180,       // mois de cours conservés par marchandise
 
   // Foncier
-  facteurNiveau: [1.0, 1.3, 1.8, 2.6, 4.0],
-  seuilsNiveau: [100, 250, 500, 1000, 2000],   // en ménages
-  nomsNiveau: ['Comptoir', 'Bourg', 'Ville', 'Grandeville', 'Métropole'],
+  // LE NIVEAU EST UN INDICE, DE 0 À 5, ET LE HAMEAU EST LE NIVEAU 0.
+  //
+  // Une ville qu'on vient de fonder n'est pas un Comptoir : c'est un hameau de
+  // quelques baraques, et sa terre ne vaut pas celle d'une ville constituée. Il
+  // faut CINQUANTE MÉNAGES pour devenir Comptoir — et c'est ce passage-là qui
+  // revalorise le sol, donc qui permet au fondateur de réaliser sa plus-value.
+  //
+  // Le facteur du hameau est 0,70 : sa terre vaut sept dixièmes de celle d'un
+  // Comptoir, et le passage au palier suivant la multiplie par 1,43 — avant même
+  // de compter l'effet du rayon, qui double.
+  facteurNiveau: [0.70, 1.0, 1.3, 1.8, 2.6, 4.0],
+  seuilsNiveau: [50, 250, 500, 1000, 2000],   // en ménages, pour ENTRER au palier suivant
+  nomsNiveau: ['Hameau', 'Comptoir', 'Bourg', 'Ville', 'Grandeville', 'Métropole'],
   // L'atténuation du prix du sol avec la distance à la gare, PAR NIVEAU.
   //
   // C'était une constante, et c'était l'erreur : le rapport centre / périphérie
@@ -1045,7 +1055,7 @@ const P = {
   // exactement la même fraction du centre qu'avant — 45 % au Comptoir, 17 % à
   // la Métropole. Le calibrage est conservé là où il avait été mesuré ; seul
   // l'intérieur se redistribue.
-  gradientFoncier: [1.232, 1.602, 2.218, 3.203, 4.928],
+  gradientFoncier: [0.862, 1.232, 1.602, 2.218, 3.203, 4.928],
   partIndependants: 0.30,
   surprixIndependants: 1.20,   // ce qu'un indépendant fait payer sur une CASE
   anneesDeProfit: 3,           // un bâtiment vaut son terrain + 3 ans de profit
@@ -1065,7 +1075,8 @@ const P = {
   // plafond. Mesuré : quatre villes sur cinq bloquées à 215 ménages, incapables
   // de poser une case de plus, et le monde à l'arrêt.
   //
-  //   Comptoir    <250       r=16  côté 33  1 089 cases    500 bâties   46 %
+  //   Hameau       <50       r= 8  côté 17    289 cases    110 bâties   38 %
+  //   Comptoir    50-249     r=16  côté 33  1 089 cases    500          46 %
   //   Bourg        250-499   r=21  côté 43  1 849 cases    950          51 %
   //   Ville        500-999   r=26  côté 53  2 809 cases  1 700          61 %
   //   Grandeville 1000-1999  r=30  côté 61  3 721 cases  3 100          83 %
@@ -1085,7 +1096,7 @@ const P = {
   // La distance se mesure en CHEBYSHEV — le plus grand des deux écarts — parce
   // que c'est la distance d'un carré. En euclidien, les coins seraient hors du
   // territoire tout en paraissant dedans.
-  rayonPalier: [16, 21, 26, 30, 34],
+  rayonPalier: [8, 16, 21, 26, 30, 34],
   // Deux carrés maximaux ne se recoupent jamais : c'est la seule condition pour
   // fonder une gare. 2 × 34 + 1.
   ecartMinimalGares: 69,
@@ -1694,13 +1705,13 @@ function devisGare(monde = null, x = 0, y = 0) {
       const c = monde.caseAt(x + dx, y + dy);
       if (!c || c.ville || c.voie) continue;
       cases++;
-      terrain += prixTerrain(1, Math.max(Math.abs(dx), Math.abs(dy)), qualiteMax(c));
+      terrain += prixTerrain(0, Math.max(Math.abs(dx), Math.abs(dy)), qualiteMax(c));
     }
   } else {
     // L'estimation du menu : le carré plein, à la qualité de référence.
     for (let dy = -r0; dy <= r0; dy++) for (let dx = -r0; dx <= r0; dx++) {
       cases++;
-      terrain += prixTerrain(1, Math.max(Math.abs(dx), Math.abs(dy)), 1);
+      terrain += prixTerrain(0, Math.max(Math.abs(dx), Math.abs(dy)), 1);
     }
   }
   return {
@@ -1775,10 +1786,14 @@ const RELIEFS = {
 const QUALITES = ['fertilite', 'argile', 'bois', 'charbon', 'minerai'];
 
 // Le niveau d'une ville, d'après son nombre de ménages.
+// LE NIVEAU EST UN INDICE 0-BASÉ. Zéro pour le hameau, cinq pour la métropole.
+// Les tableaux `facteurNiveau`, `gradientFoncier`, `rayonPalier` et `nomsNiveau`
+// s'indexent donc directement par lui, sans le décalage d'un qu'il fallait
+// autrefois et qu'on oubliait une fois sur deux.
 function niveauVille(menages) {
-  let n = 1;
+  let n = 0;
   for (let i = 0; i < P.seuilsNiveau.length; i++) if (menages >= P.seuilsNiveau[i]) n = i + 1;
-  return Math.min(n, 5);
+  return Math.min(n, P.nomsNiveau.length - 1);
 }
 
 // Ce qu'une case de sol rend, rapporté à une terre moyenne.
@@ -1863,9 +1878,9 @@ function valeurSol(q) {
 // prix du sol au lieu de tomber dans la poche du premier arrivé. C'est aussi ce
 // qui donne son sel à l'achat précoce — la terre est chère AVANT qu'on ait bâti.
 function prixTerrain(niveau, distanceGare, richesse = 1) {
-  const fn = P.facteurNiveau[niveau - 1];
-  const part = distanceGare / P.rayonPalier[niveau - 1];
-  const fd = 1 / (1 + P.gradientFoncier[niveau - 1] * part);
+  const fn = P.facteurNiveau[niveau];
+  const part = distanceGare / P.rayonPalier[niveau];
+  const fd = 1 / (1 + P.gradientFoncier[niveau] * part);
 
   // HORS DU CARRÉ MAXIMAL, la terre est remisée. Aucune ville ne pourra jamais
   // y bâtir — la règle d'écartement des gares le garantit — et une terre sur
@@ -1902,7 +1917,7 @@ function prixTerrain(niveau, distanceGare, richesse = 1) {
 function potentielTerrain(niveau, distanceGare, richesse = 1) {
   const ici = prixTerrain(niveau, distanceGare, richesse);
   if (ici <= 0) return 1;
-  return prixTerrain(P.facteurNiveau.length, distanceGare, richesse) / ici;
+  return prixTerrain(P.facteurNiveau.length - 1, distanceGare, richesse) / ici;
 }
 
 // La meilleure ressource d'une case décide de ce qu'elle vaut : le sol se paie
@@ -2546,7 +2561,7 @@ function estAchetable(monde, c) {
 
 // Le carré constructible d'une ville : rayon du palier, distance de Chebyshev.
 function rayonConstructible(ville) {
-  return P.rayonPalier[Math.max(0, Math.min(P.rayonPalier.length - 1, ville.niveau - 1))];
+  return P.rayonPalier[Math.max(0, Math.min(P.rayonPalier.length - 1, ville.niveau))];
 }
 
 function dansLeCarre(ville, c) {
@@ -3269,8 +3284,8 @@ class Batiment {
       return loyer(this.type, this.terrainCourant, this.valeurBatie);
     }
     if (this.def.cat === 'bur') {
-      const rdtParNiveau = [0.12, 0.14, 0.16, 0.18, 0.20];
-      const rdt = rdtParNiveau[this.ville.niveau - 1];
+      const rdtParNiveau = [0.11, 0.12, 0.14, 0.16, 0.18, 0.20];
+      const rdt = rdtParNiveau[this.ville.niveau] ?? 0.12;
       return rdt * (this.terrainCourant + this.valeurBatie) / 12 + this.entretien;
     }
     return 0;
@@ -4730,7 +4745,12 @@ class Monde {
       // peut bâtir AUJOURD'HUI reste le carré de son palier.
       gare: { x, y }, rayon: P.rayonPalier[P.rayonPalier.length - 1], cases: [],
       menages: 0,
-      occupation: 0.85, salaire: P.salaireCase, niveau: 1,
+      // UNE VILLE QU'ON FONDE EST UN HAMEAU — niveau 0. Quelques baraques
+      // autour d'un quai, un carré de dix-sept cases de côté, et une terre qui
+      // vaut sept dixièmes de celle d'un Comptoir. C'est à CINQUANTE MÉNAGES
+      // qu'elle devient Comptoir, que son carré double et que son sol se
+      // revalorise — le moment où le fondateur réalise sa plus-value.
+      occupation: 0.85, salaire: P.salaireCase, niveau: 0,
       barometres: { nourriture: 1, emploi: 0.78, produits: 1 },
       epargne: 0, marche: null, histo: [], fondee: this.mois,
       // Les vivres de fondation sont datés : la freinte ne les touche pas tant
@@ -4869,7 +4889,11 @@ class Monde {
         v.marche.livre(v).stock[r] += q;
       }
       v.marche.recomposerStock();
-      v.niveau = niveauVille(v.menages);
+      // Les cinq villes de la carte sont des bourgades établies, pas des
+      // hameaux : elles s'ouvrent au Comptoir même si le tempérament les a
+      // taillées sous cinquante ménages. Le niveau 0 est réservé à ce que le
+      // joueur fonde lui-même.
+      v.niveau = Math.max(1, niveauVille(v.menages));
       // Un parc de départ minimal, aux mains des indépendants : sans lui la
       // ville n'a rien à manger le premier mois.
       this.parcDeDepart(v);
@@ -6293,7 +6317,16 @@ class Monde {
     this.fixerPER();
     for (const s of this.societes) s.enregistrerCours(this.per);
     for (const v of this.villes) {
-      v.niveau = niveauVille(v.menages);
+      // UNE VILLE NE REDESCEND JAMAIS D'UN PALIER.
+      //
+      // « Une ville qui décline garde ses rues ; elle les laisse se vider. »
+      // C'était déjà la règle du rayon, et il fallait l'étendre au palier
+      // lui-même dès qu'un niveau 0 est apparu : une ville qui repasse sous
+      // cinquante ménages voyait son carré retomber de seize à huit cases,
+      // c'est-à-dire sous l'emprise de ce qu'elle avait DÉJÀ bâti. Elle ne
+      // pouvait plus rien poser, donc plus rien redresser. Mesuré : Fort-Union
+      // à sept ménages, Bois-Perdu bloqué au premier palier.
+      v.niveau = Math.max(v.niveau || 0, niveauVille(v.menages));
       v.histo.push({ mois: this.mois, menages: v.menages, salaire: v.salaire,
                      ...v.barometres });
       if (v.histo.length > 400) v.histo.shift();
@@ -7238,11 +7271,11 @@ const FILTRES_CASE = {
   // foncier, il s'ajuste et le taux ne bouge pas. Ce qui diffère, c'est la
   // PENTE. On normalise sur l'amplitude complète du barème, de ×1 à ×4, pour
   // que la couleur veuille dire la même chose d'une ville à l'autre.
-  potentiel: { nom: 'Potentiel de valorisation', bornes: ['×1 — au bout', `×${P.facteurNiveau[4]} — tout à gagner`],
+  potentiel: { nom: 'Potentiel de valorisation', bornes: ['×1 — au bout', `×${(P.facteurNiveau[5] / P.facteurNiveau[0]).toFixed(1)} — tout à gagner`],
                lire: (c) => {
                  if (!c.ville) return 0;
                  const p = potentielTerrain(c.ville.niveau, c.distanceGare, qualiteMax(c));
-                 return Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[4] - 1)));
+                 return Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[5] / P.facteurNiveau[0] - 1)));
                } },
 };
 
@@ -7535,7 +7568,7 @@ class Rendu {
     if (this.pose || this.filtre === 'terrain' || this.filtre === 'proprio' || inspecteUnTerrain) {
       const rMax = P.rayonPalier[P.rayonPalier.length - 1];
       for (const v of m.villes) {
-        const r = P.rayonPalier[Math.max(0, Math.min(4, v.niveau - 1))];
+        const r = P.rayonPalier[Math.max(0, Math.min(P.rayonPalier.length - 1, v.niveau))];
         const cadre = (rayon, style, tirets, epaisseur) => {
           const gx = ox + (v.gare.x - rayon) * p;
           const gy = oy + (v.gare.y - rayon) * p;
@@ -7953,7 +7986,7 @@ function carteVille(monde, v) {
   return `<div class="carteVille ${monde.villeChoisie === v ? 'actif' : ''}" data-ville="${v.id}">
     <div class="tetVille">
       <span><b>${v.nom}</b>${v.enCrise ? ' <span class="rouge">⚠</span>' : ''}
-        <span class="cv"><br>${P.nomsNiveau[v.niveau - 1]} · ${Math.round(v.menages)} ménages
+        <span class="cv"><br>${P.nomsNiveau[v.niveau]} · ${Math.round(v.menages)} ménages
         · ${pct(v.occupation)} occupé${v.temperament
           ? `<br><i class="faible">fondée comme ${v.temperament.nom}</i>` : ''}</span></span>
       <span class="attrait" style="color:${rgb(echelle(a))}">${pct(a)}
@@ -8131,13 +8164,14 @@ function detailVille(monde, v) {
     </div>`;
 
   const n = niveauVille(v.menages);
-  const palier = n >= 5 ? 'Métropole — dernier palier.'
-    : `${P.nomsNiveau[n]} à ${P.seuilsNiveau[n]} ménages — il en manque
-       <b>${Math.max(0, Math.ceil(P.seuilsNiveau[n] - v.menages))}</b>, et le foncier
-       passerait de ×${P.facteurNiveau[n - 1].toFixed(1)} à ×${P.facteurNiveau[n].toFixed(1)}.`;
+  const palier = n >= P.nomsNiveau.length - 1 ? 'Métropole — dernier palier.'
+    : `${P.nomsNiveau[n + 1]} à ${P.seuilsNiveau[n]} ménages — il en manque
+       <b>${Math.max(0, Math.ceil(P.seuilsNiveau[n] - v.menages))}</b>, le foncier
+       passerait de ×${P.facteurNiveau[n].toFixed(2)} à ×${P.facteurNiveau[n + 1].toFixed(2)}
+       et le rayon constructible de ${P.rayonPalier[n]} à ${P.rayonPalier[n + 1]} cases.`;
 
   return `
-    <h3>${v.nom} · ${P.nomsNiveau[v.niveau - 1]}</h3>
+    <h3>${v.nom} · ${P.nomsNiveau[v.niveau]}</h3>
     ${v.temperament ? `<div class="note" style="margin:0 0 9px">Fondée comme
       <b>${v.temperament.nom}</b>. Les cinq villes n'ouvrent pas la partie dans le même état :
       celle-ci démarrait avec ${Math.round(v.temperament.emploi * 100)} % de ses bras employés,
@@ -8960,10 +8994,10 @@ function ficheTerrain(monde, v, c) {
     + `<div class="grille">${qualites}</div>`
     + `<div class="grille">
         <div class="fiche"><div class="etiq">Prix du sol</div><div class="v">${eur(prix)}</div></div>
-        <div class="fiche"><div class="etiq">Facteur ville</div><div class="v">×${P.facteurNiveau[v.niveau - 1].toFixed(1)}</div></div>
+        <div class="fiche"><div class="etiq">Facteur ville</div><div class="v">×${P.facteurNiveau[v.niveau].toFixed(2)}</div></div>
         <div class="fiche"><div class="etiq">Facteur distance</div>
-          <div class="v">×${(1 / (1 + P.gradientFoncier[v.niveau - 1]
-              * c.distanceGare / P.rayonPalier[v.niveau - 1])).toFixed(2)}</div></div>
+          <div class="v">×${(1 / (1 + P.gradientFoncier[v.niveau]
+              * c.distanceGare / P.rayonPalier[v.niveau])).toFixed(2)}</div></div>
       </div>`
     + jaugePotentiel(v, c)
     + actions;
@@ -8986,12 +9020,12 @@ function jaugePotentiel(v, cases, bat) {
     (s, k) => s + prixTerrain(niveau, k.distanceGare, qualiteMax(k)), 0);
 
   const auj = somme(v.niveau);
-  const bout = somme(P.facteurNiveau.length);
+  const bout = somme(P.facteurNiveau.length - 1);
   const suivant = v.niveau < 5 ? somme(v.niveau + 1) : null;
   // Le potentiel est le rapport des deux sommes : il vaut le potentiel d'une
   // case quand l'emprise n'en compte qu'une, et la moyenne pondérée sinon.
   const p = auj > 0 ? bout / auj : 1;
-  const t = Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[4] - 1)));
+  const t = Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[5] / P.facteurNiveau[0] - 1)));
 
   // Le même mouvement du sol enrichit une résidence et appauvrit un atelier :
   // le loyer suit le foncier, la recette d'un atelier n'en dépend pas.
@@ -9015,7 +9049,7 @@ function jaugePotentiel(v, cases, bat) {
     </div>
     <div class="grille">
       <div class="fiche"><div class="etiq">Aujourd'hui</div><div class="v">${eur(auj)}</div></div>
-      ${suivant ? `<div class="fiche"><div class="etiq">${P.nomsNiveau[v.niveau]}</div>
+      ${suivant ? `<div class="fiche"><div class="etiq">${P.nomsNiveau[v.niveau + 1]}</div>
         <div class="v doux">${eur(suivant)}</div></div>` : ''}
       <div class="fiche"><div class="etiq">Métropole</div>
         <div class="v" style="color:${rgb(echelle(t))}">${eur(bout)}</div></div>

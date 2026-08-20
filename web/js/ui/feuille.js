@@ -105,10 +105,10 @@ function ficheTerrain(monde, v, c) {
     + `<div class="grille">${qualites}</div>`
     + `<div class="grille">
         <div class="fiche"><div class="etiq">Prix du sol</div><div class="v">${eur(prix)}</div></div>
-        <div class="fiche"><div class="etiq">Facteur ville</div><div class="v">×${P.facteurNiveau[v.niveau - 1].toFixed(1)}</div></div>
+        <div class="fiche"><div class="etiq">Facteur ville</div><div class="v">×${P.facteurNiveau[v.niveau].toFixed(2)}</div></div>
         <div class="fiche"><div class="etiq">Facteur distance</div>
-          <div class="v">×${(1 / (1 + P.gradientFoncier[v.niveau - 1]
-              * c.distanceGare / P.rayonPalier[v.niveau - 1])).toFixed(2)}</div></div>
+          <div class="v">×${(1 / (1 + P.gradientFoncier[v.niveau]
+              * c.distanceGare / P.rayonPalier[v.niveau])).toFixed(2)}</div></div>
       </div>`
     + jaugePotentiel(v, c)
     + actions;
@@ -131,12 +131,12 @@ function jaugePotentiel(v, cases, bat) {
     (s, k) => s + prixTerrain(niveau, k.distanceGare, qualiteMax(k)), 0);
 
   const auj = somme(v.niveau);
-  const bout = somme(P.facteurNiveau.length);
+  const bout = somme(P.facteurNiveau.length - 1);
   const suivant = v.niveau < 5 ? somme(v.niveau + 1) : null;
   // Le potentiel est le rapport des deux sommes : il vaut le potentiel d'une
   // case quand l'emprise n'en compte qu'une, et la moyenne pondérée sinon.
   const p = auj > 0 ? bout / auj : 1;
-  const t = Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[4] - 1)));
+  const t = Math.max(0, Math.min(1, (p - 1) / (P.facteurNiveau[5] / P.facteurNiveau[0] - 1)));
 
   // Le même mouvement du sol enrichit une résidence et appauvrit un atelier :
   // le loyer suit le foncier, la recette d'un atelier n'en dépend pas.
@@ -160,7 +160,7 @@ function jaugePotentiel(v, cases, bat) {
     </div>
     <div class="grille">
       <div class="fiche"><div class="etiq">Aujourd'hui</div><div class="v">${eur(auj)}</div></div>
-      ${suivant ? `<div class="fiche"><div class="etiq">${P.nomsNiveau[v.niveau]}</div>
+      ${suivant ? `<div class="fiche"><div class="etiq">${P.nomsNiveau[v.niveau + 1]}</div>
         <div class="v doux">${eur(suivant)}</div></div>` : ''}
       <div class="fiche"><div class="etiq">Métropole</div>
         <div class="v" style="color:${rgb(echelle(t))}">${eur(bout)}</div></div>
