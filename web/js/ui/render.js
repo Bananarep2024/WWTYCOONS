@@ -19,7 +19,7 @@ import { sprite, videCache, COULEURS } from './sprites.js';
 
 export { COULEURS };
 
-const ALERTES = { matieres: '#e0993f', bras: '#6f9fc9', invendus: '#a97fc0', perte: '#e05a4e' };
+const ALERTES = { matieres: '#e0993f', bras: '#6f9fc9', vacants: '#a97fc0', invendus: '#c07fa9', perte: '#e05a4e' };
 
 // L'échelle des filtres : rouge pour le mauvais, jaune au milieu, vert pour le
 // bon. Une seule échelle pour tous les filtres, pour que le joueur n'ait jamais
@@ -603,7 +603,7 @@ export class Rendu {
     }
   }
 
-  // Les pastilles d'alerte : quatre états seulement, jamais recouvertes. C'est
+  // Les pastilles d'alerte : cinq états seulement, jamais recouvertes. C'est
   // la couche que le joueur lit vraiment.
   dessinerAlertes(ctx, p, ox, oy, vu) {
     if (p < 4) return;

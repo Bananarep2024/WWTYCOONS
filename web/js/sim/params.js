@@ -143,6 +143,28 @@ export const P = {
   // Bâtiments
   seuilMatieres: 0.15,         // sous 15 % de ses besoins, un bâtiment s'arrête
   entretienSommeil: 0.10,      // 10 % de la masse salariale en sommeil
+
+  // LE DÉBOUCHÉ : ce qu'un atelier retient de ses ventes passées.
+  //
+  // On ne vend que ce qui trouve preneur, et un producteur ne l'apprend
+  // qu'après avoir produit. Il se règle donc sur la mémoire de ses écoulements,
+  // et ralentit quand l'invendu s'accumule. L'inertie évite qu'un mois creux ne
+  // ferme une usine ; le plancher lui garde un pied sur le marché, sans quoi un
+  // atelier tombé à zéro ne verrait jamais la demande revenir.
+  // Balayés ensemble sur 240 mois, cinq villes reliées, graine 12345 :
+  //
+  //   plancher  inertie   ménages  confort  facturé à personne  pire stock
+  //      15 %     35 %      2 389     60 %        6,4 %          7,9 mois
+  //       5 %     35 %      2 414     61 %        5,3 %          5,5
+  //       0 %     35 %      1 822     43 %        6,7 %        106,9   ← oscille
+  //       0 %     20 %      2 577     65 %        5,2 %          4,6
+  //       5 %     20 %      2 473     68 %        5,1 %          4,1   ← retenu
+  //
+  // Le plancher à zéro avec une mémoire courte est ingérable : tout le monde
+  // s'arrête ensemble, l'écoulement remonte à 100 % faute d'offre, tout le monde
+  // repart ensemble, et le cycle s'emballe — cent sept mois de stock.
+  inertieDebouche: 0.20,       // ce que le mois écoulé pèse dans la mémoire
+  deboucheMin: 0.05,           // on ne descend jamais sous 5 % de régime
   moisAvantFermeture: 12,      // une case vide un an ferme
   moisAvantFaillite: 24,       // une affaire qui saigne deux ans ferme
 

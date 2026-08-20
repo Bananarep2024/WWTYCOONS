@@ -896,6 +896,28 @@ const P = {
   // Bâtiments
   seuilMatieres: 0.15,         // sous 15 % de ses besoins, un bâtiment s'arrête
   entretienSommeil: 0.10,      // 10 % de la masse salariale en sommeil
+
+  // LE DÉBOUCHÉ : ce qu'un atelier retient de ses ventes passées.
+  //
+  // On ne vend que ce qui trouve preneur, et un producteur ne l'apprend
+  // qu'après avoir produit. Il se règle donc sur la mémoire de ses écoulements,
+  // et ralentit quand l'invendu s'accumule. L'inertie évite qu'un mois creux ne
+  // ferme une usine ; le plancher lui garde un pied sur le marché, sans quoi un
+  // atelier tombé à zéro ne verrait jamais la demande revenir.
+  // Balayés ensemble sur 240 mois, cinq villes reliées, graine 12345 :
+  //
+  //   plancher  inertie   ménages  confort  facturé à personne  pire stock
+  //      15 %     35 %      2 389     60 %        6,4 %          7,9 mois
+  //       5 %     35 %      2 414     61 %        5,3 %          5,5
+  //       0 %     35 %      1 822     43 %        6,7 %        106,9   ← oscille
+  //       0 %     20 %      2 577     65 %        5,2 %          4,6
+  //       5 %     20 %      2 473     68 %        5,1 %          4,1   ← retenu
+  //
+  // Le plancher à zéro avec une mémoire courte est ingérable : tout le monde
+  // s'arrête ensemble, l'écoulement remonte à 100 % faute d'offre, tout le monde
+  // repart ensemble, et le cycle s'emballe — cent sept mois de stock.
+  inertieDebouche: 0.20,       // ce que le mois écoulé pèse dans la mémoire
+  deboucheMin: 0.05,           // on ne descend jamais sous 5 % de régime
   moisAvantFermeture: 12,      // une case vide un an ferme
   moisAvantFaillite: 24,       // une affaire qui saigne deux ans ferme
 
@@ -2872,7 +2894,12 @@ class Marche {
     this.restants = {};                 // ce qui n'a pas encore été présenté au guichet
     this.service = {};                  // fraction du besoin réellement servie
     this.prixRevient = {};              // plancher local : le coût du meilleur
+    // CE QUI A ÉTÉ RÉELLEMENT EMPORTÉ ce mois-ci, marchandise par marchandise.
+    // C'est le miroir des entrées, et c'est lui qui décide de ce qu'un
+    // producteur encaisse : on ne vend pas ce que personne n'est venu prendre.
+    this.preleve = {};
     for (const r of RESSOURCES) {
+      this.preleve[r] = 0;
       this.stock[r] = 0;
       this.prix[r] = RES[r].prix;
       this.besoins[r] = 0;
@@ -2891,6 +2918,7 @@ class Marche {
     // producteur — il facture un service à celui qui en profite.
     this.fret = 0;
     this.peageCollecte = 0;
+
     // Ce qui a réellement franchi une frontière de ville ce mois-ci, en valeur :
     // sert à montrer le trafic, jamais à calculer la recette.
     this.tonnageTransporte = 0;
@@ -3123,6 +3151,7 @@ class Marche {
     // les livres, local et puisé confondus. Recomposer la somme à chaque prise
     // coûtait le double du temps de simulation pour le même résultat.
     this.stock[res] -= servi;
+    this.preleve[res] += servi;
     return servi;
   }
 
@@ -3157,6 +3186,7 @@ class Marche {
     l.stock[res] -= pris;
     if (pris < qte) pris += this.puiserAilleurs(res, qte - pris, l);
     this.stock[res] -= pris;
+    this.preleve[res] += pris;
     return pris;
   }
 
@@ -3216,6 +3246,7 @@ class Marche {
     this.entreesPrec = { ...this.entrees };
     this.peageCollecte = 0;
     this.tonnageTransporte = 0;
+    for (const r of RESSOURCES) this.preleve[r] = 0;
     for (const r of RESSOURCES) { this.besoins[r] = 0; this.entrees[r] = 0; }
     for (const l of this.parVille.values()) {
       for (const r of RESSOURCES) { l.besoins[r] = 0; l.entrees[r] = 0; }
@@ -3235,6 +3266,28 @@ class Marche {
   // L'indice se lit contre la référence RENDUE, port compris. Sinon un marché
   // relié afficherait 1,02 en permanence et le joueur lirait une tension qui
   // n'existe pas : le port n'est pas de la rareté, c'est un service facturé.
+  // LE TAUX D'ÉCOULEMENT : la part de la production du mois qui a trouvé
+  // preneur. C'est le miroir exact du taux de service, vu du vendeur.
+  //
+  // Au-dessus de 1 — les acheteurs ont puisé dans la cave en plus de la
+  // production — tout se vend, et c'est borné à 1 : on ne vend pas deux fois.
+  // ELLE SE MESURE SUR LES BESOINS DÉCLARÉS, pas sur ce qui a été emporté.
+  //
+  // La première version comparait l'offre à ce que les acheteurs avaient
+  // réellement pris, et c'était faux : le marché veut aussi TENIR un matelas
+  // d'un mois (§ 4.2 bis), et cette reconstitution est un débouché légitime. À
+  // la compter comme un invendu, tout atelier reconstituant la cave se croyait
+  // en surproduction et ralentissait — la contraction se propageait en amont, et
+  // les cinq villes tombaient de 600 à 120 ménages.
+  //
+  // Les besoins déclarés portent déjà le rattrapage du matelas : c'est le bon
+  // repère, et c'est celui que le prix utilise déjà.
+  ecoulement(res) {
+    const offert = this.entrees[res];
+    if (offert <= 0.0001) return 1;
+    return Math.max(0, Math.min(1, this.besoins[res] / offert));
+  }
+
   indice(res) { return this.prix[res] / (RES[res].prix * (1 + this.fret)); }
 
   // Le prix départ, celui que le producteur encaisse réellement.
@@ -3288,7 +3341,7 @@ class Batiment {
     this.resultat = 0;
     this.margeUnitaire = 0;
     this.histo = [];                    // résultats des 12 derniers mois
-    this.alerte = null;                 // 'matieres' | 'bras' | 'invendus' | 'perte'
+    this.alerte = null;                 // 'matieres' | 'bras' | 'vacants' | 'invendus' | 'perte'
     this.recu = {};
   }
 
@@ -3376,9 +3429,14 @@ class Batiment {
   // Les intrants sont eux aussi ceux du BÂTIMENT : 40 pour une scierie, 60 pour
   // une aciérie, 80 pour une manufacture — pas par case.
   besoinsIntrants() {
+    // À la mesure du DÉBOUCHÉ, lui aussi : un atelier au ralenti n'achète pas
+    // la matière du plein régime. Sans cela il paierait ses intrants pour une
+    // production qu'il ne fera pas, et la pénurie qu'il crée en amont serait
+    // celle d'un besoin imaginaire.
+    const d = this.debouche === undefined ? 1 : this.debouche;
     const out = {};
     for (const [r, q] of Object.entries(this.def.intrants || {})) {
-      out[r] = q * this.activite;
+      out[r] = q * this.activite * d;
     }
     return out;
   }
@@ -3442,6 +3500,7 @@ class Batiment {
   produire(marche, partBras) {
     this.age++;
     this.alerte = null;
+    this.aVendre = undefined;      // rien à régler tant qu'on n'a rien offert
     const ent = this.entretien;
 
     // Logement : n'est exposé que du côté du coût. Il achète — ses matériaux au
@@ -3453,7 +3512,7 @@ class Batiment {
       this.production = 0;
       this.tauxReel = this.vacantePenurie ? 0 : this.ville.occupation;
       this.resultat = this.loyerPlein * this.tauxReel - ent;
-      if (this.tauxReel < 0.3) this.alerte = 'invendus';
+      if (this.tauxReel < 0.3) this.alerte = 'vacants';
       return this.cloturer();
     }
 
@@ -3483,7 +3542,7 @@ class Batiment {
       this.tauxReel = Math.max(0, Math.min(1, ecoule / this.def.debit));
       this.resultat = ecoule * P.margeCommerce / (1 + P.margeCommerce)
                     - this.masseSalarialePleine - ent;
-      if (this.tauxReel < 0.35) this.alerte = 'invendus';
+      if (this.tauxReel < 0.35) this.alerte = 'vacants';
       return this.cloturer();
     }
 
@@ -3533,7 +3592,12 @@ class Batiment {
     // travaillent pas. L'atelier tourne au ralenti et continue de payer son
     // entretien — c'est ce qui rend la grève coûteuse pour tout le monde.
     const greve = this.ville && this.ville.greveDe ? this.ville.greveDe(this.def.cat) : 1;
-    const taux = this.activiteEffective * Math.min(ratioMat, partBras) * greve;
+    // ET LE DÉBOUCHÉ BORNE TOUT LE RESTE. On ne produit pas ce qu'on ne vendra
+    // pas : un atelier dont la marchandise s'entasse se met au régime de ce
+    // qu'il écoule. C'est un souvenir, pas une prescience — il se règle sur les
+    // mois passés, et il remonte dès que la demande revient.
+    const debouche = this.debouche === undefined ? 1 : this.debouche;
+    const taux = this.activiteEffective * Math.min(ratioMat, partBras, debouche) * greve;
     this.tauxReel = taux;
     this.production = this.capacite * taux;
 
@@ -3557,8 +3621,47 @@ class Batiment {
       achats += utilise * marche.prix[r];
     }
 
-    const prixSortie = marche.prix[this.def.sort];
-    const brut = this.production * prixSortie;
+    // ON N'ENCAISSE RIEN ICI. La vente ne se règle qu'à la fermeture du marché,
+    // quand on sait ce qui a réellement trouvé preneur — voir `regler`.
+    //
+    // C'était le défaut de conception le plus lourd du modèle : la recette était
+    // `production × prix`, quoi qu'il arrive. Un producteur était payé pour ce
+    // qu'il FABRIQUAIT, pas pour ce qu'il VENDAIT, et l'invendu s'entassait sur
+    // le marché après avoir déjà été facturé à personne. Mesuré sur cent quatre-
+    // vingts mois : 1,95 million de dollars ainsi créés, 11,9 % de toute la
+    // production — et une fabrique de meubles qui encaissait 96 % de son chiffre
+    // en pure fiction, ce qui expliquait du même coup les montagnes de stock.
+    this.charges = achats + this.masseSalarialePleine * taux + ent;
+    this.aVendre = this.production;
+    this.resultat = -this.charges;          // provisoire, jusqu'au règlement
+
+    // La production part sur le marché — sauf si le joueur l'affecte à son
+    // entrepôt, ce qui réduit directement les entrées et fait monter le prix.
+    if (this.versEntrepot && this.societe && this.societe.entrepotDans(this.ville)) {
+      this.societe.stocker(this.ville, this.def.sort, this.production);
+      this.aVendre = 0;                      // rien n'est présenté au marché
+      this.resultat = -this.charges;
+    } else {
+      marche.offrir(this.def.sort, this.production, this.ville);
+    }
+
+    if (ratioMat < 0.9) this.alerte = 'matieres';
+    else if (partBras < 0.9) this.alerte = 'bras';
+
+    return this.cloturer();
+  }
+
+  // LE RÈGLEMENT, une fois le marché fermé.
+  //
+  // On ne vend que ce qui a été emporté. Le reste demeure en cave — il n'a pas
+  // disparu, il n'a simplement pas été payé — et il pèsera sur le prix du mois
+  // suivant comme sur le régime de cet atelier.
+  regler(marche) {
+    if (!this.def.sort || this.aVendre === undefined) return;
+    const ec = marche.ecoulement(this.def.sort);
+    const vendu = this.aVendre * ec;
+
+    const brut = vendu * marche.prix[this.def.sort];
     // LE PORT SORT DU PRIX RENDU, il ne s'ajoute pas à la facture du producteur.
     //
     // Sur un marché relié, le cours se forme autour d'une référence majorée de
@@ -3570,26 +3673,24 @@ class Batiment {
     const c = marche.fret || 0;
     const port = brut * c / (1 + c);
     marche.peageCollecte += port;
-    const recette = brut - port;
-    const salaires = this.masseSalarialePleine * taux;
 
-    this.resultat = recette - achats - salaires - ent;
+    this.vendu = vendu;
+    this.ecoulement = this.aVendre > 0 ? ec : 1;
+    this.resultat = (brut - port) - this.charges;
     this.margeUnitaire = this.production > 0
-      ? (recette - achats - salaires) / this.production : 0;
+      ? (brut - port - this.charges + this.entretien) / this.production : 0;
 
-    // La production part sur le marché — sauf si le joueur l'affecte à son
-    // entrepôt, ce qui réduit directement les entrées et fait monter le prix.
-    if (this.versEntrepot && this.societe && this.societe.entrepotDans(this.ville)) {
-      this.societe.stocker(this.ville, this.def.sort, this.production);
-    } else {
-      marche.offrir(this.def.sort, this.production, this.ville);
-    }
+    // LE DÉBOUCHÉ, EN MÉMOIRE. Un atelier ne connaît la demande qu'APRÈS avoir
+    // produit : il se règle donc sur ce qu'il a vendu les mois passés, lissé,
+    // et ralentit quand son invendu s'accumule. C'est la mise en sommeil que
+    // réclame un marché saturé — et elle se défait toute seule dès que la
+    // demande revient, puisque le plancher garde l'atelier présent au marché.
+    const memoire = this.debouche === undefined ? 1 : this.debouche;
+    this.debouche = Math.max(P.deboucheMin,
+                             memoire + P.inertieDebouche * (this.ecoulement - memoire));
 
-    if (ratioMat < 0.9) this.alerte = 'matieres';
-    else if (partBras < 0.9) this.alerte = 'bras';
-    else if (this.resultat < 0) this.alerte = 'perte';
-
-    return this.cloturer();
+    if (!this.alerte && this.ecoulement < 0.9) this.alerte = 'invendus';
+    else if (!this.alerte && this.resultat < 0) this.alerte = 'perte';
   }
 
   cloturer() {
@@ -6120,9 +6221,9 @@ class Monde {
       for (const v of this.villes) {
         for (const b of v.__bats) {
           if (!VAGUES[i].includes(b.type)) continue;
+          // On produit, on n'encaisse pas : le règlement attend la fermeture du
+          // marché, quand on saura ce qui a trouvé preneur.
           b.produire(v.marche, VIVRIERS.has(b.type) ? v.partVivres : v.partAutres);
-          if (b.societe) b.societe.encaisser(b.resultat);
-          else v.epargne += Math.max(0, b.resultat);
         }
       }
 
@@ -6305,6 +6406,27 @@ class Monde {
         const place = gain * P.partProfitLocalEnBourse;
         f.tresorerie -= place;
         this.capitauxBourse += place;
+      }
+    }
+
+    // --- 6 ter. LE MARCHÉ FERME, ET L'ON RÈGLE LES VENTES -------------------
+    //
+    // Jusqu'ici personne n'a encaissé une marchandise : on sait seulement ce qui
+    // a été produit, offert, et emporté. C'est maintenant qu'on paie, et l'on ne
+    // paie que ce qui a trouvé preneur.
+    //
+    // C'est le correctif du défaut de conception le plus lourd du modèle. La
+    // recette d'un producteur était `production × prix`, quoi qu'il arrive : il
+    // était payé pour ce qu'il fabriquait et non pour ce qu'il vendait, et
+    // l'invendu s'entassait sur le marché après avoir déjà été facturé à
+    // personne. Mesuré sur cent quatre-vingts mois : 1,95 million de dollars
+    // créés de rien, 11,9 % de toute la production de la partie.
+    for (const v of this.villes) {
+      for (const b of v.__bats) {
+        if (!b.def.sort) continue;
+        b.regler(v.marche);
+        if (b.societe) b.societe.encaisser(b.resultat);
+        else v.epargne += Math.max(0, b.resultat);
       }
     }
 
@@ -7265,7 +7387,7 @@ function mine(ctx, w, h, c, tas) {
 void estAchetable;   // la frontière achetable est désormais le carré de la ville
 
 
-const ALERTES = { matieres: '#e0993f', bras: '#6f9fc9', invendus: '#a97fc0', perte: '#e05a4e' };
+const ALERTES = { matieres: '#e0993f', bras: '#6f9fc9', vacants: '#a97fc0', invendus: '#c07fa9', perte: '#e05a4e' };
 
 // L'échelle des filtres : rouge pour le mauvais, jaune au milieu, vert pour le
 // bon. Une seule échelle pour tous les filtres, pour que le joueur n'ait jamais
@@ -7849,7 +7971,7 @@ class Rendu {
     }
   }
 
-  // Les pastilles d'alerte : quatre états seulement, jamais recouvertes. C'est
+  // Les pastilles d'alerte : cinq états seulement, jamais recouvertes. C'est
   // la couche que le joueur lit vraiment.
   dessinerAlertes(ctx, p, ox, oy, vu) {
     if (p < 4) return;
@@ -9247,7 +9369,8 @@ function ficheChantier(monde, ch) {
 const TEXTE_ALERTE = {
   matieres: 'Manque de matières premières',
   bras: 'Manque de main-d\'œuvre',
-  invendus: 'Locaux vacants',
+  vacants: 'Locaux vacants',
+  invendus: 'Production invendue',
   perte: 'Perte financière',
 };
 

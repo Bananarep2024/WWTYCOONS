@@ -314,7 +314,8 @@ function ficheChantier(monde, ch) {
 const TEXTE_ALERTE = {
   matieres: 'Manque de matières premières',
   bras: 'Manque de main-d\'œuvre',
-  invendus: 'Locaux vacants',
+  vacants: 'Locaux vacants',
+  invendus: 'Production invendue',
   perte: 'Perte financière',
 };
 

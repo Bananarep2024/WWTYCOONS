@@ -1528,9 +1528,9 @@ export class Monde {
       for (const v of this.villes) {
         for (const b of v.__bats) {
           if (!VAGUES[i].includes(b.type)) continue;
+          // On produit, on n'encaisse pas : le règlement attend la fermeture du
+          // marché, quand on saura ce qui a trouvé preneur.
           b.produire(v.marche, VIVRIERS.has(b.type) ? v.partVivres : v.partAutres);
-          if (b.societe) b.societe.encaisser(b.resultat);
-          else v.epargne += Math.max(0, b.resultat);
         }
       }
 
@@ -1713,6 +1713,27 @@ export class Monde {
         const place = gain * P.partProfitLocalEnBourse;
         f.tresorerie -= place;
         this.capitauxBourse += place;
+      }
+    }
+
+    // --- 6 ter. LE MARCHÉ FERME, ET L'ON RÈGLE LES VENTES -------------------
+    //
+    // Jusqu'ici personne n'a encaissé une marchandise : on sait seulement ce qui
+    // a été produit, offert, et emporté. C'est maintenant qu'on paie, et l'on ne
+    // paie que ce qui a trouvé preneur.
+    //
+    // C'est le correctif du défaut de conception le plus lourd du modèle. La
+    // recette d'un producteur était `production × prix`, quoi qu'il arrive : il
+    // était payé pour ce qu'il fabriquait et non pour ce qu'il vendait, et
+    // l'invendu s'entassait sur le marché après avoir déjà été facturé à
+    // personne. Mesuré sur cent quatre-vingts mois : 1,95 million de dollars
+    // créés de rien, 11,9 % de toute la production de la partie.
+    for (const v of this.villes) {
+      for (const b of v.__bats) {
+        if (!b.def.sort) continue;
+        b.regler(v.marche);
+        if (b.societe) b.societe.encaisser(b.resultat);
+        else v.epargne += Math.max(0, b.resultat);
       }
     }
 

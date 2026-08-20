@@ -948,7 +948,7 @@ coup le mois où il est achevé.
 
 ```
 résultat mensuel = taux d'activité × marge brute − entretien
-production réelle = capacité × min(matières obtenues, main-d'œuvre obtenue) × réglage du joueur
+production réelle = capacité × min(matières obtenues, main-d'œuvre obtenue, débouché) × réglage du joueur
 ```
 
 Les trois lignes se contractent ensemble : un atelier à moitié achète la moitié de ses intrants,
@@ -974,6 +974,71 @@ jamais** — c'est lui qui borne les pertes et qui fixe le seuil d'activité.
 depuis son propre entrepôt, la marchandise est valorisée au prix du marché local du jour. Personne
 ne peut rendre une usine comptablement misérable pour la protéger d'une offre, ni la gonfler pour
 son score. Le gain de la spéculation apparaît là où il a eu lieu : dans les comptes de l'entrepôt.
+
+---
+
+### 10 bis — Le débouché : on ne vend que ce qui trouve preneur
+
+Jusqu'ici un atelier était payé sur ce qu'il **produisait**, pas sur ce qu'on lui **achetait**. Le
+marché encaissait les besoins des uns, versait la recette aux autres, et l'écart — la marchandise
+offerte que personne n'avait demandée — disparaissait sans qu'aucune caisse ne s'en aperçoive.
+Mesuré sur les mois 60 à 240 : **1 953 002 $ facturés à personne, soit 11,9 % de toute la
+production**. Les meubles s'écoulaient à 4 %, l'outillage à 11 %, et leurs manufactures affichaient
+pourtant des comptes à l'équilibre. C'était le trou noir du modèle.
+
+**La vente est désormais un acte séparé de la production, et elle vient après.**
+
+```
+Pendant la vague de production        le bâtiment achète, paie ses salaires, offre sa production
+                                      au marché, et n'inscrit à ses comptes QUE ses charges.
+Une fois le marché fermé (étape 6 ter) écoulement(r) = min(1, besoins(r) ÷ entrées(r))
+                                      vendu   = offert × écoulement
+                                      résultat = recette de ce qui est parti − charges
+```
+
+L'invendu ne s'évapore plus : il **reste au stock du marché**, où il pèse sur le prix du mois
+suivant et où la freinte du §4.2 bis finit par le manger. C'est la contrepartie honnête de la règle
+— avant, le tas était invisible parce qu'il était payé.
+
+**Le producteur apprend, et ralentit.** Il ne connaît son débouché qu'après coup ; il se règle donc
+sur la mémoire de ses écoulements passés, qui borne à la fois son activité et ses achats d'intrants
+— une manufacture qui ne vend qu'un tiers n'achète plus que le tiers de son acier.
+
+```
+débouché ← débouché + inertieDebouche × (écoulement du mois − débouché)     borné à deboucheMin
+```
+
+| | | |
+|---|---:|---|
+| `inertieDebouche` | 0,20 | ce que le mois écoulé pèse dans la mémoire |
+| `deboucheMin` | 0,05 | on ne descend jamais sous 5 % de régime |
+
+Le plancher n'est pas une faveur au producteur : sans lui, un atelier tombé à zéro ne verrait
+**jamais** la demande revenir, puisqu'il n'offre plus rien à écouler. Et l'inertie n'est pas de la
+prudence comptable : à mémoire courte et plancher nul, tout le monde s'arrête ensemble,
+l'écoulement remonte à 100 % faute d'offre, tout le monde repart ensemble — **cent sept mois de
+stock** au balayage. Les deux réglages ont été choisis ensemble, sur 240 mois, cinq villes reliées :
+
+| plancher | inertie | ménages | confort | facturé à personne | pire stock |
+|---:|---:|---:|---:|---:|---:|
+| 15 % | 35 % | 2 389 | 60 % | 6,4 % | 7,9 mois |
+| 5 % | 35 % | 2 414 | 61 % | 5,3 % | 5,5 |
+| 0 % | 35 % | 1 822 | 43 % | 6,7 % | 106,9 ← oscille |
+| 0 % | 20 % | 2 577 | 65 % | 5,2 % | 4,6 |
+| **5 %** | **20 %** | **2 473** | **68 %** | **5,1 %** | **4,1** ← retenu |
+
+> **Les deux issues que le joueur possède déjà sont celles-là mêmes qu'il fallait.** Qui a un
+> entrepôt y verse sa production (`versEntrepot`) : elle sort du marché avant d'être offerte, donc
+> avant d'être comptée invendue, et attend un meilleur mois. Qui n'en a pas voit son atelier
+> lever le pied tout seul. Aucune règle nouvelle n'a été inventée pour ça.
+
+> **Ce qui reste.** 5,1 % de production encore facturée à personne, résidu du décalage d'un mois
+> entre l'offre et la mémoire ; il ne s'annulera pas sans donner aux ateliers une information
+> qu'ils n'ont pas. Et les meubles tiennent seuls **4,1 mois de stock** contre une promesse de 4 au
+> §4.2 bis : le contrôle `aucune montagne de marchandise` échoue à 4,09. Les biens durables ne
+> trouvent presque pas d'acheteur dans le monde de base (§5.8) ; c'est ce défaut-là qui remonte à
+> la surface maintenant qu'on ne peut plus le payer en douce, et il se traitera dans l'ordre des
+> dépenses du ménage, pas ici.
 
 ---
 

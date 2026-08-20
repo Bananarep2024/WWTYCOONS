@@ -263,6 +263,14 @@ Le remède est celui proposé et non retenu : **réserver au ménage une part fi
 pour le rang 2** — 15 % par exemple — au lieu de lui donner le reliquat. Un ouvrier de 1900 met de
 côté pour un meuble, il n'attend pas d'avoir tout le reste. Tant que l'ordre reste strictement
 prioritaire, le dernier bien de la liste ne peut structurellement jamais être servi.
+
+> **Depuis le débouché (§10 bis du barème), ce défaut ne coûte plus la même chose.** Les onze
+> ateliers qui produisaient pour personne étaient payés quand même ; ils ne le sont plus. Ils
+> ralentissent jusqu'au plancher de 5 % et le tas cesse de grossir : les 102 mois de meubles
+> tombent à **4,1**, les 470 mois d'outillage à **0,9**. Le défaut reste entier — les durables ne
+> trouvent toujours pas d'acheteur — mais il est devenu visible et borné au lieu d'être financé en
+> douce. C'est ce reliquat de 4,1 mois qui fait échouer le contrôle `aucune montagne de
+> marchandise` à 4,09 contre 4, et il se règle ici, dans l'ordre des dépenses, pas au barème.
 3. **Les étoffes sortent du bétail**, ce qui met trois ateliers sur le même intrant. L'autre voie
    serait une septième matière première, du coton, au prix de la contrainte « aucune matière
    nouvelle ».

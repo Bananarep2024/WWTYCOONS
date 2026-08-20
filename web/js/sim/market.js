@@ -25,7 +25,12 @@ export class Marche {
     this.restants = {};                 // ce qui n'a pas encore été présenté au guichet
     this.service = {};                  // fraction du besoin réellement servie
     this.prixRevient = {};              // plancher local : le coût du meilleur
+    // CE QUI A ÉTÉ RÉELLEMENT EMPORTÉ ce mois-ci, marchandise par marchandise.
+    // C'est le miroir des entrées, et c'est lui qui décide de ce qu'un
+    // producteur encaisse : on ne vend pas ce que personne n'est venu prendre.
+    this.preleve = {};
     for (const r of RESSOURCES) {
+      this.preleve[r] = 0;
       this.stock[r] = 0;
       this.prix[r] = RES[r].prix;
       this.besoins[r] = 0;
@@ -44,6 +49,7 @@ export class Marche {
     // producteur — il facture un service à celui qui en profite.
     this.fret = 0;
     this.peageCollecte = 0;
+
     // Ce qui a réellement franchi une frontière de ville ce mois-ci, en valeur :
     // sert à montrer le trafic, jamais à calculer la recette.
     this.tonnageTransporte = 0;
@@ -276,6 +282,7 @@ export class Marche {
     // les livres, local et puisé confondus. Recomposer la somme à chaque prise
     // coûtait le double du temps de simulation pour le même résultat.
     this.stock[res] -= servi;
+    this.preleve[res] += servi;
     return servi;
   }
 
@@ -310,6 +317,7 @@ export class Marche {
     l.stock[res] -= pris;
     if (pris < qte) pris += this.puiserAilleurs(res, qte - pris, l);
     this.stock[res] -= pris;
+    this.preleve[res] += pris;
     return pris;
   }
 
@@ -369,6 +377,7 @@ export class Marche {
     this.entreesPrec = { ...this.entrees };
     this.peageCollecte = 0;
     this.tonnageTransporte = 0;
+    for (const r of RESSOURCES) this.preleve[r] = 0;
     for (const r of RESSOURCES) { this.besoins[r] = 0; this.entrees[r] = 0; }
     for (const l of this.parVille.values()) {
       for (const r of RESSOURCES) { l.besoins[r] = 0; l.entrees[r] = 0; }
@@ -388,6 +397,28 @@ export class Marche {
   // L'indice se lit contre la référence RENDUE, port compris. Sinon un marché
   // relié afficherait 1,02 en permanence et le joueur lirait une tension qui
   // n'existe pas : le port n'est pas de la rareté, c'est un service facturé.
+  // LE TAUX D'ÉCOULEMENT : la part de la production du mois qui a trouvé
+  // preneur. C'est le miroir exact du taux de service, vu du vendeur.
+  //
+  // Au-dessus de 1 — les acheteurs ont puisé dans la cave en plus de la
+  // production — tout se vend, et c'est borné à 1 : on ne vend pas deux fois.
+  // ELLE SE MESURE SUR LES BESOINS DÉCLARÉS, pas sur ce qui a été emporté.
+  //
+  // La première version comparait l'offre à ce que les acheteurs avaient
+  // réellement pris, et c'était faux : le marché veut aussi TENIR un matelas
+  // d'un mois (§ 4.2 bis), et cette reconstitution est un débouché légitime. À
+  // la compter comme un invendu, tout atelier reconstituant la cave se croyait
+  // en surproduction et ralentissait — la contraction se propageait en amont, et
+  // les cinq villes tombaient de 600 à 120 ménages.
+  //
+  // Les besoins déclarés portent déjà le rattrapage du matelas : c'est le bon
+  // repère, et c'est celui que le prix utilise déjà.
+  ecoulement(res) {
+    const offert = this.entrees[res];
+    if (offert <= 0.0001) return 1;
+    return Math.max(0, Math.min(1, this.besoins[res] / offert));
+  }
+
   indice(res) { return this.prix[res] / (RES[res].prix * (1 + this.fret)); }
 
   // Le prix départ, celui que le producteur encaisse réellement.
