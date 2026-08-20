@@ -1297,6 +1297,14 @@ const P = {
   immigrationFrontiere: 0.8,
   moisDeVivres: 24,            // deux ans de nourriture et de produits, à 100 %
   exploitationsFournies: 3,    // ce que le stock de matériaux permet d'ouvrir
+  // Ce que le fondateur paie sur la terre qu'il acquiert d'un seul tenant. Il
+  // achète en gros une terre que personne ne convoitait : la remise est le prix
+  // du risque, et ce qui reste — un tiers de la valeur — est un vrai
+  // engagement. Mesuré : le carré d'un Comptoir vaut de 41 500 à 57 800 $ selon
+  // le site, soit 12 500 à 17 300 $ après remise. Une gare complète revient donc
+  // autour de 17 000 $ pour une trésorerie de départ de 15 000 : on ne fonde pas
+  // le premier mois, on économise pour fonder.
+  remiseFonciereGare: 0.70,
   coutGareNu: 2000,            // le bâtiment de gare seul, hors cargaison
   rayonGare: 16,               // le territoire qu'ouvre une gare, en cases
   // Une gare ne se pose pas contre une ville ni contre une autre gare : sans
@@ -1656,11 +1664,47 @@ function emploisRequis(type) {
 //   vivres        un repas et un produit manufacturé par ménage et par mois,
 //                 pendant vingt-quatre mois — de quoi tenir les trois baromètres
 //                 au plein pendant que le hameau se met debout
-function devisGare() {
+// LE DEVIS D'UNE GARE — le quai, les vivres, ET LA TERRE.
+//
+// Fonder une ville, c'est acheter un territoire. Le fondateur devient
+// propriétaire de TOUTES les cases libres du carré du Comptoir, et il les paie —
+// remisées de 70 %, parce qu'il achète en gros, d'un seul tenant, une terre que
+// personne ne convoitait et qui ne vaudra quelque chose que s'il la fait vivre.
+// C'est le prix de la spéculation foncière : il tient mille quatre-vingt-neuf
+// cases dont la valeur montera à chaque palier de sa ville.
+//
+// Le devis est SITE-DÉPENDANT dès qu'on lui donne un site : la terre ne vaut pas
+// la même chose selon ce qu'elle porte. Sans site, il rend une estimation à la
+// qualité de référence — c'est ce qu'affiche le menu, faute de savoir encore où
+// l'on va poser.
+function devisGare(monde = null, x = 0, y = 0) {
   const vivres = { pain: P.menagesNourris * P.moisDePain };
-  let cout = P.coutGareNu;
-  for (const [r, q] of Object.entries(vivres)) cout += q * RES[r].prix;
-  return { mat: {}, vivres, cout };
+  let vivresCout = 0;
+  for (const [r, q] of Object.entries(vivres)) vivresCout += q * RES[r].prix;
+
+  const r0 = P.rayonPalier[0];
+  let terrain = 0, cases = 0;
+  if (monde) {
+    for (let dy = -r0; dy <= r0; dy++) for (let dx = -r0; dx <= r0; dx++) {
+      const c = monde.caseAt(x + dx, y + dy);
+      if (!c || c.ville || c.voie) continue;
+      cases++;
+      terrain += prixTerrain(1, Math.max(Math.abs(dx), Math.abs(dy)), qualiteMax(c));
+    }
+  } else {
+    // L'estimation du menu : le carré plein, à la qualité de référence.
+    for (let dy = -r0; dy <= r0; dy++) for (let dx = -r0; dx <= r0; dx++) {
+      cases++;
+      terrain += prixTerrain(1, Math.max(Math.abs(dx), Math.abs(dy)), 1);
+    }
+  }
+  const fonciere = terrain * (1 - P.remiseFonciereGare);
+  return {
+    mat: {}, vivres, cases,
+    quai: P.coutGareNu, vivresCout, terrainNu: terrain, fonciere,
+    cout: P.coutGareNu + vivresCout + fonciere,
+    estimation: !monde,
+  };
 }
 
 // Le rendement annuel que chaque palier est censé rendre, à cent pour cent
@@ -2408,6 +2452,10 @@ function construireReseau(villes, rnd) {
 // L'emprise est renvoyée DANS L'ORDRE, de la gare de départ à celle d'arrivée :
 // c'est ce qui permet de la dessiner en train de se construire, gare après gare,
 // au lieu d'un simple trait entre deux points.
+// LE TRACÉ D'UNE VOIE, case par case. Exporté depuis que le joueur pose ses
+// propres lignes : sans lui, une voie lancée à la main n'avait pas d'emprise,
+// n'était donc dessinée nulle part, et ne réservait aucune case. Le joueur
+// payait une ligne invisible.
 function tracerVoie(cases, L, H, d, f) {
   const emprise = [];
   let x = d.x, y = d.y;
@@ -4659,7 +4707,7 @@ class Monde {
   fonderGare(x, y, societe, nom = null) {
     const refus = this.peutFonderGare(x, y);
     if (refus) return refus;
-    const devis = devisGare();
+    const devis = devisGare(this, x, y);
     if (!societe.peutPayer(devis.cout)) return 'trésorerie insuffisante';
 
     const v = {
@@ -4702,6 +4750,24 @@ class Monde {
 
     this.caseAt(x, y).voie = true;
     societe.payer(devis.cout);
+
+    // LE FONDATEUR EST PROPRIÉTAIRE DE SON CARRÉ.
+    //
+    // Il vient de payer la terre — remisée, mais payée — et elle est à lui :
+    // tout le carré du Comptoir, moins le quai. C'est ce qui fait de la
+    // fondation un acte de propriétaire et non un don à la collectivité. Il n'a
+    // plus rien à acheter pour bâtir chez lui, et la valeur de ce sol montera à
+    // chaque palier que sa ville franchira.
+    //
+    // Au-delà du carré du Comptoir, le territoire reste vierge : ce sera à
+    // acheter, palier après palier, comme partout ailleurs.
+    const r0 = P.rayonPalier[0];
+    for (const c of v.cases) {
+      if (c.voie || c.distanceGare > r0) continue;
+      c.proprio = societe.id;
+      c.vendue = true;
+      c.prixPaye = this.prixCase(v, c);
+    }
     this.villes.push(v);
     this.recomposerMarches();
 
@@ -6539,6 +6605,7 @@ class Monde {
   lancerVoie(iA, iB, societe) {
     const devis = this.devisVoie(iA, iB);
     if (!devis) return 'gares invalides';
+    const a = this.villes[iA], b = this.villes[iB];
     if (this.dejaReliees(iA, iB)) return 'ces deux gares partagent déjà un marché';
     if (this.liaisons.some(l => !l.achevee && l.societe
         && ((l.a === iA && l.b === iB) || (l.a === iB && l.b === iA)))) {
@@ -6547,7 +6614,15 @@ class Monde {
     const l = {
       ...devis, pose: 0, depense: 0, societe, debut: this.mois, achevee: false,
       // La voie part de la gare A et va vers B : c'est ce que le tracé affiche.
-      depuisB: false, arret: false,
+      depuisB: false, arret: false, date: null,
+      // L'EMPRISE, tracée tout de suite, comme celle des lignes de la carte.
+      //
+      // Elle manquait, et deux choses en découlaient qu'on ne voyait pas : la
+      // ligne n'était dessinée NULLE PART — `dessinerVoies` saute ce qui n'a pas
+      // d'emprise — et ses cases n'étaient pas réservées, si bien qu'on pouvait
+      // bâtir en travers du rail qu'on venait de payer. Toutes les voies vers
+      // les villes fondées étaient dans ce cas.
+      emprise: tracerVoie(this.cases, this.L, this.H, a.gare, b.gare),
     };
     this.liaisons.push(l);
     this.journal.push(`${this.mois} · ⚒ ${societe.nom} ouvre le chantier ${l.nom}`
@@ -7579,8 +7654,16 @@ class Rendu {
       // après l'autre, `date` est un mois absolu : une ligne ouverte au mois 55
       // pour une livraison au mois 80 s'affichait à 69 % de rail posé dès son
       // premier jour. Quatre lignes paraissaient ainsi se construire ensemble.
+      // Deux façons d'avancer, parce qu'il y a deux façons de poser une voie.
+      //
+      // La compagnie pose au CALENDRIER : elle annonce une date, et le rail
+      // sort de terre à ce rythme-là. Le joueur, lui, pose au BUDGET : ce qui
+      // est posé est ce qu'il a payé, mois après mois, et le chantier s'arrête
+      // net quand sa trésorerie s'épuise. Lire la date sur une ligne de joueur
+      // n'avait aucun sens — elle n'en a pas.
       let avance = 0;
       if (l.achevee) avance = 1;
+      else if (l.societe && l.longueur > 0) avance = Math.max(0, Math.min(1, l.pose / l.longueur));
       else if (l.date !== null && l.debut !== null && l.date > l.debut) {
         avance = Math.max(0, Math.min(1, (m.mois - l.debut) / (l.date - l.debut)));
       }
@@ -8655,20 +8738,30 @@ function voletBatir(monde, rendu) {
               ${joueur.tresorerie >= dg.cout ? '' : 'disabled'}>
         <span class="puce" style="background:#c9a227"></span>
         <span class="nomBat">Gare fondatrice</span>
-        <span class="sousBat">carré de ${2 * P.rayonPalier[0] + 1} cases ·
+        <span class="sousBat">carré de ${2 * P.rayonPalier[0] + 1} cases, à vous ·
           ${P.moisDePain} mois de pain pour ${P.menagesNourris} ménages</span>
-        <span class="prixBat ${joueur.tresorerie >= dg.cout ? 'doux' : 'rouge'}">${eur(dg.cout)}</span>
-        <span class="matBat">${Object.entries(dg.vivres).map(([r, q]) =>
-          `<span class="lotMat"><i style="background:${RES[r].couleur}"></i>${
-            Math.round(q)} ${RES[r].nom.toLowerCase()}</span>`).join('')
-          || '<span class="lotMat">le quai seul — aucun matériau</span>'}</span>
+        <span class="prixBat ${joueur.tresorerie >= dg.cout ? 'doux' : 'rouge'}">~${eur(dg.cout)}</span>
+        <span class="matBat">
+          <span class="lotMat"><i style="background:#8a7f6a"></i>quai ${eur(dg.quai)}</span>
+          <span class="lotMat"><i style="background:#6f8f5a"></i>${dg.cases} cases
+            ${eur(dg.fonciere)} <b>−${Math.round(P.remiseFonciereGare * 100)} %</b></span>
+          ${Object.entries(dg.vivres).map(([r, q]) =>
+            `<span class="lotMat"><i style="background:${RES[r].couleur}"></i>${
+              Math.round(q)} ${RES[r].nom.toLowerCase()}</span>`).join('')}
+        </span>
       </button>
     </div>
     <div class="note">Une gare s'installe <b>hors de tout territoire</b> et fonde une localité.
-      Elle ouvre d'emblée le <b>carré du Comptoir</b> — ${2 * P.rayonPalier[0] + 1} cases de côté,
-      où l'on bâtit où l'on veut — et n'apporte rien d'autre que du pain : de quoi tenir le temps
-      que les premières fermes sortent de terre. Ni maisons, ni ateliers : tout se bâtit, et les
-      matériaux viennent de la ville la plus proche, ce qui prend des mois.<br><br>
+      Elle ouvre d'emblée le <b>carré du Comptoir</b> — ${2 * P.rayonPalier[0] + 1} cases de côté —
+      et <b>ce carré est à vous</b> : toutes ses cases libres passent à votre société le jour de la
+      fondation. Vous n'avez plus rien à acheter pour bâtir chez vous, et ce sol vaudra davantage à
+      chaque palier que la ville franchira.<br><br>
+      Vous le payez, mais <b>remisé de ${Math.round(P.remiseFonciereGare * 100)} %</b> : vous
+      achetez en gros, d'un seul tenant, une terre que personne ne convoitait et qui ne vaudra
+      quelque chose que si vous la faites vivre. C'est le prix du risque.<br><br>
+      La gare n'apporte rien d'autre que du pain, de quoi tenir le temps que les premières fermes
+      sortent de terre. Ni maisons, ni ateliers : tout se bâtit, et les matériaux viennent de la
+      ville la plus proche, ce qui prend des mois.<br><br>
       Elle n'apporte <b>pas d'habitants</b> non plus. La population vient d'elle-même dès qu'elle
       trouve du travail et de quoi manger. Passé les vivres, ou le hameau se nourrit seul, ou une
       voie le relie, ou il s'éteint.<br><br>
@@ -9619,9 +9712,13 @@ function demanderNom(c) {
   const boite = $('#bapteme');
   const champ = $('#baptemeNom');
   champ.value = monde.nomDeGare();
-  $('#baptemeLieu').textContent = `${devisGare().cout.toLocaleString('fr-FR')} $`
-    + ` · ${P.logementsGare} logements, ${P.exploitationsFournies} exploitations,`
-    + ` ${P.moisDeVivres} mois de vivres`;
+  // Le devis du SITE, pas une estimation : la terre ne vaut pas la même chose
+  // ici et trente cases plus loin, et c'est ce qu'on va débiter.
+  const dg = devisGare(monde, c.x, c.y);
+  $('#baptemeLieu').textContent = `${Math.round(dg.cout).toLocaleString('fr-FR')} $`
+    + ` · quai ${Math.round(dg.quai)} $ · ${dg.cases} cases de terrain`
+    + ` ${Math.round(dg.fonciere)} $ (remise ${Math.round(P.remiseFonciereGare * 100)} %)`
+    + ` · ${P.moisDePain} mois de pain`;
   boite.classList.remove('cachee');
   champ.focus(); champ.select();
 
@@ -9691,7 +9788,7 @@ function majBandeauPose() {
   }
   b.classList.remove('cachee');
   $('#bandeauNom').textContent =
-    (rendu.pose === 'gare' ? `Fonder une gare — ${eur(devisGare().cout)}`
+    (rendu.pose === 'gare' ? `Fonder une gare — environ ${eur(devisGare().cout)}`
                            : `Poser — ${BAT[rendu.pose].nom}`)
     + (posesDeSuite ? ` · ${posesDeSuite} posé${posesDeSuite > 1 ? 's' : ''}, continuez`
                     : ' · touchez la carte');
@@ -9712,8 +9809,9 @@ function poser(c) {
     // dire ensuite qu'elle ne peut pas exister est une perte de temps.
     const refus = monde.peutFonderGare(c.x, c.y);
     if (refus) { $('#bandeauNom').textContent = `Fonder une gare — ${refus}`; return false; }
-    if (monde.joueur.tresorerie < devisGare().cout) {
-      $('#bandeauNom').textContent = 'Fonder une gare — trésorerie insuffisante';
+    const dg = devisGare(monde, c.x, c.y);
+    if (monde.joueur.tresorerie < dg.cout) {
+      $('#bandeauNom').textContent = `Fonder une gare — ${eur(dg.cout)}, trésorerie insuffisante`;
       return false;
     }
     demanderNom(c);

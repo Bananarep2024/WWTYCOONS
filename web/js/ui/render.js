@@ -499,8 +499,16 @@ export class Rendu {
       // après l'autre, `date` est un mois absolu : une ligne ouverte au mois 55
       // pour une livraison au mois 80 s'affichait à 69 % de rail posé dès son
       // premier jour. Quatre lignes paraissaient ainsi se construire ensemble.
+      // Deux façons d'avancer, parce qu'il y a deux façons de poser une voie.
+      //
+      // La compagnie pose au CALENDRIER : elle annonce une date, et le rail
+      // sort de terre à ce rythme-là. Le joueur, lui, pose au BUDGET : ce qui
+      // est posé est ce qu'il a payé, mois après mois, et le chantier s'arrête
+      // net quand sa trésorerie s'épuise. Lire la date sur une ligne de joueur
+      // n'avait aucun sens — elle n'en a pas.
       let avance = 0;
       if (l.achevee) avance = 1;
+      else if (l.societe && l.longueur > 0) avance = Math.max(0, Math.min(1, l.pose / l.longueur));
       else if (l.date !== null && l.debut !== null && l.date > l.debut) {
         avance = Math.max(0, Math.min(1, (m.mois - l.debut) / (l.date - l.debut)));
       }

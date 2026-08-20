@@ -16,7 +16,7 @@ import { P, RES, RESSOURCES, BAT, NOURRITURES, materiaux, coutRef,
          niveauVille, prixTerrain, qualiteMax, devisGare, QUALITES,
          FILIERES_LOCALES, RATTACHEMENTS, PANIER, POIDS_PANIER,
          BIENS_SECONDAIRES, VAGUES } from './params.js';
-import { genererMonde, estAchetable, rng,
+import { genererMonde, estAchetable, rng, tracerVoie,
          rayonConstructible, dansLeCarre } from './mapgen.js';
 import { Marche } from './market.js';
 import { Batiment } from './building.js';
@@ -163,7 +163,7 @@ export class Monde {
   fonderGare(x, y, societe, nom = null) {
     const refus = this.peutFonderGare(x, y);
     if (refus) return refus;
-    const devis = devisGare();
+    const devis = devisGare(this, x, y);
     if (!societe.peutPayer(devis.cout)) return 'trésorerie insuffisante';
 
     const v = {
@@ -206,6 +206,24 @@ export class Monde {
 
     this.caseAt(x, y).voie = true;
     societe.payer(devis.cout);
+
+    // LE FONDATEUR EST PROPRIÉTAIRE DE SON CARRÉ.
+    //
+    // Il vient de payer la terre — remisée, mais payée — et elle est à lui :
+    // tout le carré du Comptoir, moins le quai. C'est ce qui fait de la
+    // fondation un acte de propriétaire et non un don à la collectivité. Il n'a
+    // plus rien à acheter pour bâtir chez lui, et la valeur de ce sol montera à
+    // chaque palier que sa ville franchira.
+    //
+    // Au-delà du carré du Comptoir, le territoire reste vierge : ce sera à
+    // acheter, palier après palier, comme partout ailleurs.
+    const r0 = P.rayonPalier[0];
+    for (const c of v.cases) {
+      if (c.voie || c.distanceGare > r0) continue;
+      c.proprio = societe.id;
+      c.vendue = true;
+      c.prixPaye = this.prixCase(v, c);
+    }
     this.villes.push(v);
     this.recomposerMarches();
 
@@ -2043,6 +2061,7 @@ export class Monde {
   lancerVoie(iA, iB, societe) {
     const devis = this.devisVoie(iA, iB);
     if (!devis) return 'gares invalides';
+    const a = this.villes[iA], b = this.villes[iB];
     if (this.dejaReliees(iA, iB)) return 'ces deux gares partagent déjà un marché';
     if (this.liaisons.some(l => !l.achevee && l.societe
         && ((l.a === iA && l.b === iB) || (l.a === iB && l.b === iA)))) {
@@ -2051,7 +2070,15 @@ export class Monde {
     const l = {
       ...devis, pose: 0, depense: 0, societe, debut: this.mois, achevee: false,
       // La voie part de la gare A et va vers B : c'est ce que le tracé affiche.
-      depuisB: false, arret: false,
+      depuisB: false, arret: false, date: null,
+      // L'EMPRISE, tracée tout de suite, comme celle des lignes de la carte.
+      //
+      // Elle manquait, et deux choses en découlaient qu'on ne voyait pas : la
+      // ligne n'était dessinée NULLE PART — `dessinerVoies` saute ce qui n'a pas
+      // d'emprise — et ses cases n'étaient pas réservées, si bien qu'on pouvait
+      // bâtir en travers du rail qu'on venait de payer. Toutes les voies vers
+      // les villes fondées étaient dans ce cas.
+      emprise: tracerVoie(this.cases, this.L, this.H, a.gare, b.gare),
     };
     this.liaisons.push(l);
     this.journal.push(`${this.mois} · ⚒ ${societe.nom} ouvre le chantier ${l.nom}`

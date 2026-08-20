@@ -538,7 +538,11 @@ function construireReseau(villes, rnd) {
 // L'emprise est renvoyée DANS L'ORDRE, de la gare de départ à celle d'arrivée :
 // c'est ce qui permet de la dessiner en train de se construire, gare après gare,
 // au lieu d'un simple trait entre deux points.
-function tracerVoie(cases, L, H, d, f) {
+// LE TRACÉ D'UNE VOIE, case par case. Exporté depuis que le joueur pose ses
+// propres lignes : sans lui, une voie lancée à la main n'avait pas d'emprise,
+// n'était donc dessinée nulle part, et ne réservait aucune case. Le joueur
+// payait une ligne invisible.
+export function tracerVoie(cases, L, H, d, f) {
   const emprise = [];
   let x = d.x, y = d.y;
   const poser = () => {

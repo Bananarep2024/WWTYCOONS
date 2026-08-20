@@ -198,6 +198,62 @@ de valeur quand la ville grandit, l'invariant est tenu.
 et son carré maximal en pointillé : ce qu'on peut bâtir aujourd'hui, et ce que la ville donnera si
 elle grandit. Le pointillé rend aussi lisible la règle de fondation.
 
+## 7. Fonder, c'est acheter un territoire
+
+**Le fondateur est propriétaire de son carré.** Toutes les cases libres du carré du Comptoir —
+1 089, moins le quai — passent à sa société le jour de la fondation. Il n'a plus rien à acheter pour
+bâtir chez lui, et ce sol vaudra davantage à chaque palier que la ville franchira.
+
+**Il les paie, remisé de 70 %.** Il achète en gros, d'un seul tenant, une terre que personne ne
+convoitait et qui ne vaudra quelque chose que s'il la fait vivre. Mesuré sur un site réel :
+
+```
+quai                                2 000 $
+douze mois de pain pour 5 ménages      410 $
+1 089 cases, 41 389 $ de terre nue  12 417 $   (remise de 70 %)
+──────────────────────────────────────────
+                                    14 827 $   contre 15 000 $ de trésorerie de départ
+```
+
+On ne fonde donc pas au premier mois : on économise pour fonder. Et l'on acquiert 41 389 $ de terre
+pour 12 417 $ — **28 972 $ de plus-value latente**, qui est le vrai gain de l'opération.
+
+Le devis est **site-dépendant** : la terre ne vaut pas la même chose selon ce qu'elle porte. Le menu
+affiche une estimation à la qualité de référence (~20 700 $) ; la boîte de baptême affiche le devis
+exact du site, et c'est lui qui est débité — vérifié au dollar près.
+
+> **Conséquence à connaître : la ville ne peut plus bâtir chez elle.** Le pilote de ville ne pose
+> que sur des cases libres ou tenues par des indépendants ; celles du fondateur lui sont fermées,
+> comme celles de n'importe quelle société. Une colonie est donc **entièrement l'affaire de son
+> fondateur** — aucune filière locale n'y naîtra tant qu'il tiendra le sol. C'est cohérent avec ce
+> qu'est la propriété, mais cela veut dire qu'une gare fondée et laissée à elle-même reste vide.
+> *(Elle le restait déjà avant ce changement, faute d'habitants pour épargner : vérifié en
+> désactivant l'attribution, le résultat est identique — zéro bâtiment à 180 mois.)*
+>
+> Mesuré avec un fondateur actif : 44 chantiers ouverts sans un dollar de foncier, 9 ménages à
+> 120 mois, nourriture 100 %, emploi 84 %.
+
+## 8. Les voies du joueur étaient invisibles
+
+Une ligne lancée par le joueur n'avait **pas d'emprise**. Deux conséquences qu'on ne voyait pas :
+
+1. **Elle n'était dessinée nulle part.** `dessinerVoies` saute toute liaison sans emprise ; toutes
+   les voies vers les villes fondées étaient dans ce cas. Le joueur payait une ligne invisible.
+2. **Ses cases n'étaient pas réservées.** On pouvait bâtir en travers du rail qu'on venait de payer.
+
+`tracerVoie` est désormais exporté et appelé à l'ouverture du chantier. Mesuré : 149 cases tracées
+et réservées sur une ligne de 105, et la carte change à l'écran quand la voie avance.
+
+**Et l'avancement se lit autrement selon qui pose.** La compagnie pose au *calendrier* — elle annonce
+une date et le rail sort de terre à ce rythme. Le joueur pose au *budget* : ce qui est posé est ce
+qu'il a payé, et le chantier s'arrête net quand sa trésorerie s'épuise. Lire la date sur une ligne de
+joueur n'avait aucun sens, elle n'en a pas.
+
+> **Reste une inconsistance, antérieure et non traitée :** la longueur facturée est euclidienne
+> (105 cases) tandis que l'emprise réelle suit un escalier (149 cases). C'est la convention de tout
+> le modèle ferroviaire — coût, durée, capital nominal et péage s'appuient tous sur la longueur
+> euclidienne — et la changer invaliderait le calibrage de la commission. Signalé, pas corrigé.
+
 ### Reste ouvert
 
 Le contrôle « aucune montagne de marchandise » est rouge à 16 mois de meubles et d'outillage : les

@@ -254,9 +254,13 @@ function demanderNom(c) {
   const boite = $('#bapteme');
   const champ = $('#baptemeNom');
   champ.value = monde.nomDeGare();
-  $('#baptemeLieu').textContent = `${devisGare().cout.toLocaleString('fr-FR')} $`
-    + ` · ${P.logementsGare} logements, ${P.exploitationsFournies} exploitations,`
-    + ` ${P.moisDeVivres} mois de vivres`;
+  // Le devis du SITE, pas une estimation : la terre ne vaut pas la même chose
+  // ici et trente cases plus loin, et c'est ce qu'on va débiter.
+  const dg = devisGare(monde, c.x, c.y);
+  $('#baptemeLieu').textContent = `${Math.round(dg.cout).toLocaleString('fr-FR')} $`
+    + ` · quai ${Math.round(dg.quai)} $ · ${dg.cases} cases de terrain`
+    + ` ${Math.round(dg.fonciere)} $ (remise ${Math.round(P.remiseFonciereGare * 100)} %)`
+    + ` · ${P.moisDePain} mois de pain`;
   boite.classList.remove('cachee');
   champ.focus(); champ.select();
 
@@ -326,7 +330,7 @@ function majBandeauPose() {
   }
   b.classList.remove('cachee');
   $('#bandeauNom').textContent =
-    (rendu.pose === 'gare' ? `Fonder une gare — ${eur(devisGare().cout)}`
+    (rendu.pose === 'gare' ? `Fonder une gare — environ ${eur(devisGare().cout)}`
                            : `Poser — ${BAT[rendu.pose].nom}`)
     + (posesDeSuite ? ` · ${posesDeSuite} posé${posesDeSuite > 1 ? 's' : ''}, continuez`
                     : ' · touchez la carte');
@@ -347,8 +351,9 @@ function poser(c) {
     // dire ensuite qu'elle ne peut pas exister est une perte de temps.
     const refus = monde.peutFonderGare(c.x, c.y);
     if (refus) { $('#bandeauNom').textContent = `Fonder une gare — ${refus}`; return false; }
-    if (monde.joueur.tresorerie < devisGare().cout) {
-      $('#bandeauNom').textContent = 'Fonder une gare — trésorerie insuffisante';
+    const dg = devisGare(monde, c.x, c.y);
+    if (monde.joueur.tresorerie < dg.cout) {
+      $('#bandeauNom').textContent = `Fonder une gare — ${eur(dg.cout)}, trésorerie insuffisante`;
       return false;
     }
     demanderNom(c);

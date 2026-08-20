@@ -544,6 +544,14 @@ export const P = {
   immigrationFrontiere: 0.8,
   moisDeVivres: 24,            // deux ans de nourriture et de produits, à 100 %
   exploitationsFournies: 3,    // ce que le stock de matériaux permet d'ouvrir
+  // Ce que le fondateur paie sur la terre qu'il acquiert d'un seul tenant. Il
+  // achète en gros une terre que personne ne convoitait : la remise est le prix
+  // du risque, et ce qui reste — un tiers de la valeur — est un vrai
+  // engagement. Mesuré : le carré d'un Comptoir vaut de 41 500 à 57 800 $ selon
+  // le site, soit 12 500 à 17 300 $ après remise. Une gare complète revient donc
+  // autour de 17 000 $ pour une trésorerie de départ de 15 000 : on ne fonde pas
+  // le premier mois, on économise pour fonder.
+  remiseFonciereGare: 0.70,
   coutGareNu: 2000,            // le bâtiment de gare seul, hors cargaison
   rayonGare: 16,               // le territoire qu'ouvre une gare, en cases
   // Une gare ne se pose pas contre une ville ni contre une autre gare : sans
@@ -903,11 +911,47 @@ export function emploisRequis(type) {
 //   vivres        un repas et un produit manufacturé par ménage et par mois,
 //                 pendant vingt-quatre mois — de quoi tenir les trois baromètres
 //                 au plein pendant que le hameau se met debout
-export function devisGare() {
+// LE DEVIS D'UNE GARE — le quai, les vivres, ET LA TERRE.
+//
+// Fonder une ville, c'est acheter un territoire. Le fondateur devient
+// propriétaire de TOUTES les cases libres du carré du Comptoir, et il les paie —
+// remisées de 70 %, parce qu'il achète en gros, d'un seul tenant, une terre que
+// personne ne convoitait et qui ne vaudra quelque chose que s'il la fait vivre.
+// C'est le prix de la spéculation foncière : il tient mille quatre-vingt-neuf
+// cases dont la valeur montera à chaque palier de sa ville.
+//
+// Le devis est SITE-DÉPENDANT dès qu'on lui donne un site : la terre ne vaut pas
+// la même chose selon ce qu'elle porte. Sans site, il rend une estimation à la
+// qualité de référence — c'est ce qu'affiche le menu, faute de savoir encore où
+// l'on va poser.
+export function devisGare(monde = null, x = 0, y = 0) {
   const vivres = { pain: P.menagesNourris * P.moisDePain };
-  let cout = P.coutGareNu;
-  for (const [r, q] of Object.entries(vivres)) cout += q * RES[r].prix;
-  return { mat: {}, vivres, cout };
+  let vivresCout = 0;
+  for (const [r, q] of Object.entries(vivres)) vivresCout += q * RES[r].prix;
+
+  const r0 = P.rayonPalier[0];
+  let terrain = 0, cases = 0;
+  if (monde) {
+    for (let dy = -r0; dy <= r0; dy++) for (let dx = -r0; dx <= r0; dx++) {
+      const c = monde.caseAt(x + dx, y + dy);
+      if (!c || c.ville || c.voie) continue;
+      cases++;
+      terrain += prixTerrain(1, Math.max(Math.abs(dx), Math.abs(dy)), qualiteMax(c));
+    }
+  } else {
+    // L'estimation du menu : le carré plein, à la qualité de référence.
+    for (let dy = -r0; dy <= r0; dy++) for (let dx = -r0; dx <= r0; dx++) {
+      cases++;
+      terrain += prixTerrain(1, Math.max(Math.abs(dx), Math.abs(dy)), 1);
+    }
+  }
+  const fonciere = terrain * (1 - P.remiseFonciereGare);
+  return {
+    mat: {}, vivres, cases,
+    quai: P.coutGareNu, vivresCout, terrainNu: terrain, fonciere,
+    cout: P.coutGareNu + vivresCout + fonciere,
+    estimation: !monde,
+  };
 }
 
 // Le rendement annuel que chaque palier est censé rendre, à cent pour cent
