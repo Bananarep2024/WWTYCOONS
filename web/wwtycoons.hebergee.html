@@ -921,8 +921,61 @@ const P = {
   // monte mécaniquement avec les villes qu'elle dessert.
   capitalParCaseDeVoie: 150,   // capital nominal d'une ligne, par case de longueur
   prixNominalAction: 10,       // une action de compagnie ferroviaire
-  peageRail: 0.010,            // 1 % du chiffre d'affaires du marché desservi
   entretienVoie: 0.04,         // 4 % / an du capital nominal
+
+  // --- LE MODÈLE ÉCONOMIQUE DU RAIL ---
+  //
+  // Deux recettes, et il faut les deux.
+  //
+  // 1. VOYAGEURS ET COURRIER — une recette par ménage relié et par mois. C'est
+  //    la part STABLE : elle ne dépend d'aucun cours, elle ne s'effondre pas en
+  //    bas de cycle, et elle monte avec la population. C'est ce qui fait du rail
+  //    la valeur de croissance du jeu : son revenu augmente sans que le porteur
+  //    ait rien à faire, pourvu que les villes qu'il dessert grandissent.
+  //
+  // 2. COMMISSION SUR LE FRET — un pourcentage de la valeur des marchandises
+  //    qui passent par le marché desservi. C'est la part CYCLIQUE : elle suit
+  //    les prix et les volumes, donc elle triple en haut de cycle et fond en bas.
+  //
+  // La commission ENTRE DANS LE PRIX. Un marché relié cote plus cher qu'un
+  // marché isolé, exactement de la commission — c'est un prix rendu, port
+  // compris. Le producteur, lui, encaisse toujours le même prix départ : le rail
+  // ne lui prend rien, il facture l'acheminement à l'acheteur. C'est la seule
+  // formulation honnête, et c'est aussi celle qui donne au joueur le bon signal :
+  // relier deux villes RENCHÉRIT leurs marchandises, et n'a d'intérêt que si
+  // l'écart de prix entre les deux dépasse la commission.
+  //
+  // LE CALIBRAGE. Balayé sur 25 ans, cinq villes reliées, graine 12345. Le
+  // réseau fait 799 cases, coûte 95 880 $ à poser et 4 794 $/an à entretenir.
+  // Résultat net de la compagnie, et année où elle a remboursé la voie :
+  //
+  //   commission   an 5    an 10   an 15   an 20   an 25   remb.    ménages
+  //        0 %      −57    −113      15     208     425   jamais      2 355
+  //        1 %      239     446     821   1 342   1 875   17,9 ans    2 169
+  //        2 %      566     905   1 486   2 439   3 657   13,0 ans    2 481
+  //        4 %    1 137   1 904   2 777   3 926   5 612    9,3 ans    2 032
+  //        8 %    2 284   3 784   4 911   6 833   9 412    6,7 ans    1 960
+  //       15 %    4 133   5 625   7 624   9 602  12 453    5,2 ans    1 481
+  //
+  // Trois choses se lisent là-dedans.
+  //
+  // 1. SANS COMMISSION, LE RAIL NE SE REMBOURSE JAMAIS. Le voyageur et le
+  //    courrier ne couvrent même pas l'entretien avant la quinzième année. Une
+  //    ligne ne peut pas vivre de son quai : il lui faut du fret.
+  // 2. AU-DELÀ DE 4 %, LA COMMISSION ÉTRANGLE CE QU'ELLE TRANSPORTE. À 15 % la
+  //    compagnie gagne cinq fois plus et il y a 40 % d'habitants en moins : elle
+  //    a mangé son propre marché.
+  // 3. L'OPTIMUM DE L'ÉCONOMIE EST À 2 %, et il est net — 2 481 ménages, plus
+  //    qu'à 0 % (2 355) parce qu'une compagnie rentable reverse des dividendes
+  //    qui rebâtissent les villes, et plus qu'à 4 % parce que le port ne pèse
+  //    pas encore sur les cours.
+  //
+  // Treize ans de remboursement, c'est délibérément long : le rail est le pari
+  // du jeu. À cinq ans il rend 7 %/an, moins qu'une maison ; à vingt ans il en
+  // rend 30, plus qu'une manufacture. C'est le seul actif dont le revenu monte
+  // tout seul, et c'est ce qu'on achète en le posant.
+  voyageursParMenage: 0.35,    // $ / mois et par ménage relié — voyageurs et courrier
+  commissionFret: 0.020,       // 2 % de la valeur des marchandises, incluse dans le prix
 
   multipleNormal: 10,
   multipleEuphorie: 15,
@@ -2431,11 +2484,19 @@ class Marche {
       this.service[r] = 1;
       this.prixRevient[r] = Infinity;
     }
-    // Le péage ferroviaire : nul sur un marché d'une seule ville, puisque
-    // aucune ligne ne le dessert. Il est prélevé sur les producteurs au moment
-    // de la vente et reversé aux compagnies — rien n'est créé.
-    this.peage = 0;
+    // LA COMMISSION DE FRET : nulle sur un marché d'une seule ville, puisque
+    // aucune ligne ne le dessert.
+    //
+    // Elle ENTRE DANS LE PRIX. Un marché relié cote son prix RENDU, port
+    // compris : la référence autour de laquelle le cours se forme est majorée de
+    // la commission, si bien que l'acheteur paie l'acheminement et que le
+    // producteur encaisse toujours son prix départ. Le rail ne prend rien au
+    // producteur — il facture un service à celui qui en profite.
+    this.fret = 0;
     this.peageCollecte = 0;
+    // Ce qui a réellement franchi une frontière de ville ce mois-ci, en valeur :
+    // sert à montrer le trafic, jamais à calculer la recette.
+    this.tonnageTransporte = 0;
     // L'historique des cours : sans lui, le joueur ne voit qu'un instantané et
     // ne peut pas distinguer une pénurie qui s'installe d'un accident d'un mois.
     this.histoPrix = {};
@@ -2534,7 +2595,10 @@ class Marche {
 
   fixerPrix() {
     for (const r of RESSOURCES) {
-      const ref = RES[r].prix;
+      // LE PRIX D'UN MARCHÉ RELIÉ EST UN PRIX RENDU. La référence autour de
+      // laquelle il se forme porte la commission de fret : c'est ainsi que le
+      // port entre dans le cours, et non dans la poche du producteur.
+      const ref = RES[r].prix * (1 + this.fret);
 
       // Le besoin qui fait le prix n'est plus la seule consommation du mois :
       // c'est elle plus ce qu'il faut acheter pour ramener la cave au matelas.
@@ -2650,7 +2714,10 @@ class Marche {
     // 2. Ce qui manque va chercher le surplus des villes reliées, au prorata.
     const manque = qte - local;
     if (manque > 0.0001 && this.serviceCommun[res] > 0) {
-      servi += this.puiserAilleurs(res, manque * this.serviceCommun[res], l);
+      const venuDAilleurs = this.puiserAilleurs(res, manque * this.serviceCommun[res], l);
+      servi += venuDAilleurs;
+      // Ce qui a franchi une frontière de ville : le vrai trafic marchandises.
+      this.tonnageTransporte += venuDAilleurs * this.prix[res];
     }
 
     l.restants[res] = Math.max(0, l.restants[res] - qte);
@@ -2751,6 +2818,7 @@ class Marche {
     // mois ne disant rien quand la consommation se fait en juste-à-temps.
     this.entreesPrec = { ...this.entrees };
     this.peageCollecte = 0;
+    this.tonnageTransporte = 0;
     for (const r of RESSOURCES) { this.besoins[r] = 0; this.entrees[r] = 0; }
     for (const l of this.parVille.values()) {
       for (const r of RESSOURCES) { l.besoins[r] = 0; l.entrees[r] = 0; }
@@ -2767,7 +2835,13 @@ class Marche {
   }
 
   // Rapport prix / référence, pour l'affichage.
-  indice(res) { return this.prix[res] / RES[res].prix; }
+  // L'indice se lit contre la référence RENDUE, port compris. Sinon un marché
+  // relié afficherait 1,02 en permanence et le joueur lirait une tension qui
+  // n'existe pas : le port n'est pas de la rareté, c'est un service facturé.
+  indice(res) { return this.prix[res] / (RES[res].prix * (1 + this.fret)); }
+
+  // Le prix départ, celui que le producteur encaisse réellement.
+  prixDepart(res) { return this.prix[res] / (1 + this.fret); }
 }
 
 // ===== js/sim/building.js ============================================
@@ -3071,12 +3145,18 @@ class Batiment {
 
     const prixSortie = marche.prix[this.def.sort];
     const brut = this.production * prixSortie;
-    // Le péage ferroviaire se prélève à la vente, comme un frais de port. Il ne
-    // pèse que sur les marchés desservis par une ligne — un marché isolé n'a
-    // rien à payer, mais il n'a rien non plus à vendre au-dehors.
-    const peage = brut * (marche.peage || 0);
-    marche.peageCollecte += peage;
-    const recette = brut - peage;
+    // LE PORT SORT DU PRIX RENDU, il ne s'ajoute pas à la facture du producteur.
+    //
+    // Sur un marché relié, le cours se forme autour d'une référence majorée de
+    // la commission : le prix affiché est un prix rendu. On en retire donc la
+    // part de port — c/(1+c) du prix rendu, soit exactement la commission sur le
+    // prix départ — et le producteur encaisse ce qu'il aurait encaissé sans le
+    // rail. C'est l'acheteur qui paie l'acheminement, et c'est lui qui en
+    // profite : il obtient une marchandise que sa ville ne sait pas produire.
+    const c = marche.fret || 0;
+    const port = brut * c / (1 + c);
+    marche.peageCollecte += port;
+    const recette = brut - port;
     const salaires = this.masseSalarialePleine * taux;
 
     this.resultat = recette - achats - salaires - ent;
@@ -4053,7 +4133,7 @@ class Monde {
       nom: 'Compagnie Générale des Chemins de Fer',
       capital: 0, actions: 0, parts: {}, cotee: false,
       cours: P.prixNominalAction, introduiteLe: null,
-      recette: 0, charges: 0, resultat: 0,
+      recette: 0, charges: 0, resultat: 0, fret: 0, voyageurs: 0, tonnage: 0,
       histoResultat: [], histoCours: [],
       lignes: [],                        // les liaisons achevées
     };
@@ -5223,7 +5303,7 @@ class Monde {
       m.reinitialiser();
       // Un marché fusionné est desservi par au moins une ligne : c'est elle qui
       // le rend possible, et c'est elle qui se fait payer.
-      m.peage = m.villes.length > 1 ? P.peageRail : 0;
+      m.fret = m.villes.length > 1 ? P.commissionFret : 0;
     }
 
     // --- 1. Tout le monde déclare ses besoins ------------------------------
@@ -5918,9 +5998,21 @@ class Monde {
     c.recette = 0; c.charges = 0; c.resultat = 0;
     if (!c.lignes.length) return;
 
+    // DEUX RECETTES, ET IL FAUT LES DEUX.
+    //
+    // Le fret suit les cours et les volumes : il triple en haut de cycle et fond
+    // en bas. Le voyageur et le courrier ne dépendent de rien — ni d'un prix, ni
+    // d'une récolte — ils ne dépendent que du nombre de gens reliés. C'est la
+    // part qui ne s'effondre pas, et c'est elle qui fait du rail une valeur de
+    // croissance plutôt qu'un pari sur la conjoncture.
+    c.fret = 0; c.voyageurs = 0; c.tonnage = 0;
     for (const m of this.marches) {
-      if (m.villes.length > 1) c.recette += m.peageCollecte || 0;
+      if (m.villes.length < 2) continue;
+      c.fret += m.peageCollecte || 0;
+      c.tonnage += m.tonnageTransporte || 0;
+      for (const v of m.villes) c.voyageurs += v.menages * P.voyageursParMenage;
     }
+    c.recette = c.fret + c.voyageurs;
     c.charges = this.capitalNominal() * P.entretienVoie / 12;
     c.resultat = c.recette - c.charges;
     c.histoResultat.push(c.resultat);
@@ -7579,7 +7671,22 @@ function voletBourse(monde, rendu) {
         <span>capitalisation <b>${eur(monde.capitalisationRail())}</b></span>
         <span class="${benef >= 0 ? 'vert' : 'rouge'}">${eur(benef)}/an</span>
         ${mien > 0 ? `<span class="or">votre part ${pct(partPct)} · ${eur(mien * cours)}</span>` : ''}
-      </div>` : `<div class="piedRes">
+      </div>
+      <table style="margin-top:6px">
+        <tr><td>Voyageurs et courrier
+          <span class="faible">${eur(P.voyageursParMenage)} par ménage relié</span></td>
+          <td class="n vert">${eur(co.voyageurs || 0)}</td></tr>
+        <tr><td>Commission sur le fret
+          <span class="faible">${pct(P.commissionFret)} de la valeur, incluse dans le prix</span></td>
+          <td class="n vert">${eur(co.fret || 0)}</td></tr>
+        <tr><td>Entretien de la voie
+          <span class="faible">${pct(P.entretienVoie)} par an du capital nominal</span></td>
+          <td class="n rouge">−${eur(co.charges || 0)}</td></tr>
+        <tr><td><b>Résultat du mois</b></td>
+          <td class="n"><b class="${co.resultat >= 0 ? 'vert' : 'rouge'}">${eur(co.resultat || 0)}</b></td></tr>
+        <tr><td class="faible">dont marchandises ayant réellement voyagé</td>
+          <td class="n faible">${eur(co.tonnage || 0)}</td></tr>
+      </table>` : `<div class="piedRes">
         <span class="doux">souscrit ${eur(co.capital)}</span>
         ${mien > 0 ? `<span class="or">vous : ${eur(mien * P.prixNominalAction)}</span>` : ''}
       </div>`}
@@ -7600,11 +7707,21 @@ function voletBourse(monde, rendu) {
         d'ouverture du chantier en cours. Le jour de la première ligne, le consortium extérieur
         complète le capital, la compagnie <b>entre en bourse</b> et acquiert d'un coup tout
         son goodwill.<br><br>
-        Elle vit ensuite d'un péage de ${pct(P.peageRail)} sur le chiffre d'affaires du marché
-        qu'elle dessert, au prorata du rail qu'elle a posé, et verse son bénéfice à ses
-        porteurs. C'est la valeur de croissance du jeu : son profit monte avec les villes,
-        sans que vous ayez rien à faire — mais vous souscrivez en aveugle, des années avant
-        de savoir lesquelles auront grandi.
+        Elle vit ensuite de <b>deux recettes</b>, et il lui faut les deux. Les
+        <b>voyageurs et le courrier</b> — ${eur(P.voyageursParMenage)} par ménage relié et par
+        mois — ne dépendent d'aucun cours : c'est la part qui ne s'effondre jamais, et elle
+        monte avec la population. La <b>commission de ${pct(P.commissionFret)} sur le fret</b>
+        suit les prix et les volumes : elle triple en haut de cycle et fond en bas.<br><br>
+        <b>La commission entre dans le prix.</b> Un marché relié cote son prix <i>rendu</i>,
+        port compris : c'est l'acheteur qui paie l'acheminement, et le producteur encaisse
+        toujours son prix départ. Relier deux villes renchérit donc leurs marchandises — et
+        n'a d'intérêt que si l'écart de prix entre elles dépasse la commission.<br><br>
+        Sans commission, une ligne ne rembourse <b>jamais</b> : le quai ne couvre même pas
+        l'entretien avant la quinzième année. À ${pct(P.commissionFret)} elle se rembourse en
+        treize ans — à cinq ans elle rend 7 % l'an, moins qu'une maison ; à vingt ans elle en
+        rend 30, plus qu'une manufacture. C'est le seul actif du jeu dont le revenu monte tout
+        seul, et c'est ce que vous achetez en posant la voie — des années avant de savoir
+        quelles villes auront grandi.
       </div>`;
 }
 

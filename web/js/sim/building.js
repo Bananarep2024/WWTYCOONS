@@ -299,12 +299,18 @@ export class Batiment {
 
     const prixSortie = marche.prix[this.def.sort];
     const brut = this.production * prixSortie;
-    // Le péage ferroviaire se prélève à la vente, comme un frais de port. Il ne
-    // pèse que sur les marchés desservis par une ligne — un marché isolé n'a
-    // rien à payer, mais il n'a rien non plus à vendre au-dehors.
-    const peage = brut * (marche.peage || 0);
-    marche.peageCollecte += peage;
-    const recette = brut - peage;
+    // LE PORT SORT DU PRIX RENDU, il ne s'ajoute pas à la facture du producteur.
+    //
+    // Sur un marché relié, le cours se forme autour d'une référence majorée de
+    // la commission : le prix affiché est un prix rendu. On en retire donc la
+    // part de port — c/(1+c) du prix rendu, soit exactement la commission sur le
+    // prix départ — et le producteur encaisse ce qu'il aurait encaissé sans le
+    // rail. C'est l'acheteur qui paie l'acheminement, et c'est lui qui en
+    // profite : il obtient une marchandise que sa ville ne sait pas produire.
+    const c = marche.fret || 0;
+    const port = brut * c / (1 + c);
+    marche.peageCollecte += port;
+    const recette = brut - port;
     const salaires = this.masseSalarialePleine * taux;
 
     this.resultat = recette - achats - salaires - ent;

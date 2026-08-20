@@ -34,11 +34,19 @@ export class Marche {
       this.service[r] = 1;
       this.prixRevient[r] = Infinity;
     }
-    // Le péage ferroviaire : nul sur un marché d'une seule ville, puisque
-    // aucune ligne ne le dessert. Il est prélevé sur les producteurs au moment
-    // de la vente et reversé aux compagnies — rien n'est créé.
-    this.peage = 0;
+    // LA COMMISSION DE FRET : nulle sur un marché d'une seule ville, puisque
+    // aucune ligne ne le dessert.
+    //
+    // Elle ENTRE DANS LE PRIX. Un marché relié cote son prix RENDU, port
+    // compris : la référence autour de laquelle le cours se forme est majorée de
+    // la commission, si bien que l'acheteur paie l'acheminement et que le
+    // producteur encaisse toujours son prix départ. Le rail ne prend rien au
+    // producteur — il facture un service à celui qui en profite.
+    this.fret = 0;
     this.peageCollecte = 0;
+    // Ce qui a réellement franchi une frontière de ville ce mois-ci, en valeur :
+    // sert à montrer le trafic, jamais à calculer la recette.
+    this.tonnageTransporte = 0;
     // L'historique des cours : sans lui, le joueur ne voit qu'un instantané et
     // ne peut pas distinguer une pénurie qui s'installe d'un accident d'un mois.
     this.histoPrix = {};
@@ -137,7 +145,10 @@ export class Marche {
 
   fixerPrix() {
     for (const r of RESSOURCES) {
-      const ref = RES[r].prix;
+      // LE PRIX D'UN MARCHÉ RELIÉ EST UN PRIX RENDU. La référence autour de
+      // laquelle il se forme porte la commission de fret : c'est ainsi que le
+      // port entre dans le cours, et non dans la poche du producteur.
+      const ref = RES[r].prix * (1 + this.fret);
 
       // Le besoin qui fait le prix n'est plus la seule consommation du mois :
       // c'est elle plus ce qu'il faut acheter pour ramener la cave au matelas.
@@ -253,7 +264,10 @@ export class Marche {
     // 2. Ce qui manque va chercher le surplus des villes reliées, au prorata.
     const manque = qte - local;
     if (manque > 0.0001 && this.serviceCommun[res] > 0) {
-      servi += this.puiserAilleurs(res, manque * this.serviceCommun[res], l);
+      const venuDAilleurs = this.puiserAilleurs(res, manque * this.serviceCommun[res], l);
+      servi += venuDAilleurs;
+      // Ce qui a franchi une frontière de ville : le vrai trafic marchandises.
+      this.tonnageTransporte += venuDAilleurs * this.prix[res];
     }
 
     l.restants[res] = Math.max(0, l.restants[res] - qte);
@@ -354,6 +368,7 @@ export class Marche {
     // mois ne disant rien quand la consommation se fait en juste-à-temps.
     this.entreesPrec = { ...this.entrees };
     this.peageCollecte = 0;
+    this.tonnageTransporte = 0;
     for (const r of RESSOURCES) { this.besoins[r] = 0; this.entrees[r] = 0; }
     for (const l of this.parVille.values()) {
       for (const r of RESSOURCES) { l.besoins[r] = 0; l.entrees[r] = 0; }
@@ -370,5 +385,11 @@ export class Marche {
   }
 
   // Rapport prix / référence, pour l'affichage.
-  indice(res) { return this.prix[res] / RES[res].prix; }
+  // L'indice se lit contre la référence RENDUE, port compris. Sinon un marché
+  // relié afficherait 1,02 en permanence et le joueur lirait une tension qui
+  // n'existe pas : le port n'est pas de la rareté, c'est un service facturé.
+  indice(res) { return this.prix[res] / (RES[res].prix * (1 + this.fret)); }
+
+  // Le prix départ, celui que le producteur encaisse réellement.
+  prixDepart(res) { return this.prix[res] / (1 + this.fret); }
 }

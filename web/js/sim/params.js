@@ -183,8 +183,61 @@ export const P = {
   // monte mécaniquement avec les villes qu'elle dessert.
   capitalParCaseDeVoie: 150,   // capital nominal d'une ligne, par case de longueur
   prixNominalAction: 10,       // une action de compagnie ferroviaire
-  peageRail: 0.010,            // 1 % du chiffre d'affaires du marché desservi
   entretienVoie: 0.04,         // 4 % / an du capital nominal
+
+  // --- LE MODÈLE ÉCONOMIQUE DU RAIL ---
+  //
+  // Deux recettes, et il faut les deux.
+  //
+  // 1. VOYAGEURS ET COURRIER — une recette par ménage relié et par mois. C'est
+  //    la part STABLE : elle ne dépend d'aucun cours, elle ne s'effondre pas en
+  //    bas de cycle, et elle monte avec la population. C'est ce qui fait du rail
+  //    la valeur de croissance du jeu : son revenu augmente sans que le porteur
+  //    ait rien à faire, pourvu que les villes qu'il dessert grandissent.
+  //
+  // 2. COMMISSION SUR LE FRET — un pourcentage de la valeur des marchandises
+  //    qui passent par le marché desservi. C'est la part CYCLIQUE : elle suit
+  //    les prix et les volumes, donc elle triple en haut de cycle et fond en bas.
+  //
+  // La commission ENTRE DANS LE PRIX. Un marché relié cote plus cher qu'un
+  // marché isolé, exactement de la commission — c'est un prix rendu, port
+  // compris. Le producteur, lui, encaisse toujours le même prix départ : le rail
+  // ne lui prend rien, il facture l'acheminement à l'acheteur. C'est la seule
+  // formulation honnête, et c'est aussi celle qui donne au joueur le bon signal :
+  // relier deux villes RENCHÉRIT leurs marchandises, et n'a d'intérêt que si
+  // l'écart de prix entre les deux dépasse la commission.
+  //
+  // LE CALIBRAGE. Balayé sur 25 ans, cinq villes reliées, graine 12345. Le
+  // réseau fait 799 cases, coûte 95 880 $ à poser et 4 794 $/an à entretenir.
+  // Résultat net de la compagnie, et année où elle a remboursé la voie :
+  //
+  //   commission   an 5    an 10   an 15   an 20   an 25   remb.    ménages
+  //        0 %      −57    −113      15     208     425   jamais      2 355
+  //        1 %      239     446     821   1 342   1 875   17,9 ans    2 169
+  //        2 %      566     905   1 486   2 439   3 657   13,0 ans    2 481
+  //        4 %    1 137   1 904   2 777   3 926   5 612    9,3 ans    2 032
+  //        8 %    2 284   3 784   4 911   6 833   9 412    6,7 ans    1 960
+  //       15 %    4 133   5 625   7 624   9 602  12 453    5,2 ans    1 481
+  //
+  // Trois choses se lisent là-dedans.
+  //
+  // 1. SANS COMMISSION, LE RAIL NE SE REMBOURSE JAMAIS. Le voyageur et le
+  //    courrier ne couvrent même pas l'entretien avant la quinzième année. Une
+  //    ligne ne peut pas vivre de son quai : il lui faut du fret.
+  // 2. AU-DELÀ DE 4 %, LA COMMISSION ÉTRANGLE CE QU'ELLE TRANSPORTE. À 15 % la
+  //    compagnie gagne cinq fois plus et il y a 40 % d'habitants en moins : elle
+  //    a mangé son propre marché.
+  // 3. L'OPTIMUM DE L'ÉCONOMIE EST À 2 %, et il est net — 2 481 ménages, plus
+  //    qu'à 0 % (2 355) parce qu'une compagnie rentable reverse des dividendes
+  //    qui rebâtissent les villes, et plus qu'à 4 % parce que le port ne pèse
+  //    pas encore sur les cours.
+  //
+  // Treize ans de remboursement, c'est délibérément long : le rail est le pari
+  // du jeu. À cinq ans il rend 7 %/an, moins qu'une maison ; à vingt ans il en
+  // rend 30, plus qu'une manufacture. C'est le seul actif dont le revenu monte
+  // tout seul, et c'est ce qu'on achète en le posant.
+  voyageursParMenage: 0.35,    // $ / mois et par ménage relié — voyageurs et courrier
+  commissionFret: 0.020,       // 2 % de la valeur des marchandises, incluse dans le prix
 
   multipleNormal: 10,
   multipleEuphorie: 15,

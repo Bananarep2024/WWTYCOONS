@@ -513,6 +513,93 @@ Mesuré à 120 mois (graine 12345), Roche-Noire : capacité totale 10 396 $, don
 des ménages et **−7 740 $** de trésorerie des filières — la Meunerie à −18 045 $ et l'Élevage à
 −11 279 $ contre une Forestière à +1 083 $ qui dégage 20 265 $ par an.
 
+### 5.12 — Le modèle économique du chemin de fer
+
+**Les coûts.** Une voie coûte **120 $ la case** à poser, payés au fil du chantier par qui la lance.
+Son capital nominal — la base de sa valorisation et de son entretien — est de **150 $ la case**, et
+elle coûte **4 % par an** de ce capital à entretenir. Le réseau des cinq villes de la graine 12345
+fait 799 cases : **95 880 $** de construction et **4 794 $ par an** d'entretien.
+
+**Les recettes, et il en faut deux.**
+
+1. **Voyageurs et courrier** — **0,35 $ par ménage relié et par mois**. Ne dépend d'aucun cours, ne
+   s'effondre jamais, monte avec la population. C'est la part qui fait du rail une valeur de
+   croissance.
+2. **Commission sur le fret** — **2 % de la valeur des marchandises** du marché desservi. Suit les
+   prix et les volumes : triple en haut de cycle, fond en bas.
+
+**La commission entre dans le prix.** Sur un marché relié, le cours se forme autour d'une référence
+**majorée de la commission** : le prix affiché est un prix *rendu*, port compris. L'acheteur paie
+l'acheminement ; le producteur encaisse toujours son prix départ. Le rail ne prend rien à personne,
+il facture un service à celui qui en profite — et relier deux villes **renchérit** donc leurs
+marchandises, ce qui n'a d'intérêt que si l'écart de prix entre elles dépasse la commission.
+*(L'indice affiché se lit contre la référence rendue : le port n'est pas de la rareté.)*
+
+**La trajectoire**, mesurée sur 25 ans :
+
+| An | Voyageurs | Fret | Entretien | Résultat | Cumulé | Ménages reliés |
+|---:|---:|---:|---:|---:|---:|---:|
+| 5 | 180 $ | 614 $ | −229 $ | 566 $ | 11 408 $ | 599 |
+| 10 | 301 $ | 1 004 $ | −400 $ | 905 $ | 55 028 $ | 860 |
+| 15 | 460 $ | 1 425 $ | −400 $ | 1 486 $ | 129 462 $ | 1 314 |
+| 20 | 651 $ | 2 188 $ | −400 $ | 2 439 $ | 249 102 $ | 1 859 |
+| 25 | 868 $ | 3 188 $ | −400 $ | 3 657 $ | 430 523 $ | 2 481 |
+
+**La voie est remboursée au bout de treize ans.** À cinq ans elle rend 7 % l'an, moins qu'une
+maison ; à vingt ans elle en rend 30, plus qu'une manufacture. C'est le seul actif du jeu dont le
+revenu monte tout seul, et c'est ce qu'on achète en posant la voie — des années avant de savoir
+quelles villes auront grandi.
+
+**À quel taux la commission devient-elle rentable ?** Balayage sur 25 ans, résultat net mensuel de
+la compagnie et année de remboursement :
+
+| Commission | An 5 | An 10 | An 15 | An 20 | An 25 | Remboursée | Ménages |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0 % | −57 $ | −113 $ | 15 $ | 208 $ | 425 $ | **jamais** | 2 355 |
+| 1 % | 239 $ | 446 $ | 821 $ | 1 342 $ | 1 875 $ | 17,9 ans | 2 169 |
+| **2 %** | **566 $** | **905 $** | **1 486 $** | **2 439 $** | **3 657 $** | **13,0 ans** | **2 481** |
+| 4 % | 1 137 $ | 1 904 $ | 2 777 $ | 3 926 $ | 5 612 $ | 9,3 ans | 2 032 |
+| 8 % | 2 284 $ | 3 784 $ | 4 911 $ | 6 833 $ | 9 412 $ | 6,7 ans | 1 960 |
+| 15 % | 4 133 $ | 5 625 $ | 7 624 $ | 9 602 $ | 12 453 $ | 5,2 ans | 1 481 |
+
+Trois choses s'y lisent :
+
+- **Sans commission, une ligne ne se rembourse jamais.** Le quai ne couvre même pas l'entretien
+  avant la quinzième année. Le rail ne peut pas vivre du voyageur seul.
+- **Au-delà de 4 %, la commission étrangle ce qu'elle transporte.** À 15 % la compagnie gagne cinq
+  fois plus et il y a 40 % d'habitants en moins : elle a mangé son propre marché.
+- **L'optimum de l'économie est à 2 %**, et il est net — plus qu'à 0 % (2 481 contre 2 355) parce
+  qu'une compagnie rentable reverse des dividendes qui rebâtissent les villes, et plus qu'à 4 %
+  parce que le port ne pèse pas encore sur les cours. Vérifié sur quatre graines.
+
+### 5.13 — La borne d'arbitrage : importer doit rester moins cher que produire mal
+
+**Règle.** Il doit toujours revenir moins cher d'importer une marchandise tirée d'une case de
+qualité 3 que de la produire chez soi sur une case de qualité 2.
+
+Une exploitation coûte la même chose partout — 1 employé à 20 $ et 6,72 $ d'entretien, soit
+**26,72 $ par mois** — et ne diffère que par ce qu'elle sort :
+
+| Case | Production | Coût de revient |
+|---|---:|---:|
+| 1 | 10 unités | 2,672 $ / unité |
+| 2 | 20 unités | 1,336 $ / unité |
+| 3 | 50 unités | **0,534 $ / unité** |
+
+La condition s'écrit alors sans ambiguïté :
+
+```
+coût q3 × (1 + commission)  <  coût q2
+0,534 × (1 + c)             <  1,336
+                        c   <  150 %
+```
+
+En général : **commission maximale = (production q3 ÷ production q2) − 1**, soit `5/2 − 1 = 150 %`
+avec l'échelle de sol `[0, 1, 2, 5]`. À 2 %, on est **soixante-quinze fois sous la borne** : la
+règle n'est pas contraignante, et ce n'est pas elle qui fixe la commission. C'est la santé de
+l'économie qui la fixe, à 2 %. La borne ne redeviendrait mordante que si l'écart entre une bonne et
+une mauvaise case se resserrait — ce qui est justement ce que le § 5.9 interdit.
+
 ---
 
 ## 6. La carte

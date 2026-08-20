@@ -47,7 +47,7 @@ export class Monde {
       nom: 'Compagnie Générale des Chemins de Fer',
       capital: 0, actions: 0, parts: {}, cotee: false,
       cours: P.prixNominalAction, introduiteLe: null,
-      recette: 0, charges: 0, resultat: 0,
+      recette: 0, charges: 0, resultat: 0, fret: 0, voyageurs: 0, tonnage: 0,
       histoResultat: [], histoCours: [],
       lignes: [],                        // les liaisons achevées
     };
@@ -1217,7 +1217,7 @@ export class Monde {
       m.reinitialiser();
       // Un marché fusionné est desservi par au moins une ligne : c'est elle qui
       // le rend possible, et c'est elle qui se fait payer.
-      m.peage = m.villes.length > 1 ? P.peageRail : 0;
+      m.fret = m.villes.length > 1 ? P.commissionFret : 0;
     }
 
     // --- 1. Tout le monde déclare ses besoins ------------------------------
@@ -1912,9 +1912,21 @@ export class Monde {
     c.recette = 0; c.charges = 0; c.resultat = 0;
     if (!c.lignes.length) return;
 
+    // DEUX RECETTES, ET IL FAUT LES DEUX.
+    //
+    // Le fret suit les cours et les volumes : il triple en haut de cycle et fond
+    // en bas. Le voyageur et le courrier ne dépendent de rien — ni d'un prix, ni
+    // d'une récolte — ils ne dépendent que du nombre de gens reliés. C'est la
+    // part qui ne s'effondre pas, et c'est elle qui fait du rail une valeur de
+    // croissance plutôt qu'un pari sur la conjoncture.
+    c.fret = 0; c.voyageurs = 0; c.tonnage = 0;
     for (const m of this.marches) {
-      if (m.villes.length > 1) c.recette += m.peageCollecte || 0;
+      if (m.villes.length < 2) continue;
+      c.fret += m.peageCollecte || 0;
+      c.tonnage += m.tonnageTransporte || 0;
+      for (const v of m.villes) c.voyageurs += v.menages * P.voyageursParMenage;
     }
+    c.recette = c.fret + c.voyageurs;
     c.charges = this.capitalNominal() * P.entretienVoie / 12;
     c.resultat = c.recette - c.charges;
     c.histoResultat.push(c.resultat);

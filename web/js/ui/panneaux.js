@@ -682,7 +682,22 @@ export function voletBourse(monde, rendu) {
         <span>capitalisation <b>${eur(monde.capitalisationRail())}</b></span>
         <span class="${benef >= 0 ? 'vert' : 'rouge'}">${eur(benef)}/an</span>
         ${mien > 0 ? `<span class="or">votre part ${pct(partPct)} · ${eur(mien * cours)}</span>` : ''}
-      </div>` : `<div class="piedRes">
+      </div>
+      <table style="margin-top:6px">
+        <tr><td>Voyageurs et courrier
+          <span class="faible">${eur(P.voyageursParMenage)} par ménage relié</span></td>
+          <td class="n vert">${eur(co.voyageurs || 0)}</td></tr>
+        <tr><td>Commission sur le fret
+          <span class="faible">${pct(P.commissionFret)} de la valeur, incluse dans le prix</span></td>
+          <td class="n vert">${eur(co.fret || 0)}</td></tr>
+        <tr><td>Entretien de la voie
+          <span class="faible">${pct(P.entretienVoie)} par an du capital nominal</span></td>
+          <td class="n rouge">−${eur(co.charges || 0)}</td></tr>
+        <tr><td><b>Résultat du mois</b></td>
+          <td class="n"><b class="${co.resultat >= 0 ? 'vert' : 'rouge'}">${eur(co.resultat || 0)}</b></td></tr>
+        <tr><td class="faible">dont marchandises ayant réellement voyagé</td>
+          <td class="n faible">${eur(co.tonnage || 0)}</td></tr>
+      </table>` : `<div class="piedRes">
         <span class="doux">souscrit ${eur(co.capital)}</span>
         ${mien > 0 ? `<span class="or">vous : ${eur(mien * P.prixNominalAction)}</span>` : ''}
       </div>`}
@@ -703,11 +718,21 @@ export function voletBourse(monde, rendu) {
         d'ouverture du chantier en cours. Le jour de la première ligne, le consortium extérieur
         complète le capital, la compagnie <b>entre en bourse</b> et acquiert d'un coup tout
         son goodwill.<br><br>
-        Elle vit ensuite d'un péage de ${pct(P.peageRail)} sur le chiffre d'affaires du marché
-        qu'elle dessert, au prorata du rail qu'elle a posé, et verse son bénéfice à ses
-        porteurs. C'est la valeur de croissance du jeu : son profit monte avec les villes,
-        sans que vous ayez rien à faire — mais vous souscrivez en aveugle, des années avant
-        de savoir lesquelles auront grandi.
+        Elle vit ensuite de <b>deux recettes</b>, et il lui faut les deux. Les
+        <b>voyageurs et le courrier</b> — ${eur(P.voyageursParMenage)} par ménage relié et par
+        mois — ne dépendent d'aucun cours : c'est la part qui ne s'effondre jamais, et elle
+        monte avec la population. La <b>commission de ${pct(P.commissionFret)} sur le fret</b>
+        suit les prix et les volumes : elle triple en haut de cycle et fond en bas.<br><br>
+        <b>La commission entre dans le prix.</b> Un marché relié cote son prix <i>rendu</i>,
+        port compris : c'est l'acheteur qui paie l'acheminement, et le producteur encaisse
+        toujours son prix départ. Relier deux villes renchérit donc leurs marchandises — et
+        n'a d'intérêt que si l'écart de prix entre elles dépasse la commission.<br><br>
+        Sans commission, une ligne ne rembourse <b>jamais</b> : le quai ne couvre même pas
+        l'entretien avant la quinzième année. À ${pct(P.commissionFret)} elle se rembourse en
+        treize ans — à cinq ans elle rend 7 % l'an, moins qu'une maison ; à vingt ans elle en
+        rend 30, plus qu'une manufacture. C'est le seul actif du jeu dont le revenu monte tout
+        seul, et c'est ce que vous achetez en posant la voie — des années avant de savoir
+        quelles villes auront grandi.
       </div>`;
 }
 
