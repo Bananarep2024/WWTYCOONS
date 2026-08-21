@@ -13,7 +13,7 @@
 // mangeait ni ne le faisait grossir.
 // ---------------------------------------------------------------------------
 
-import { P, RES, RESSOURCES } from './params.js';
+import { P, RES, RESSOURCES, ARCHETYPE, REVIENT_REF } from './params.js';
 
 export class Marche {
   constructor(villes) {
@@ -149,12 +149,49 @@ export class Marche {
   // consommation qu'il vient de constater.
   matelasVise(res) { return P.matelasMois * this.besoins[res]; }
 
+  // LA DÉRIVE DES COÛTS : ce que revient aujourd'hui une unité au producteur
+  // ARCHÉTYPE, rapporté à ce qu'elle lui revenait au point de calibrage.
+  //
+  // Les intrants sont pris au cours DE CE MARCHÉ : c'est par là que la hausse
+  // remonte la filière, du bois vers les planches puis vers les meubles. Le gain
+  // de la boucle est inférieur à un — les intrants ne font jamais 100 % d'une
+  // facture — donc elle converge au lieu de s'emballer. Ce serait faux si le
+  // salaire suivait les prix ; il est fixe (salaireFixe), et c'est ce qui rend
+  // la spirale impossible ici.
+  deriveCout(res) {
+    const a = ARCHETYPE[res];
+    const ref = REVIENT_REF[res];
+    if (!a || !ref) return 1;
+    let c = a.bras * this.salaire + a.entretien;
+    for (const [r, q] of Object.entries(a.intrants)) c += q * this.prix[r];
+    return Math.max(P.deriveCoutMin, Math.min(P.deriveCoutMax, c / a.debit / ref));
+  }
+
+  // Le salaire du marché : celui de ses villes. Elles le partagent tant que
+  // `salaireFixe` tient, et la moyenne dira le vrai le jour où il redeviendra
+  // endogène.
+  get salaire() {
+    let s = 0, n = 0;
+    for (const v of this.villes) { s += v.salaire ?? P.salaireCase; n++; }
+    return n > 0 ? s / n : P.salaireCase;
+  }
+
   fixerPrix() {
     for (const r of RESSOURCES) {
       // LE PRIX D'UN MARCHÉ RELIÉ EST UN PRIX RENDU. La référence autour de
       // laquelle il se forme porte la commission de fret : c'est ainsi que le
       // port entre dans le cours, et non dans la poche du producteur.
       const ref = RES[r].prix * (1 + this.fret);
+
+      // L'ANCRE : la référence du barème, DÉPLACÉE par l'écart des coûts réels.
+      //
+      // Une entreprise ne vend pas éternellement autour d'un point fixe posé
+      // vingt ans plus tôt : quand ses intrants et ses salaires montent, le prix
+      // monte. Le marché répercute donc l'écart du revient à son point de
+      // calibrage, à hauteur de partCoutDansPrix, et laisse la tension faire le
+      // reste. Voir params.js : c'est le revient du MEILLEUR producteur, sans
+      // quoi l'échelle des sols cesserait de se voir sur la marge.
+      const ancre = ref * Math.pow(this.deriveCout(r), P.partCoutDansPrix);
 
       // Le besoin qui fait le prix n'est plus la seule consommation du mois :
       // c'est elle plus ce qu'il faut acheter pour ramener la cave au matelas.
@@ -187,7 +224,7 @@ export class Marche {
       }
       tension = Math.max(P.tensionMin, Math.min(P.tensionMax, tension));
 
-      const cible = ref * Math.pow(tension, P.exposantPrix);
+      const cible = ancre * Math.pow(tension, P.exposantPrix);
       // Le lissage est ce qui fait que les stocks « absorbent le coup » pendant
       // quelques mois avant que le prix ne s'envole.
       this.prix[r] += P.lissagePrix * (cible - this.prix[r]);
@@ -198,9 +235,20 @@ export class Marche {
       // que l'éleveur : il tient toute la filière lourde. Sans lui, le
       // baromètre des produits tombait de 97 % à 57 %. Ce n'est pas le prix à
       // payer pour vider une cave.
+      // Les bornes se prennent sur l'ANCRE, pas sur la référence : un monde dont
+      // les coûts ont monté d'un tiers doit pouvoir coter un tiers plus haut
+      // sans buter sur un plafond posé pour un autre monde. La dérive de l'ancre
+      // étant elle-même bornée, le prix ne peut pas s'échapper.
+      //
       const revient = Number.isFinite(this.prixRevient[r]) ? this.prixRevient[r] : 0;
-      const bas = Math.max(ref * P.prixPlancher, revient);
-      this.prix[r] = Math.max(bas, Math.min(ref * P.prixPlafond, this.prix[r]));
+      // Le plancher au revient du meilleur producteur reste, en plus. Il fait
+      // désormais double emploi la plupart du temps — l'ancre porte déjà le
+      // coût — mais il tient les cas que l'ancre ne voit pas : la marchandise
+      // dont plus personne ne déclare de revient parce que tout le monde s'est
+      // arrêté. Le retirer sur un marché engorgé a été essayé : le baromètre des
+      // produits tombait de 97 % à 57 %.
+      const bas = Math.max(ancre * P.prixPlancher, revient);
+      this.prix[r] = Math.max(bas, Math.min(ancre * P.prixPlafond, this.prix[r]));
       this.prixRevient[r] = Infinity;
 
       const h = this.histoPrix[r];

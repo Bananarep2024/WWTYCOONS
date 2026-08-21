@@ -1366,7 +1366,7 @@ export class Monde {
       // luxe. Le ménage mange quand même — il mange d'abord — mais il n'achète
       // plus. La manufacture ne vend pas. Rien n'a besoin d'être codé en dur
       // pour cela : il suffit que la nourriture passe devant.
-      const revenu = P.employesParMenage * v.salaire * v.barometres.emploi;
+      const revenu = P.employesParMenage * (v.salaireMoyen ?? v.salaire) * v.barometres.emploi;
       // Le loyer se prélève avant tout le reste, et c'est celui qu'on paie
       // vraiment — pas un forfait.
       v.loyer = this.loyerMoyen(v);
@@ -1489,10 +1489,11 @@ export class Monde {
     for (const v of this.villes) {
       const bras = v.menages * P.employesParMenage;
       const bats = this.tousBatiments(v);
-      let vivres = 0, autres = 0;
+      let vivres = 0, autres = 0, bureaux = 0;
       for (const b of bats) {
         if (VIVRIERS.has(b.type)) vivres += b.postesDemandes;
         else autres += b.postesDemandes;
+        if (b.def.cat === 'bur') bureaux += b.postesDemandes;
       }
       // Un chantier n'est jamais prioritaire : on ne cesse pas de moudre pour
       // creuser des fondations.
@@ -1507,6 +1508,16 @@ export class Monde {
       // Conservé pour les panneaux et le banc d'essai : le taux moyen de la
       // ville, tous métiers confondus.
       v.partBras = v.postesDemandes > 0 ? Math.min(1, bras / v.postesDemandes) : 1;
+
+      // LE SALAIRE MOYEN D'UN MÉNAGE : celui de l'atelier, relevé par la part
+      // des postes de bureau, mieux payés. C'est lui, et non `v.salaire`, qui
+      // fait le revenu — une ville de bureaux est plus riche à emploi égal, et
+      // sans qu'un seul prix ait bougé.
+      v.postesBureaux = bureaux;
+      v.salaireMoyen = v.postesDemandes > 0
+        ? (bureaux * P.salaireBureau + (v.postesDemandes - bureaux) * v.salaire)
+            / v.postesDemandes
+        : v.salaire;
     }
 
     // --- 4. On produit, dans l'ordre de la filière --------------------------
@@ -1672,7 +1683,7 @@ export class Monde {
       // L'épargne des ménages n'est ni perdue ni thésaurisée : elle bâtit la
       // ville. Une fois son panier et son loyer payés, ce qui reste au ménage
       // est investi sur place.
-      const revenu = P.employesParMenage * v.salaire * v.barometres.emploi;
+      const revenu = P.employesParMenage * (v.salaireMoyen ?? v.salaire) * v.barometres.emploi;
       const depense = v.nourrObtenue / Math.max(1, v.menages)
                         * (v.prixRation || Math.min(m.prix.pain, m.prix.viande))
                     + v.valeurDetail / Math.max(1, v.menages)
@@ -1943,7 +1954,7 @@ export class Monde {
   aisance(v) {
     const panier = this.panier(v);
     if (panier <= 0) return 1;
-    const revenu = P.employesParMenage * v.salaire * v.barometres.emploi;
+    const revenu = P.employesParMenage * (v.salaireMoyen ?? v.salaire) * v.barometres.emploi;
     return Math.max(P.aisanceMin, Math.min(P.aisanceMax, revenu / panier));
   }
 

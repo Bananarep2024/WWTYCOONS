@@ -168,6 +168,91 @@ Plancher local supplémentaire : le prix de revient réel sur ce marché
 > d'un prix qui ignorait le stock — et c'est le même angle mort qui laissait un tas de bétail
 > grossir pendant trente ans sans que rien ne le voie.
 
+### 4.2 ter — L'ancre : le coût entre dans le prix
+
+La référence du barème était **éternelle**. Le cours battait autour d'un point fixe posé une fois
+pour toutes, quoi qu'il arrive aux salaires et aux intrants. C'était faux, et surtout ça rendait
+tout levier salarial absurde : monter le salaire de 20 à 25 $ ne montait aucun prix, donc coûtait
+exactement 25 % de marge à qui produisait, sans contrepartie.
+
+**Le coût était pourtant déjà dans le prix la moitié du temps** — mais sous la pire forme
+possible, un plancher. Mesuré sur 240 mois, part des mois où c'est le prix de revient qui décide :
+
+| | | | | | |
+|---|---:|---|---:|---|---:|
+| planches | 5 % | pain | 26 % | bière | 51 % |
+| viande | 13 % | céréales | 34 % | étoffes | 57 % |
+| bois | 15 % | acier | 45 % | minerai | 65 % |
+| briques | 18 % | argile | 45 % | **meubles** | **86 %** |
+
+Sous le seuil, cent pour cent du coût et rien de la demande ; au-dessus, l'inverse. Une bascule,
+pas un mélange.
+
+L'ancre se déplace désormais avec l'écart des coûts réels à leur point de calibrage :
+
+```
+dériveCoût(r) = revient de l'ARCHÉTYPE aux salaires et aux cours du jour
+                ÷ REVIENT_REF(r)                        borné à [0,60 ; 2,00]
+ancre         = référence × dériveCoût^partCoutDansPrix        partCoutDansPrix = 0,30
+cible         = ancre × tension^0,60
+```
+
+Les bornes du §4.1 — 50 % et 250 % — se prennent maintenant sur **l'ancre**, non sur la référence :
+un monde dont les coûts ont monté d'un tiers doit pouvoir coter un tiers plus haut sans buter sur
+un plafond posé pour un autre monde. La dérive étant elle-même bornée, le prix ne peut pas
+s'échapper.
+
+> **L'archétype ne désigne aucun producteur réel, et c'est tout l'intérêt.** C'est le bâtiment de
+> qualité 1 qui produit la marchandise, dont on recalcule le revient chaque mois aux salaires et
+> aux cours du jour. Le marché mesure ainsi la *pression* des coûts sans que le prix se mette à
+> suivre le coût de tel ou tel. **L'écart de qualité reste entier** : tout le monde fait face au
+> même prix, et c'est son propre revient — meilleur ou pire — qui décide de sa marge.
+>
+> Ancrer sur le **meilleur producteur réel** a été essayé, et c'est faux. Le meilleur exploite une
+> case de qualité 2, son revient unitaire vaut la moitié de celui de l'archétype, et l'ancre
+> tombait d'un tiers. Mesuré : l'exploitation passait de **−5 044 $ à −18 982 $** par mois — la
+> majorité des cases, qui sont de qualité 1, payant l'efficacité d'une minorité. Ancrer sur le
+> **coût moyen** serait pire encore : le prix suivrait le coût de chacun, une mine médiocre
+> gagnerait autant qu'une bonne, et toute l'échelle des sols cesserait de se voir sur la marge.
+
+La chaîne se propage : bois cher → planches chères → meubles chers. Le gain de la boucle est
+inférieur à un — les intrants ne font jamais 100 % d'une facture — donc elle converge au lieu de
+s'emballer. **Ce serait faux si le salaire suivait les prix ; il est fixe, et c'est ce qui rend la
+spirale impossible ici.** Le jour où le salaire redeviendra endogène, il faudra le revérifier.
+
+Le poids de 0,30 est mesuré sur quatre graines : c'est le seul réglage où **aucune graine** ne
+dépasse la promesse de 4 mois de stock du §4.2 bis (2,51 de moyenne, 3,03 au pire, contre 3,85 et
+8,64 à 0,15).
+
+---
+
+### 4.2 quater — Ce qui a été essayé et écarté : le régime de marge
+
+L'idée se tenait, et elle venait de la bonne intuition : *une entreprise doit arbitrer entre son
+volume et sa marge.* Un producteur à marge négative devrait se retirer ; la somme des retraits
+ferait monter le cours jusqu'à ce que le marginal rentre dans ses frais. Chacun ajustait donc son
+régime à sa marge relative, en tâtonnement — jamais une entente, personne ne pesant seul.
+
+Sur quatre graines et 240 mois, **ça ne paie pas** :
+
+| | ménages | confort | pire stock (moyenne) | pire stock (pire graine) |
+|---|---:|---:|---:|---:|
+| sans la règle | 3 654 | 46 % | **2,51** | **3,03** |
+| sensibilité 0,30 | 3 799 | 44 % | 7,46 | 20,38 |
+| sensibilité 0,60 | 3 587 | 46 % | 2,48 | 3,71 |
+
+À 0,30 les stocks explosent ; à 0,60 c'est un match nul, pour un mécanisme de plus et un mode de
+défaillance de plus.
+
+**La raison tient au diagnostic, et elle vaut d'être retenue.** Le blocage n'est pas que les
+producteurs déficitaires s'obstinent. Mesuré : les ateliers de rang 1 écoulent déjà **100 % de leur
+production à 100 % d'activité** pour 79 à 174 $ de bénéfice mensuel, les biens ne sont servis qu'à
+31–55 %, et les villes dorment sur **250 000 à un million de dollars** d'épargne. Il ne leur manque
+ni débouché, ni capital, ni prix : il leur manque de la **matière première**. Faire lever le pied
+aux uns ne donne pas de blé aux autres.
+
+---
+
 ### 4.2 bis — Le matelas de sécurité
 
 Le prix ne suivait que les flux et le stock n'entrait nulle part dans le calcul. Le défaut n'était
@@ -354,6 +439,37 @@ production tournant à pleine capacité à bon prix. C'est le pari sur la croiss
 comptoir et conservé, le même immeuble rend 31,7 % sur le prix payé une fois la métropole atteinte.
 
 ### 5.7 — Le salaire, variable d'ajustement
+
+**Deux salaires, et ils n'ont pas la même nature.** L'ouvrier d'atelier gagne les 20 $ du barème.
+L'employé de bureau gagne **30 $** (`salaireBureau`) — il est qualifié, mais surtout **son salaire
+ne vient pas de la ville** : il est payé par les sociétés extérieures à la carte, dont l'immeuble
+n'est que le bailleur. Il n'entre donc dans aucun compte de production, ne pèse sur aucun prix de
+revient, et **ne remonte pas dans la dérive des coûts du §4.2 ter**.
+
+C'est le seul revenu du jeu qui **ajoute du pouvoir d'achat sans ajouter de coût**, et cette
+asymétrie est le point. Monter le salaire ouvrier se répercute en prix et s'annule en grande
+partie ; monter celui du bureau finance vraiment le panier secondaire. Le revenu du ménage suit la
+composition réelle de l'emploi de sa ville :
+
+```
+salaireMoyen = (postes de bureau × 30 + autres postes × salaire ouvrier) ÷ postes totaux
+revenu       = employesParMenage × salaireMoyen × baromètre d'emploi
+```
+
+Mesuré sur quatre graines, contre le même monde à 20 $ partout :
+
+| | ménages | confort | résultat de la transformation | pire stock |
+|---|---:|---:|---:|---:|
+| bureaux à 20 $ | 3 008 | 47 % | 20 278 $/mois | 20,64 |
+| **bureaux à 30 $** | **3 807** | **49 %** | **32 240 $/mois** | **2,99** |
+
+**+27 % de population et +59 % de bénéfice en transformation**, sans qu'un seul coût de production
+ait bougé. Une ville de bureaux est plus riche à emploi égal — ce qui est exactement ce qu'on
+attend d'une économie qui exporte des services.
+
+> **Ce que ça ne règle pas.** Le confort ne gagne que deux points, parce que l'argent nouveau se
+> heurte à une offre inélastique : il part en prix — papier à 2,20 fois la référence, bière à 1,85
+> — plutôt qu'en volume. Voir §4.2 quater : le goulot est l'**amont**, pas la demande.
 
 > **Suspendu.** `salaireFixe` est levé : le salaire vaut **20 $ la case partout**, sans exception
 > et sans dérive. Tout ce qui suit décrit la machine endogène, qui reste écrite dans le code et

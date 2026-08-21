@@ -133,10 +133,10 @@ export class Batiment {
   // Les intrants sont eux aussi ceux du BÂTIMENT : 40 pour une scierie, 60 pour
   // une aciérie, 80 pour une manufacture — pas par case.
   besoinsIntrants() {
-    // À la mesure du DÉBOUCHÉ, lui aussi : un atelier au ralenti n'achète pas
-    // la matière du plein régime. Sans cela il paierait ses intrants pour une
-    // production qu'il ne fera pas, et la pénurie qu'il crée en amont serait
-    // celle d'un besoin imaginaire.
+    // À la mesure du DÉBOUCHÉ : un atelier au ralenti n'achète pas la matière du
+    // plein régime. Sans cela il paierait ses intrants pour une production qu'il
+    // ne fera pas, et la pénurie qu'il crée en amont serait celle d'un besoin
+    // imaginaire.
     const d = this.debouche === undefined ? 1 : this.debouche;
     const out = {};
     for (const [r, q] of Object.entries(this.def.intrants || {})) {
@@ -393,6 +393,7 @@ export class Batiment {
     const cible = Math.min(1, memoire * marche.tensionEcoulement(this.def.sort));
     this.debouche = Math.max(P.deboucheMin,
                              memoire + P.inertieDebouche * (cible - memoire));
+
 
     if (!this.alerte && this.ecoulement < 0.9) this.alerte = 'invendus';
     else if (!this.alerte && this.resultat < 0) this.alerte = 'perte';

@@ -11,6 +11,20 @@ export const P = {
   elasticiteSalaire: 0.50,     // le salaire suit la tension du marché du travail
   salairePlancher: 0.80,       // sans jamais tomber sous 16 $
   salairePlafond: 1.50,        // ni monter au-dessus de 30 $
+  // LE SALAIRE DE BUREAU, et il est à part.
+  //
+  // Un employé de bureau est qualifié : il gagne la moitié de plus qu'un ouvrier
+  // d'atelier. Mais surtout son salaire NE VIENT PAS DE LA VILLE — il est payé
+  // par les sociétés extérieures à la carte, dont l'immeuble n'est que le
+  // bailleur. Il n'entre donc dans aucun compte de production, ne pèse sur aucun
+  // prix de revient, et ne remonte pas dans la dérive des coûts (§4.2 ter).
+  //
+  // C'est le seul revenu du jeu qui ajoute du pouvoir d'achat sans ajouter de
+  // coût. Augmenter le salaire ouvrier, lui, se répercute en prix et s'annule
+  // en grande partie ; augmenter celui du bureau finance vraiment le panier
+  // secondaire. Les deux leviers n'ont pas la même nature et ne doivent pas être
+  // confondus.
+  salaireBureau: 30,
   epargneVisee: 0.06,          // ce que le ménage doit pouvoir mettre de côté
   terrainRef: 100,             // $ la case, avant facteurs
   entretienAnnuel: 0.10,       // 10 % / an de la valeur bâtie, foncier exclu
@@ -23,6 +37,32 @@ export const P = {
   prixPlafond: 2.50,
   tensionMin: 0.20,
   tensionMax: 6.00,
+
+  // CE QUE LE COÛT PÈSE DANS L'ANCRE DU PRIX (§4.2 ter).
+  //
+  // La référence du barème était éternelle : le cours battait autour d'un point
+  // fixe quoi qu'il arrive aux coûts. Le prix de revient n'entrait qu'en
+  // PLANCHER — donc de façon brutale et à sens unique. Mesuré sur 240 mois : ce
+  // plancher décidait du prix 45 % des mois pour l'argile, 51 % pour la bière,
+  // 65 % pour le minerai et 86 % pour les meubles. Le coût était déjà dans le
+  // prix la moitié du temps, mais sous la pire forme possible : au-dessous du
+  // seuil, cent pour cent du coût et rien de la demande ; au-dessus, l'inverse.
+  //
+  // L'ancre se déplace maintenant avec l'écart des coûts réels à leur point de
+  // calibrage : ancre = référence × (revient ÷ REVIENT_REF)^partCoutDansPrix.
+  //
+  // C'EST LE REVIENT DU MEILLEUR PRODUCTEUR, et ce choix fait tout. Ancrer sur
+  // le coût MOYEN tuerait le jeu : le prix suivrait le coût de chacun, une mine
+  // médiocre gagnerait autant qu'une bonne, et l'échelle des sols — case 1
+  // à −10 %, case 2 à +15 %, filon à +90 % — ne se verrait plus nulle part. La
+  // terre cesserait de valoir quoi que ce soit. En s'ancrant sur l'efficace, le
+  // marché répercute la hausse des salaires sans effacer l'écart de qualité :
+  // le mauvais producteur reste mauvais, simplement tout le monde monte.
+  partCoutDansPrix: 0.30,
+  // Et la dérive est bornée : au-delà, un choc de coûts se propagerait le long
+  // de la filière en s'amplifiant à chaque étage.
+  deriveCoutMin: 0.60,
+  deriveCoutMax: 2.00,
 
   // Le matelas de sécurité, et ce qui l'y ramène.
   //
@@ -163,6 +203,24 @@ export const P = {
   // Le plancher à zéro avec une mémoire courte est ingérable : tout le monde
   // s'arrête ensemble, l'écoulement remonte à 100 % faute d'offre, tout le monde
   // repart ensemble, et le cycle s'emballe — cent sept mois de stock.
+  // LE RÉGIME DE MARGE : essayé, mesuré, ÉCARTÉ.
+  //
+  // L'idée se tenait — un producteur à marge négative devrait se retirer, et la
+  // somme des retraits ferait monter le cours jusqu'à ce que le marginal rentre
+  // dans ses frais. Chacun ajustait donc son régime à sa marge relative.
+  //
+  // Sur quatre graines et 240 mois, ça ne paie pas. À sensibilité 0,30 les
+  // stocks explosent : 7,5 mois de couverture en moyenne, 20,4 sur la pire
+  // graine, contre 2,5 et 3,0 sans la règle. À 0,60 c'est un match nul —
+  // 3 587 ménages contre 3 654, même confort — pour un mécanisme de plus et un
+  // mode de défaillance de plus.
+  //
+  // La raison tient au diagnostic : le blocage n'est pas que les producteurs
+  // déficitaires s'obstinent, c'est que L'AMONT NE PEUT PAS GRANDIR. Les
+  // ateliers de rang 1 écoulent déjà 100 % à 100 % d'activité pour 79 à 174 $
+  // de bénéfice ; ils ne manquent ni de débouché ni de capital — les villes
+  // dorment sur des millions — mais de matière première. Faire lever le pied
+  // aux uns ne donne pas de blé aux autres.
   inertieDebouche: 0.20,       // ce que le mois écoulé pèse dans la mémoire
   deboucheMin: 0.05,           // on ne descend jamais sous 5 % de régime
   moisAvantFermeture: 12,      // une case vide un an ferme
@@ -1014,6 +1072,60 @@ export function devisGare() {
 //
 // La profondeur se CALCULE : celle d'un bâtiment est un de plus que la plus
 // grande profondeur des producteurs de ses intrants. On ne peut plus l'oublier.
+// LE COÛT DE RÉFÉRENCE D'UNE MARCHANDISE, dérivé comme tout le reste.
+//
+// C'est ce que revient une unité au producteur ARCHÉTYPE : une case de qualité
+// 1, au salaire du barème, avec ses intrants au prix de référence. Il ne sert
+// pas à fixer un prix — le §4.1 s'en charge — mais à mesurer de COMBIEN les
+// coûts réels se sont écartés de leur point de calibrage. C'est cet écart, et
+// lui seul, que le marché répercute (§4.2 ter).
+//
+// Le construire ainsi rend l'ancre exactement neutre au point de référence :
+// quand rien n'a bougé, revient ÷ REVIENT_REF vaut 1 et le prix retombe sur la
+// référence du barème. Aucun paramètre de marge à poser, donc aucun à faire
+// vieillir.
+// L'ARCHÉTYPE d'une marchandise : le bâtiment de qualité 1 qui la produit,
+// réduit à ce qu'il faut pour recalculer son revient à tout moment.
+//
+// Il ne désigne AUCUN producteur réel, et c'est tout l'intérêt. Le marché s'en
+// sert pour mesurer la pression des coûts — ce que reviendrait aujourd'hui une
+// unité au producteur standard, aux salaires et aux cours du jour — sans que le
+// prix se mette à suivre le coût de tel ou tel. L'écart de qualité reste donc
+// entier : tout le monde fait face au même prix, et c'est son propre revient,
+// meilleur ou pire, qui décide de sa marge.
+//
+// Ancrer sur le MEILLEUR producteur réel a été essayé, et c'est faux : le
+// meilleur exploite une case de qualité 2, son revient unitaire est la moitié de
+// celui de l'archétype, et l'ancre tombait d'un tiers. Mesuré : l'exploitation
+// passait de −5 044 $ à −18 982 $ par mois, la majorité des cases — qui sont de
+// qualité 1 — payant l'efficacité d'une minorité.
+export const ARCHETYPE = (() => {
+  const t = {};
+  for (const [type, d] of Object.entries(BAT)) {
+    if (!d.sort || !d.debit) continue;
+    // `debit` et `intrants` sont ceux du BÂTIMENT ENTIER, pas d'une case —
+    // c'est ainsi que margeBrute les lit déjà.
+    t[d.sort] = { bras: emploisRequis(type), entretien: entretien(type),
+                  intrants: d.intrants || {}, debit: d.debit };
+  }
+  return t;
+})();
+
+// Le revient de l'archétype AU POINT DE CALIBRAGE : salaires du barème, intrants
+// au prix de référence. C'est le dénominateur de la dérive des coûts, et le
+// construire ainsi rend l'ancre exactement neutre au repos — quand rien n'a
+// bougé, le rapport vaut 1 et le prix retombe sur la référence du barème. Aucun
+// paramètre de marge à poser, donc aucun à faire vieillir.
+export const REVIENT_REF = (() => {
+  const t = {};
+  for (const [res, a] of Object.entries(ARCHETYPE)) {
+    let c = a.bras * P.salaireCase + a.entretien;
+    for (const [r, q] of Object.entries(a.intrants)) c += q * RES[r].prix;
+    t[res] = c / a.debit;
+  }
+  return t;
+})();
+
 export const VAGUES = (() => {
   const produitPar = {};
   for (const [t, d] of Object.entries(BAT)) if (d.sort) produitPar[d.sort] = t;
