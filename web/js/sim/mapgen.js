@@ -409,26 +409,22 @@ export function genererMonde(nbVilles, graine) {
       // de zéro : une carte pauvre en charbon n'a pas des mines médiocres, elle
       // n'a pas de charbon.
       const v = c.qBrut[nom] * plafonds[nom] / P.vocationRiche;
-      // Le filon est toujours hors les murs : sur un territoire de ville, on
-      // plafonne à 2. La qualité 3 n'existe que sur la terre libre, et c'est ce
-      // qui oblige à fonder une gare pour l'atteindre.
-      // Le plafond tient à deux choses : appartenir à un territoire, et être
-      // trop près d'une ville fondatrice. La seconde est ce qui oblige à
-      // s'éloigner vraiment — sans elle, un filon de lisière se cueille en
-      // posant une gare juste derrière la frontière, sans rien risquer.
-      let haut = c.ville ? P.plafondEnVille : P.qualiteSommet;
-      if (haut > P.plafondEnVille) {
-        for (const s of sites) {
-          if (Math.hypot(s.x - c.x, s.y - c.y) < P.distanceMinFilon) {
-            haut = P.plafondEnVille; break;
-          }
-        }
-      }
-      q[nom] = Math.max(0, Math.min(haut, Math.round(v)));
+      // LE SOL DE VOCATION PLAFONNE À 2, partout et pour tout le monde. La
+      // qualité 3 ne se tire plus d'ici : elle se pose à l'étape 4 quater, sur
+      // la terre libre et loin des gares de départ.
+      //
+      // Auparavant ce plafond valait `qualiteSommet` hors territoire, moins la
+      // règle de distance. C'était inopérant, et pour une raison qu'il fallait
+      // mesurer pour voir : les deux conditions d'un filon s'excluaient l'une
+      // l'autre. Atteindre 3 demandait un plafond de vocation à 3 — donc d'être
+      // près d'une ville riche de cette ressource — et la règle de distance
+      // interdisait précisément ce voisinage.
+      q[nom] = Math.max(0, Math.min(P.plafondEnVille, Math.round(v)));
     }
     c.q = q;
-    // On garde la valeur brute : le plancher ci-dessous s'en sert pour choisir
-    // les cases à promouvoir.
+    // On garde la valeur brute et les plafonds : l'étape 4 quater s'en sert pour
+    // choisir où poser les filons, le plancher 4 ter pour choisir qui promouvoir.
+    c.plafonds = plafonds;
   }
 
   // --- 4 ter. Le plancher : chaque ville produit tout, fût-ce à perte --------
@@ -479,7 +475,50 @@ export function genererMonde(nbVilles, graine) {
       }
     }
   }
-  for (const c of cases) c.qBrut = null;
+  // --- 4 quater. Les filons : le sommet de l'échelle, et il est hors les murs -
+  //
+  // La qualité 3 n'est pas une classe de sol, c'est un GISEMENT. On ne la tire
+  // donc pas du bruit comme le reste : on la POSE, en nombre exact, sur la terre
+  // que personne ne possède. C'est la seule façon d'en garantir la part — le
+  // quantile, lui, se faisait écraser par la vocation avant d'arriver au sol.
+  //
+  // Deux conditions d'éligibilité, et il faut les deux : n'appartenir à aucun
+  // territoire, et se tenir à plus de `distanceMinFilon` de toute gare de
+  // départ. La seconde est ce qui oblige à partir vraiment — sans elle un filon
+  // de lisière se cueille en posant une gare juste derrière la frontière, sans
+  // rien risquer. Ensemble elles laissent 21 à 35 % de la carte selon la graine.
+  //
+  // On classe sur le SCORE CONTINU, jamais sur la classe arrondie, et pondéré
+  // par la vocation du lieu : le filon de minerai tombe là où la carte parlait
+  // déjà de minerai. Comme le bruit est lisse, les têtes de classement se
+  // touchent — on obtient des VEINES, pas un poivre de cases isolées.
+  const eligible = [];
+  for (let i = 0; i < cases.length; i++) {
+    const c = cases[i];
+    if (c.ville) continue;
+    let pres = false;
+    for (const s of sites) {
+      if (Math.hypot(s.x - c.x, s.y - c.y) < P.distanceMinFilon) { pres = true; break; }
+    }
+    if (!pres) eligible.push(i);
+  }
+
+  // L'ordre des ressources est tiré au sort : les meilleures cases sont
+  // disputées, et servir toujours la fertilité en premier lui donnerait les
+  // veines des autres.
+  const parFilon = Math.floor(cases.length * P.partFilon / QUALITES.length);
+  const pris = new Set();
+  for (const nom of melanger(QUALITES.slice(), rnd)) {
+    const libres = eligible.filter(i => !pris.has(i));
+    libres.sort((a, b) => score[nom][b] * cases[b].plafonds[nom]
+                        - score[nom][a] * cases[a].plafonds[nom]);
+    for (let k = 0; k < parFilon && k < libres.length; k++) {
+      cases[libres[k]].q[nom] = P.qualiteSommet;
+      pris.add(libres[k]);
+    }
+  }
+
+  for (const c of cases) { c.qBrut = null; c.plafonds = null; }
 
   // --- 5. Le réseau ferroviaire -------------------------------------------
   // On relie les villes en arbre couvrant minimal, plus une boucle si la carte

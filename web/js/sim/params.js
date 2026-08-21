@@ -475,6 +475,19 @@ export const P = {
   // Quatre cases sur cinq ne donnent RIEN pour une ressource donnée. Avec cinq
   // ressources tirées séparément, il reste malgré tout de quoi faire : une case
   // sur trois environ ne vaut rien pour aucune des cinq.
+  //
+  // LA QUATRIÈME CLASSE NE DESCEND PLUS JUSQU'AU SOL. Elle reste ici parce que
+  // c'est elle qui classe le relief — et le site des villes se choisit dessus —
+  // mais la vocation la plafonne désormais à 2 partout (mapgen, étape 4 bis). Le
+  // sommet de l'échelle n'est plus une classe de sol : c'est un GISEMENT, et il
+  // se pose à part, en nombre exact (voir partFilon).
+  //
+  // Tant qu'il sortait de ce quantile, il n'existait pas. Atteindre 3 demandait
+  // un plafond de vocation à 3, donc le voisinage d'une ville riche de cette
+  // ressource — et la règle du filon hors les murs interdisait précisément ce
+  // voisinage. Les deux conditions s'excluaient l'une l'autre. Mesuré sur les
+  // 100 700 cases de la carte : 36 cases de fertilité 3, 15 de charbon, AUCUNE
+  // de minerai, et pas une seule dans le carré d'une ville de départ.
   partQualite: [0.80, 0.15, 0.04, 0.01],   // q0 … q3, somme = 1
   echellesQualite: [11, 5],    // l'échelle du bruit : des îlots, pas des régions
   // Le plancher promis à chaque ville : quoi qu'en dise le relief et quelle que
@@ -529,6 +542,16 @@ export const P = {
   // du centre de toute ville fondatrice : pour l'atteindre il faut vraiment
   // partir, et une colonie lointaine est une colonie qu'il faudra relier.
   distanceMinFilon: 78,
+  // LA PART DE LA CARTE QUI PORTE UN FILON. 3 % des cases, tirées sur la seule
+  // terre éligible — hors territoire et au-delà de distanceMinFilon — qui en
+  // représente 21 à 35 % selon la graine. Le filon y est donc dense d'environ
+  // une case sur dix : assez pour qu'une expédition en trouve, assez rare pour
+  // qu'on choisisse où fonder.
+  //
+  // Une case retenue ne porte qu'UNE ressource au sommet. Sans cette règle le
+  // compte déborderait la part demandée, et surtout un même carré offrirait deux
+  // fortunes — ce qui ferait de la prospection un tirage, pas un arbitrage.
+  partFilon: 0.03,
   // La portée de la vocation, en cases : l'écart-type de la gaussienne qui
   // mélange les plafonds de deux villes voisines. À peu près le rayon d'une
   // ville, de sorte qu'un territoire lit sa propre vocation presque pure et que

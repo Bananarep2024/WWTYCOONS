@@ -1228,6 +1228,19 @@ const P = {
   // Quatre cases sur cinq ne donnent RIEN pour une ressource donnée. Avec cinq
   // ressources tirées séparément, il reste malgré tout de quoi faire : une case
   // sur trois environ ne vaut rien pour aucune des cinq.
+  //
+  // LA QUATRIÈME CLASSE NE DESCEND PLUS JUSQU'AU SOL. Elle reste ici parce que
+  // c'est elle qui classe le relief — et le site des villes se choisit dessus —
+  // mais la vocation la plafonne désormais à 2 partout (mapgen, étape 4 bis). Le
+  // sommet de l'échelle n'est plus une classe de sol : c'est un GISEMENT, et il
+  // se pose à part, en nombre exact (voir partFilon).
+  //
+  // Tant qu'il sortait de ce quantile, il n'existait pas. Atteindre 3 demandait
+  // un plafond de vocation à 3, donc le voisinage d'une ville riche de cette
+  // ressource — et la règle du filon hors les murs interdisait précisément ce
+  // voisinage. Les deux conditions s'excluaient l'une l'autre. Mesuré sur les
+  // 100 700 cases de la carte : 36 cases de fertilité 3, 15 de charbon, AUCUNE
+  // de minerai, et pas une seule dans le carré d'une ville de départ.
   partQualite: [0.80, 0.15, 0.04, 0.01],   // q0 … q3, somme = 1
   echellesQualite: [11, 5],    // l'échelle du bruit : des îlots, pas des régions
   // Le plancher promis à chaque ville : quoi qu'en dise le relief et quelle que
@@ -1282,6 +1295,16 @@ const P = {
   // du centre de toute ville fondatrice : pour l'atteindre il faut vraiment
   // partir, et une colonie lointaine est une colonie qu'il faudra relier.
   distanceMinFilon: 78,
+  // LA PART DE LA CARTE QUI PORTE UN FILON. 3 % des cases, tirées sur la seule
+  // terre éligible — hors territoire et au-delà de distanceMinFilon — qui en
+  // représente 21 à 35 % selon la graine. Le filon y est donc dense d'environ
+  // une case sur dix : assez pour qu'une expédition en trouve, assez rare pour
+  // qu'on choisisse où fonder.
+  //
+  // Une case retenue ne porte qu'UNE ressource au sommet. Sans cette règle le
+  // compte déborderait la part demandée, et surtout un même carré offrirait deux
+  // fortunes — ce qui ferait de la prospection un tirage, pas un arbitrage.
+  partFilon: 0.03,
   // La portée de la vocation, en cases : l'écart-type de la gaussienne qui
   // mélange les plafonds de deux villes voisines. À peu près le rayon d'une
   // ville, de sorte qu'un territoire lit sa propre vocation presque pure et que
@@ -2380,26 +2403,22 @@ function genererMonde(nbVilles, graine) {
       // de zéro : une carte pauvre en charbon n'a pas des mines médiocres, elle
       // n'a pas de charbon.
       const v = c.qBrut[nom] * plafonds[nom] / P.vocationRiche;
-      // Le filon est toujours hors les murs : sur un territoire de ville, on
-      // plafonne à 2. La qualité 3 n'existe que sur la terre libre, et c'est ce
-      // qui oblige à fonder une gare pour l'atteindre.
-      // Le plafond tient à deux choses : appartenir à un territoire, et être
-      // trop près d'une ville fondatrice. La seconde est ce qui oblige à
-      // s'éloigner vraiment — sans elle, un filon de lisière se cueille en
-      // posant une gare juste derrière la frontière, sans rien risquer.
-      let haut = c.ville ? P.plafondEnVille : P.qualiteSommet;
-      if (haut > P.plafondEnVille) {
-        for (const s of sites) {
-          if (Math.hypot(s.x - c.x, s.y - c.y) < P.distanceMinFilon) {
-            haut = P.plafondEnVille; break;
-          }
-        }
-      }
-      q[nom] = Math.max(0, Math.min(haut, Math.round(v)));
+      // LE SOL DE VOCATION PLAFONNE À 2, partout et pour tout le monde. La
+      // qualité 3 ne se tire plus d'ici : elle se pose à l'étape 4 quater, sur
+      // la terre libre et loin des gares de départ.
+      //
+      // Auparavant ce plafond valait `qualiteSommet` hors territoire, moins la
+      // règle de distance. C'était inopérant, et pour une raison qu'il fallait
+      // mesurer pour voir : les deux conditions d'un filon s'excluaient l'une
+      // l'autre. Atteindre 3 demandait un plafond de vocation à 3 — donc d'être
+      // près d'une ville riche de cette ressource — et la règle de distance
+      // interdisait précisément ce voisinage.
+      q[nom] = Math.max(0, Math.min(P.plafondEnVille, Math.round(v)));
     }
     c.q = q;
-    // On garde la valeur brute : le plancher ci-dessous s'en sert pour choisir
-    // les cases à promouvoir.
+    // On garde la valeur brute et les plafonds : l'étape 4 quater s'en sert pour
+    // choisir où poser les filons, le plancher 4 ter pour choisir qui promouvoir.
+    c.plafonds = plafonds;
   }
 
   // --- 4 ter. Le plancher : chaque ville produit tout, fût-ce à perte --------
@@ -2450,7 +2469,50 @@ function genererMonde(nbVilles, graine) {
       }
     }
   }
-  for (const c of cases) c.qBrut = null;
+  // --- 4 quater. Les filons : le sommet de l'échelle, et il est hors les murs -
+  //
+  // La qualité 3 n'est pas une classe de sol, c'est un GISEMENT. On ne la tire
+  // donc pas du bruit comme le reste : on la POSE, en nombre exact, sur la terre
+  // que personne ne possède. C'est la seule façon d'en garantir la part — le
+  // quantile, lui, se faisait écraser par la vocation avant d'arriver au sol.
+  //
+  // Deux conditions d'éligibilité, et il faut les deux : n'appartenir à aucun
+  // territoire, et se tenir à plus de `distanceMinFilon` de toute gare de
+  // départ. La seconde est ce qui oblige à partir vraiment — sans elle un filon
+  // de lisière se cueille en posant une gare juste derrière la frontière, sans
+  // rien risquer. Ensemble elles laissent 21 à 35 % de la carte selon la graine.
+  //
+  // On classe sur le SCORE CONTINU, jamais sur la classe arrondie, et pondéré
+  // par la vocation du lieu : le filon de minerai tombe là où la carte parlait
+  // déjà de minerai. Comme le bruit est lisse, les têtes de classement se
+  // touchent — on obtient des VEINES, pas un poivre de cases isolées.
+  const eligible = [];
+  for (let i = 0; i < cases.length; i++) {
+    const c = cases[i];
+    if (c.ville) continue;
+    let pres = false;
+    for (const s of sites) {
+      if (Math.hypot(s.x - c.x, s.y - c.y) < P.distanceMinFilon) { pres = true; break; }
+    }
+    if (!pres) eligible.push(i);
+  }
+
+  // L'ordre des ressources est tiré au sort : les meilleures cases sont
+  // disputées, et servir toujours la fertilité en premier lui donnerait les
+  // veines des autres.
+  const parFilon = Math.floor(cases.length * P.partFilon / QUALITES.length);
+  const pris = new Set();
+  for (const nom of melanger(QUALITES.slice(), rnd)) {
+    const libres = eligible.filter(i => !pris.has(i));
+    libres.sort((a, b) => score[nom][b] * cases[b].plafonds[nom]
+                        - score[nom][a] * cases[a].plafonds[nom]);
+    for (let k = 0; k < parFilon && k < libres.length; k++) {
+      cases[libres[k]].q[nom] = P.qualiteSommet;
+      pris.add(libres[k]);
+    }
+  }
+
+  for (const c of cases) { c.qBrut = null; c.plafonds = null; }
 
   // --- 5. Le réseau ferroviaire -------------------------------------------
   // On relie les villes en arbre couvrant minimal, plus une boucle si la carte

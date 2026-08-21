@@ -694,8 +694,43 @@ plafonne à la **qualité 2** sur son territoire : elle vit correctement de son 
 s'enrichit pas dessus. Toute la qualité 3 se trouve sur la terre libre, et **à plus de 78 cases du
 centre de toute ville fondatrice** — sans quoi un filon de lisière se cueillerait en posant une
 gare juste derrière la frontière, sans rien risquer. Pour l'atteindre il faut vraiment partir, et
-une colonie lointaine est une colonie qu'il faudra relier. Mesuré sur la graine 1 : 512 cases de
-qualité 3, **aucune** en territoire, **aucune** à moins de 78 cases d'une ville.
+une colonie lointaine est une colonie qu'il faudra relier.
+
+**Et le filon ne se tire pas du bruit : il se POSE.** C'est la correction d'un défaut qui rendait
+tout cet étage décoratif. Tant que la qualité 3 sortait du même quantile que les autres, atteindre
+3 demandait un plafond de vocation à 3 — donc le voisinage d'une ville riche de cette ressource —
+et la règle des 78 cases interdisait précisément ce voisinage. **Les deux conditions s'excluaient
+l'une l'autre.** Mesuré sur les 100 700 cases de la carte : 36 cases de fertilité 3, 41 d'argile,
+56 de bois, 15 de charbon, **aucune de minerai**, et pas une seule dans le carré d'une ville de
+départ. Sur 240 mois de partie, pas une exploitation de qualité 3 n'était bâtie. Le joueur n'avait
+le choix qu'entre perdre 10 % et gagner 15 %.
+
+Le sommet de l'échelle est donc traité pour ce qu'il est — **un gisement, pas une classe de sol** :
+
+```
+éligible        n'appartenir à aucun territoire ET être à plus de 78 cases
+                de toute gare de départ                    → 21 à 35 % de la carte
+part            partFilon = 3 % des cases de la carte, réparties également
+                entre les cinq ressources                  → 604 cases chacune
+placement       les meilleures cases au SCORE CONTINU, pondéré par la vocation
+                du lieu — jamais la classe arrondie
+exclusivité     une case retenue ne porte qu'UNE ressource au sommet
+```
+
+Le classement sur le score continu est ce qui fait des **veines** plutôt qu'un poivre : le bruit
+est lisse, donc les têtes de classement se touchent. Mesuré, graine 12345 : 8 à 24 veines par
+ressource, la plus grande de 279 cases, médiane 6 à 34, **une poignée de cases isolées seulement**.
+
+| Contrôle, sur trois graines | Résultat |
+|---|---|
+| Part de la carte au sommet | **3,00 %** exactement |
+| Cases au sommet en territoire de départ | **0** |
+| Cases au sommet dans un carré maximal de départ | **0** |
+| Filons revendicables par une gare de niveau 1 | **96 à 100 %** |
+
+Les cinq villes de départ ne voient donc aucune différence — le banc d'essai sans joueur rend
+exactement les mêmes 3 869 ménages qu'avant. **Tout ce qui a été ajouté est hors de leur portée**,
+et c'est le but : le filon est la récompense de la colonisation, pas une dotation.
 
 **Chaque ville produit tout, fût-ce à perte.** Deux ressources par ville montent à 3, une à 2, deux
 plafonnent à 1 — et le générateur garantit à chaque ville au moins **60 cases de qualité 1 sur
@@ -703,20 +738,20 @@ chacune des cinq ressources**. Elle peut donc produire, au rendement nul, ce que
 donne pas. Ce n'est pas une faveur : c'est ce qui rend la liaison ferroviaire **désirable** plutôt
 que vitale — la ville survit sans elle, elle ne prospère qu'avec.
 
-**Les bonnes cases sont des îlots.** On ne répartit plus le bruit sur 1–5, on **classe** les cases
-et on découpe à des quantiles fixes :
+**Les bonnes cases sont des îlots.** On ne s'appuie pas sur la forme du bruit : on **classe** les
+cases et on découpe à des quantiles fixes, ce qui rend la rareté exacte quelle que soit la graine.
 
-| Qualité | Part de la carte |
+| Qualité | Part de la carte, par ressource |
 |---|---|
-| 1 | 85,8 % |
-| 2 | 10,0 % |
-| 3 | 3,6 % |
-| 4 | **0,4 %** |
-| 5 | **0,2 %** |
+| 0 — rien | 80 % |
+| 1 — le tout-venant | 15 % |
+| 2 — la bonne terre | 4 % |
+| 3 — le filon | 1 % au classement, **ramené à 2 par la vocation** |
 
-Mesuré sur 6 cartes : une ville tient **58 cases de qualité ≥ 4** dans sa ressource dominante,
-soit **29 fermes** — l'ordre de grandeur voulu. Le bruit est resserré à [11, 5] cases d'échelle,
-si bien que les sommets forment de petites taches et non des régions.
+La quatrième ligne reste au classement parce que c'est elle qui décide du **site des villes** — on
+fonde là où le relief promet. Mais elle ne descend plus jusqu'au sol : la vocation la plafonne à 2
+partout, et le sommet arrive par les filons ci-dessus. Le bruit est resserré à [11, 5] cases
+d'échelle, si bien que les sommets forment de petites taches et non des régions.
 
 **La recette par ouvrier est une constante : `débit × prix de référence`.** L'emploi suivant le
 sol exactement comme la production, la qualité s'annule dans ce rapport — c'est donc lui, et non
