@@ -266,11 +266,12 @@ prioritaire, le dernier bien de la liste ne peut structurellement jamais être s
 
 > **Depuis le débouché (§10 bis du barème), ce défaut ne coûte plus la même chose.** Les onze
 > ateliers qui produisaient pour personne étaient payés quand même ; ils ne le sont plus. Ils
-> ralentissent jusqu'au plancher de 5 % et le tas cesse de grossir : les 102 mois de meubles
-> tombent à **4,1**, les 470 mois d'outillage à **0,9**. Le défaut reste entier — les durables ne
-> trouvent toujours pas d'acheteur — mais il est devenu visible et borné au lieu d'être financé en
-> douce. C'est ce reliquat de 4,1 mois qui fait échouer le contrôle `aucune montagne de
-> marchandise` à 4,09 contre 4, et il se règle ici, dans l'ordre des dépenses, pas au barème.
+> ralentissent jusqu'au plancher de 5 % et le tas cesse de grossir : les 102 mois de meubles et
+> les 470 mois d'outillage tombent tous deux à **0,0**. Le défaut reste entier — les durables ne
+> trouvent toujours pas d'acheteur — mais il ne se paie plus en marchandise pourrissante. Il se
+> paie en **confort** : le baromètre des produits passe de 68 % à 43 % dès qu'on cesse de financer
+> ces ateliers, et c'est la mesure honnête de ce que l'ordre des dépenses coûte au monde. La part
+> fixe réservée au rang 2 n'est plus une amélioration souhaitable, c'est la seule sortie.
 3. **Les étoffes sortent du bétail**, ce qui met trois ateliers sur le même intrant. L'autre voie
    serait une septième matière première, du coton, au prix de la contrainte « aucune matière
    nouvelle ».

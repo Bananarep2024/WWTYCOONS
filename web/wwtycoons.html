@@ -3285,18 +3285,34 @@ class Marche {
   // ELLE SE MESURE SUR LES BESOINS DÉCLARÉS, pas sur ce qui a été emporté.
   //
   // La première version comparait l'offre à ce que les acheteurs avaient
-  // réellement pris, et c'était faux : le marché veut aussi TENIR un matelas
-  // d'un mois (§ 4.2 bis), et cette reconstitution est un débouché légitime. À
-  // la compter comme un invendu, tout atelier reconstituant la cave se croyait
-  // en surproduction et ralentissait — la contraction se propageait en amont, et
-  // les cinq villes tombaient de 600 à 120 ménages.
-  //
-  // Les besoins déclarés portent déjà le rattrapage du matelas : c'est le bon
-  // repère, et c'est celui que le prix utilise déjà.
+  // réellement EMPORTÉ, et c'était faux — non parce que le matelas s'achète (il
+  // ne s'achète pas : c'est un terme de prix, pas une commande), mais à cause du
+  // service local. Une ville exportatrice garde dans son livre ce qu'elle
+  // destine à la voisine ; tant que la voisine n'est pas venue, la marchandise
+  // n'est prélevée nulle part. Son producteur se croyait invendu, ralentissait,
+  // et la contraction remontait la filière : les cinq villes tombaient de 600 à
+  // 120 ménages. Les besoins DÉCLARÉS ignorent cette géographie, et c'est
+  // exactement ce qu'on veut ici.
   ecoulement(res) {
     const offert = this.entrees[res];
     if (offert <= 0.0001) return 1;
     return Math.max(0, Math.min(1, this.besoins[res] / offert));
+  }
+
+  // LA TENSION NUE, celle que l'écoulement borne à 1.
+  //
+  // Un atelier ne peut pas se régler sur le taux d'écoulement seul : ce taux
+  // porte sur l'offre DÉJÀ BRIDÉE, si bien que le bridage se mesure lui-même.
+  // Viser l'écoulement fait converger la mémoire vers √(demande ÷ capacité) au
+  // lieu de la demande — pour 200 demandés sur 1 000 de capacité, l'atelier se
+  // stabilise à 447 et jette 247 unités par mois, indéfiniment. Il faut viser
+  // la part de CAPACITÉ qui a trouvé preneur, `débouché × tension nue`, dont le
+  // seul point fixe est l'invendu nul. Non bornée, elle dit aussi de combien on
+  // MANQUE, et c'est par là qu'un atelier en sommeil rouvre.
+  tensionEcoulement(res) {
+    const offert = this.entrees[res];
+    if (offert <= 0.0001) return 1;
+    return this.besoins[res] / offert;
   }
 
   indice(res) { return this.prix[res] / (RES[res].prix * (1 + this.fret)); }
@@ -3697,8 +3713,9 @@ class Batiment {
     // réclame un marché saturé — et elle se défait toute seule dès que la
     // demande revient, puisque le plancher garde l'atelier présent au marché.
     const memoire = this.debouche === undefined ? 1 : this.debouche;
+    const cible = Math.min(1, memoire * marche.tensionEcoulement(this.def.sort));
     this.debouche = Math.max(P.deboucheMin,
-                             memoire + P.inertieDebouche * (this.ecoulement - memoire));
+                             memoire + P.inertieDebouche * (cible - memoire));
 
     if (!this.alerte && this.ecoulement < 0.9) this.alerte = 'invendus';
     else if (!this.alerte && this.resultat < 0) this.alerte = 'perte';

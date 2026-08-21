@@ -390,8 +390,9 @@ export class Batiment {
     // réclame un marché saturé — et elle se défait toute seule dès que la
     // demande revient, puisque le plancher garde l'atelier présent au marché.
     const memoire = this.debouche === undefined ? 1 : this.debouche;
+    const cible = Math.min(1, memoire * marche.tensionEcoulement(this.def.sort));
     this.debouche = Math.max(P.deboucheMin,
-                             memoire + P.inertieDebouche * (this.ecoulement - memoire));
+                             memoire + P.inertieDebouche * (cible - memoire));
 
     if (!this.alerte && this.ecoulement < 0.9) this.alerte = 'invendus';
     else if (!this.alerte && this.resultat < 0) this.alerte = 'perte';

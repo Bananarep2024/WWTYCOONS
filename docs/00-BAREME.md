@@ -1005,8 +1005,18 @@ sur la mémoire de ses écoulements passés, qui borne à la fois son activité 
 — une manufacture qui ne vend qu'un tiers n'achète plus que le tiers de son acier.
 
 ```
-débouché ← débouché + inertieDebouche × (écoulement du mois − débouché)     borné à deboucheMin
+tension nue = besoins ÷ entrées                    NON bornée à 1
+cible       = min(1, débouché × tension nue)       la part de CAPACITÉ qui a trouvé preneur
+débouché   ← débouché + inertieDebouche × (cible − débouché)      borné bas à deboucheMin
 ```
+
+> **La cible ne peut pas être le taux d'écoulement.** Ce taux porte sur l'offre *déjà bridée* : le
+> bridage se mesurerait lui-même, et son point fixe serait la **racine carrée** de ce qu'il faut.
+> Mesuré sur 200 demandés pour 1 000 de capacité, l'atelier se stabilisait à **447 et jetait 247
+> unités par mois, indéfiniment**, prix collé au plancher — il ne se mettait jamais en pause. Viser
+> la part de capacité écoulée corrige le point fixe : son seul équilibre est l'invendu nul. Et
+> parce que la tension n'est pas bornée à 1, la même formule dit aussi de combien on **manque** —
+> c'est par là qu'un atelier endormi rouvre, et il rouvre d'autant plus vite que le manque est vif.
 
 | | | |
 |---|---:|---|
@@ -1032,13 +1042,32 @@ stock** au balayage. Les deux réglages ont été choisis ensemble, sur 240 mois
 > avant d'être comptée invendue, et attend un meilleur mois. Qui n'en a pas voit son atelier
 > lever le pied tout seul. Aucune règle nouvelle n'a été inventée pour ça.
 
-> **Ce qui reste.** 5,1 % de production encore facturée à personne, résidu du décalage d'un mois
-> entre l'offre et la mémoire ; il ne s'annulera pas sans donner aux ateliers une information
-> qu'ils n'ont pas. Et les meubles tiennent seuls **4,1 mois de stock** contre une promesse de 4 au
-> §4.2 bis : le contrôle `aucune montagne de marchandise` échoue à 4,09. Les biens durables ne
-> trouvent presque pas d'acheteur dans le monde de base (§5.8) ; c'est ce défaut-là qui remonte à
-> la surface maintenant qu'on ne peut plus le payer en douce, et il se traitera dans l'ordre des
-> dépenses du ménage, pas ici.
+**Le bridage est à sens unique, et le plafond des prix est intact.** Il ne s'engage que lorsque
+l'écoulement est inférieur à 1 — exactement le régime où le prix baisse. En pénurie le débouché
+vaut 1 et rien ne change : on demande 1 000, la filière sort 200, le cours touche 250 en cinq mois
+comme avant. Le bridage *augmente* même le potentiel de hausse, puisqu'une industrie endormie ne
+peut pas répondre tout de suite.
+
+Mesuré sur 240 mois, cinq villes reliées, graine 12345 :
+
+| | avant le débouché | cible = écoulement | cible = part de capacité |
+|---|---:|---:|---:|
+| Ménages | — | 2 473 | **3 869** |
+| Production facturée à personne | 11,9 % | 4,9 % | **2,4 %** |
+| Pire couverture de stock | — | 4,09 ✗ | **2,85 ✓** |
+| Meubles en stock | 102 mois | 4,1 mois | **0,0** |
+| Baromètre des produits | — | 68 % | **43 %** |
+
+> **Ce qui reste, et ce n'est pas ici que ça se règle.** Le confort tombe de 68 % à 43 % au
+> passage. Ce n'est pas la correction qui le casse, c'est elle qui le révèle : ces vingt-cinq
+> points étaient produits par des ateliers payés pour une production que personne n'achetait. La
+> population grimpe de 56 %, la production secondaire ne suit pas, et les cours du confort montent
+> en conséquence (bière 154, papier 157, savon 148). **L'économie secondaire est étranglée par le
+> budget des ménages, pas par la capacité** — c'est l'ordre strictement prioritaire des dépenses
+> du §5.8, et il se corrigera là.
+>
+> Restent 2,4 % de production sans preneur : le décalage d'un mois entre l'offre et la mémoire. Il
+> ne s'annulera pas sans donner aux ateliers une information qu'ils n'ont pas.
 
 ---
 
