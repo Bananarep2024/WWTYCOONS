@@ -848,6 +848,35 @@ Les cinq villes de départ ne voient donc aucune différence — le banc d'essai
 exactement les mêmes 3 869 ménages qu'avant. **Tout ce qui a été ajouté est hors de leur portée**,
 et c'est le but : le filon est la récompense de la colonisation, pas une dotation.
 
+**Ce que rend une FILIÈRE ENTIÈRE, selon la case qui l'alimente.** Le chiffre qui compte n'est pas
+la marge d'un bâtiment mais celle de la chaîne complète, du sol au bien fini, par unité vendue au
+prix de référence :
+
+| Filière | prix final | **case 1** | case 2 | case 3 |
+|---|---:|---:|---:|---:|
+| courte — pain, planches, bière, papier, savon… | 6,83 $ | **−0,80 $ (−12 %)** | +1,87 $ (+27 %) | +3,47 $ (+51 %) |
+| acier | 12,14 $ | **−0,57 $ (−5 %)** | +3,43 $ (+28 %) | +5,84 $ (+48 %) |
+| longue — meubles, outillage | 32–38 $ | **+3,92 à +5,13 $ (+12 à 14 %)** | +37 % | +51 % |
+
+En rendement annuel du capital de la chaîne : **−5 %** pour une filière courte sur case 1, +19 %
+sur case 2, **+62 %** au filon. Et le cours qu'il faudrait pour rentrer dans ses frais, en indice
+de la référence : **112** sur case 1, 73 sur case 2, 49 au filon.
+
+Le détail du pain le dit sans détour :
+
+```
+Ferme céréalière  0,200 bât.  recette 3,80              salaires 4,00  entretien 1,34  marge −1,54
+Minoterie         0,050 bât.  recette 6,83  intrants 3,80  salaires 2,00  entretien 0,29  marge +0,74
+                                                                                      TOTAL  −0,80
+```
+
+> **Décision : on laisse.** La minoterie ne récupère pas la moitié de ce que la ferme perd — la
+> règle « l'exploitation peut être déficitaire pourvu que la marge se retrouve en transformation »
+> n'est donc **pas** satisfaite au niveau 1. C'est assumé : **la case 1 sert à survivre, pas à
+> prospérer.** Elle nourrit la ville, elle ne l'enrichit pas, et l'on ne prospère qu'en montant en
+> qualité — case 2 dans son territoire, filon au-delà. La conséquence est acceptée : une ville de
+> sol pauvre stagne, et le seul chemin vers la fortune est la colonisation.
+
 **Chaque ville produit tout, fût-ce à perte.** Deux ressources par ville montent à 3, une à 2, deux
 plafonnent à 1 — et le générateur garantit à chaque ville au moins **60 cases de qualité 1 sur
 chacune des cinq ressources**. Elle peut donc produire, au rendement nul, ce que son sol ne lui
